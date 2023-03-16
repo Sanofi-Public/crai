@@ -6,6 +6,7 @@ import json
 import wget
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 
 def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv'):
@@ -56,22 +57,29 @@ def get_mapping_ids(list_of_ids=("6GH5", "3JAU")):
     return mapping_ids
 
 
+def download_with_overwrite(url, outname, overwrite=False):
+    if os.path.exists(outname):
+        if overwrite:
+            os.remove(outname)
+            wget.download(url, out=outname)
+    else:
+        wget.download(url, out=outname)
+
+
 def download_one_mrc(emd_id='0001', outdir='.', overwrite=False):
     header_ftp = f'https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{emd_id}/header/emd-{emd_id}.xml'
     map_ftp = f'https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{emd_id}/map/emd_{emd_id}.map.gz'
     header_outname = os.path.join(outdir, f'emd-{emd_id}.xml')
     map_outname = os.path.join(outdir, f'emd_{emd_id}.map.gz')
 
-    if not os.path.exists(header_outname) or overwrite:
-        wget.download(header_ftp, out=header_outname)
-    if not os.path.exists(map_outname) or overwrite:
-        wget.download(map_ftp, out=map_outname)
+    download_with_overwrite(url=header_ftp, outname=header_outname, overwrite=overwrite)
+    download_with_overwrite(url=map_ftp, outname=map_outname, overwrite=overwrite)
 
 
 def download_one_mmtf(pdb_id='1ycr', outdir='.', overwrite=False):
+    mmtf_url = f"https://mmtf.rcsb.org/v1.0/full/{pdb_id}.mmtf.gz"
     mmtf_outname = os.path.join(outdir, f'{pdb_id}.mmtf.gz')
-    if not os.path.exists(mmtf_outname) or overwrite:
-        wget.download("https://mmtf.rcsb.org/v1.0/full/1ycr.mmtf.gz", out=mmtf_outname)
+    download_with_overwrite(url=mmtf_url, outname=mmtf_outname, overwrite=overwrite)
 
 
 def get_database(mapping, root='../data/pdb_em', overwrite=False):
@@ -82,7 +90,7 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
     :param root: Where to build the dataset
     :return:
     """
-    for pdb, em in mapping.items():
+    for pdb, em in tqdm(mapping.items()):
         # 1YCR + EMD-bla -> 1YCR_bla
         em_id = em[4:]
         dir_to_build = os.path.join(root, f'{pdb}_{em_id}')
@@ -92,7 +100,7 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
 
 
 if __name__ == '__main__':
-    max_systems = 10
+    max_systems = None
     relevant_ids = get_ab_list()[:max_systems]
     test_mapping = get_mapping_ids(relevant_ids)
 

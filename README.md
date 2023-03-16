@@ -1,7 +1,7 @@
 # crIA-EM
 
 ```shell
-pip install wget requests pandas
+pip install wget requests pandas tqdm
 ```
 
 Data prep : 
