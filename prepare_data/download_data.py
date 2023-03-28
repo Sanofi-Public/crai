@@ -90,7 +90,7 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
     :param root: Where to build the dataset
     :return:
     """
-    for pdb, em in tqdm(mapping.items()):
+    for pdb, em in tqdm(sorted(mapping.items())):
         # 1YCR + EMD-bla -> 1YCR_bla
         em_id = em[4:]
         dir_to_build = os.path.join(root, f'{pdb}_{em_id}')
