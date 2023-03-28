@@ -190,3 +190,8 @@ if __name__ == '__main__':
     # resample(mrc=carved_name, out_name=resampled_name, padding=0)
 
     process_database()
+    # ['5A8H_3096', '7CZW_30519', '7SJO_25163']
+
+
+
+

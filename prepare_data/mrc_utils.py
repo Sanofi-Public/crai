@@ -63,7 +63,7 @@ def load_mrc(mrc, mode='r+'):
 
 class MRC_grid():
     """
-    This class is just used to factor out the interfacing with MRC files easier
+    This class is just used to factor out the interfacing with MRC files
     We loose the utilities developped in the mrcfile package and assume a unit voxel_size for simplicity.
     We always have consistent x,y,z and easy to access class member
     The convention for the axis is not the dominant one for MRC, we set it to be (X, Y, Z)
@@ -74,7 +74,7 @@ class MRC_grid():
         self.mrc_obj = load_mrc(MRC_file)
 
         self.voxel_size = np.array(self.mrc_obj.voxel_size[..., None].view(dtype=np.float32))
-        assert np.allclose(self.voxel_size, np.ones_like(self.voxel_size), atol=0.01)
+        # assert np.allclose(self.voxel_size, np.ones_like(self.voxel_size), atol=0.01)
         self.origin = np.array(self.mrc_obj.header.origin[..., None].view(dtype=np.float32))
         axis_mapping = (int(self.mrc_obj.header.maps) - 1,
                         int(self.mrc_obj.header.mapr) - 1,

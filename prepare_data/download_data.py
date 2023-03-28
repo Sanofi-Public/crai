@@ -22,7 +22,7 @@ def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv'):
     df = df.loc[df['model'] == 0]
 
     df = df[['pdb', 'Hchain', 'Lchain', 'antigen_chain']]
-    df.to_csv('cleaned.csv')
+    df.to_csv('../data/cleaned.csv')
     relevant_ids = np.unique(df['pdb'])
     return relevant_ids
 
