@@ -153,14 +153,13 @@ class Complex():
     because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc, pdb_name, pdb_path, antibody_selection=None):
+    def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None):
         # First get the MRC data
-        self.mrc = mrc_utils.MRC_grid(mrc)
-        mrc = mrc_utils.MRC_grid(mrc)
+        mrc_path = mrc_utils.MRC_grid(mrc_path)
 
         # Then get the corresponding empty grid
-        ranger = list(zip(mrc.origin, mrc.origin + mrc.data.shape * mrc.voxel_size))
-        bins = [np.arange(ranger[i][0], ranger[i][1], mrc.voxel_size[i]) for i in range(3)]
+        ranger = list(zip(mrc_path.origin, mrc_path.origin + mrc_path.data.shape * mrc_path.voxel_size))
+        bins = [np.arange(ranger[i][0], ranger[i][1], mrc_path.voxel_size[i]) for i in range(3)]
 
         # Now let's get the relevant coordinates to embed in this grid
         antibody_coords = get_split_coords(pdb_name=pdb_name, pdb_path=pdb_path, selection=antibody_selection)
@@ -168,28 +167,17 @@ class Complex():
 
         # Get the corresponding grid
         antibody_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)
-        antigen_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)
+        antigen_grid = fill_grid_from_coords(coords=antigen_coords, bins=bins)
         void_grid = np.maximum(0, 1 - antibody_grid - antigen_grid)
         target_tensor = np.concatenate((antibody_grid, antigen_grid, void_grid))
 
+        self.mrc = mrc_path
+        self.target_tensor = target_tensor
         # self.save_mrc_lig()
         # self.mrc.data
         # self.out_grid
         pass
 
-    # def compute_grid(self):
-    #     """
-    #     Return the grid (with channels) for the protein
-    #     with the corresponding channel ids (x, y, z, channel_id)
-    #     """
-    #     one_hot = np.eye(3)[self.ids]
-    #     grid = get_grid(coords=self.coords,
-    #                     features=one_hot,
-    #                     spacing=self.spacing,
-    #                     padding=0,
-    #                     xyz_min=self.xyz_min,
-    #                     xyz_max=self.xyz_max)
-    #
     # def save_mrc_lig(self):
     #     """
     #     Save all the channels of the ligand in separate mrc files
@@ -208,7 +196,7 @@ if __name__ == '__main__':
     # systems = process_csv('../data/reduced_clean.csv')
     # print(systems)
 
-    comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
+    comp = Complex(mrc_path='../data/pdb_em/3IXX_5103/5103_carved.mrc',
                    pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
                    pdb_name='3IXX',
                    antibody_selection='chain G or chain H or chain I or chain J')

@@ -30,4 +30,5 @@ array with a single origin in xyz space. (done in mrc_utils.py)
 
 ## Loading our data
 Once we have all of our data in this standard way, we are ready to process it, and use it in a learning pipeline.
+We load the mrc, then put the corresponding PDB in the same grid and split it into AB/AG/Void channels.
 
