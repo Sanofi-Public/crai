@@ -13,7 +13,7 @@ from sklearn.gaussian_process.kernels import RBF
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_data import mrc_utils
+from utils import mrc_utils
 
 """
 pdb file => (n , 3+features)
@@ -146,7 +146,7 @@ def build_grid_from_coords(coords, features=None, spacing=2., padding=3, xyz_min
                                  sigma=sigma)
 
 
-class Complex():
+class Complex:
     """
     Object containing a protein-ligand system
     The main difficulty arises from the creation of the grid for the output,

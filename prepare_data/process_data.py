@@ -7,7 +7,6 @@ Then we need to resample the experimental maps to get a fixed voxel_size value o
 import os
 import sys
 
-import pymol.cmd as cmd
 import mrcfile
 import numpy as np
 import scipy.ndimage
@@ -16,7 +15,7 @@ import scipy.interpolate
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_data.mrc_utils import load_mrc, pymol_parse
+from utils.mrc_utils import load_mrc, pymol_parse
 
 
 def carve(mrc, pdb_name, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False):
@@ -104,7 +103,7 @@ def carve(mrc, pdb_name, out_name='carved.mrc', padding=4, filter_cutoff=-1, ove
         pass
 
 
-def resample(mrc, padding=0, out_name='resample.mrc', overwrite=False):
+def resample(mrc, padding=0, out_name='resample.mrc', overwrite=False, new_voxel_size=1):
     """
         A script to change the voxel size of a mrc to 1A.
         The main operation is building a linear interpolation model and doing inference over it.
@@ -126,8 +125,7 @@ def resample(mrc, padding=0, out_name='resample.mrc', overwrite=False):
                                                              bounds_error=False,
                                                              fill_value=0)
     cella = [mrc.header.cella.x, mrc.header.cella.y, mrc.header.cella.z]
-    new_axes = tuple(np.arange(0, int(cella[axis_mapping[i]])) for i in range(3))
-    # new_axes = tuple(np.arange(0, data.shape[i] * voxel_size[axis_mapping[i]]) for i in range(3))
+    new_axes = tuple(np.arange(0, cella[axis_mapping[i]], step=new_voxel_size) for i in range(3))
     x, y, z = np.meshgrid(*new_axes, indexing='ij')
     flat = x.flatten(), y.flatten(), z.flatten()
     new_grid = np.vstack(flat).T
@@ -136,12 +134,12 @@ def resample(mrc, padding=0, out_name='resample.mrc', overwrite=False):
 
     try:
         with mrcfile.new(out_name, overwrite=overwrite) as mrc2:
-            mrc2.header.cella.x = int(mrc.header.cella.x) + 2 * padding
-            mrc2.header.cella.y = int(mrc.header.cella.y) + 2 * padding
-            mrc2.header.cella.z = int(mrc.header.cella.z) + 2 * padding
-            mrc2.header.origin.x = mrc.header.origin.x - padding
-            mrc2.header.origin.y = mrc.header.origin.y - padding
-            mrc2.header.origin.z = mrc.header.origin.z - padding
+            mrc2.header.cella.x = (new_data_grid.shape[axis_mapping[0]]) * new_voxel_size
+            mrc2.header.cella.y = (new_data_grid.shape[axis_mapping[1]]) * new_voxel_size
+            mrc2.header.cella.z = (new_data_grid.shape[axis_mapping[2]]) * new_voxel_size
+            mrc2.header.origin.x = mrc.header.origin.x - padding * new_voxel_size
+            mrc2.header.origin.y = mrc.header.origin.y - padding * new_voxel_size
+            mrc2.header.origin.z = mrc.header.origin.z - padding * new_voxel_size
             mrc2.set_data(new_data_grid)
             mrc2.update_header_from_data()
             mrc2.update_header_stats()
@@ -185,13 +183,9 @@ if __name__ == '__main__':
     # mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
     # mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map")
     # carved_name = os.path.join(datadir_name, dirname, f"{mrc}_carved.mrc")
-    # resampled_name = os.path.join(datadir_name, dirname, f"{mrc}_resampled.mrc")
+    # resampled_name = os.path.join(datadir_name, dirname, f"{mrc}_resampled_4.mrc")
     # carve(mrc=mrcgz_path, pdb_name=pdb_path, out_name=carved_name, filter_cutoff=6)
-    # resample(mrc=carved_name, out_name=resampled_name, padding=0)
+    # resample(mrc=carved_name, out_name=resampled_name, padding=0, new_voxel_size=4, overwrite=True)
 
-    process_database()
+    # process_database()
     # ['5A8H_3096', '7CZW_30519', '7SJO_25163']
-
-
-
-
