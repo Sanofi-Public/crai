@@ -1,39 +1,19 @@
 """
-This script takes as input a pdb and an mrc and some extra selection tools and outputs a grid aligned with the mrc.
-It also introduces the 'Complex' class that is fulling the Database object
+This script introduces the 'Complex' class that is fulling the Database object
+A Complex takes as input a pdb, a mrc and some extra selection tools and outputs a grid aligned with the mrc.
 """
 
 import os
 import sys
 
 import numpy as np
-import pymol.cmd as cmd
 from sklearn.gaussian_process.kernels import RBF
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(script_dir, '..'))
+if __name__ == '__main__':
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    sys.path.append(os.path.join(script_dir, '..'))
 
-from utils import mrc_utils
-
-"""
-pdb file => (n , 3+features)
-"""
-
-
-def get_split_coords(pdb_name, pdb_path, selection=None):
-    """
-    The goal is to go from pdb files and optionnally some selections to the (n,1)
-    """
-
-    # Load the protein, prepare the general selection
-    cmd.load(pdb_path, pdb_name)
-    cmd.remove('hydrogens')
-    prot_selection = f'{pdb_name} and polymer.protein'
-    selection = prot_selection if selection is None else f"{prot_selection} and ({selection})"
-    coords = cmd.get_coords(selection=f'{selection}')
-    cmd.delete(pdb_name)
-    return coords
-
+from utils import mrc_utils, pymol_utils
 
 """
 Make the conversion from (n,3+features) matrices to the grid format.
@@ -44,8 +24,13 @@ def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=
     """
 
     :param coord: x,y,z
-    :param grid:
-    :param sigma:
+    :param xi: a range of x coordinates
+    :param yi: a range of x coordinates
+    :param zi: a range of x coordinates
+    :param feature: The feature to put around this given point
+    :param sigma: The scale of RBF
+    :param total_grid: The grid to add to
+    :param use_multiprocessing: If this is to be used in a multiprocessing setting
     :return:
     """
     #  Find subgrid
@@ -80,7 +65,9 @@ def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=
 
     #  Add on the first grid
     if not use_multiprocessing:
-        total_grid[:, min_bounds_x: max_bounds_x, min_bounds_y: max_bounds_y,
+        total_grid[:,
+        min_bounds_x: max_bounds_x,
+        min_bounds_y: max_bounds_y,
         min_bounds_z:max_bounds_z] += subgrid_feature
     else:
         return min_bounds_x, max_bounds_x, min_bounds_y, max_bounds_y, min_bounds_z, max_bounds_z, subgrid_feature
@@ -148,22 +135,26 @@ def build_grid_from_coords(coords, features=None, spacing=2., padding=3, xyz_min
 
 class Complex:
     """
-    Object containing a protein-ligand system
+    Object containing a protein and a density
     The main difficulty arises from the creation of the grid for the output,
-    because we need those to align with the input mrc
+      because we need those to align with the input mrc
     """
 
     def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None):
         # First get the MRC data
-        mrc_path = mrc_utils.MRC_grid(mrc_path)
+        mrc = mrc_utils.MRCGrid(mrc_path)
 
-        # Then get the corresponding empty grid
-        ranger = list(zip(mrc_path.origin, mrc_path.origin + mrc_path.data.shape * mrc_path.voxel_size))
-        bins = [np.arange(ranger[i][0], ranger[i][1], mrc_path.voxel_size[i]) for i in range(3)]
+        # Then get the corresponding empty grid, this follows 'resample' with origin offset
+        bins = [np.arange(start=mrc.origin[i],
+                          stop=(mrc.origin + mrc.data.shape * mrc.voxel_size)[i],
+                          step=mrc.voxel_size[i])
+                for i in range(3)]
 
         # Now let's get the relevant coordinates to embed in this grid
-        antibody_coords = get_split_coords(pdb_name=pdb_name, pdb_path=pdb_path, selection=antibody_selection)
-        antigen_coords = get_split_coords(pdb_name=pdb_name, pdb_path=pdb_path, selection=f"not ({antibody_selection})")
+        antibody_coords = pymol_utils.get_protein_coords(pdb_name=pdb_name, pdb_path=pdb_path,
+                                                         selection=antibody_selection)
+        antigen_coords = pymol_utils.get_protein_coords(pdb_name=pdb_name, pdb_path=pdb_path,
+                                                        selection=f"not ({antibody_selection})")
 
         # Get the corresponding grid
         antibody_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)
@@ -171,21 +162,10 @@ class Complex:
         void_grid = np.maximum(0, 1 - antibody_grid - antigen_grid)
         target_tensor = np.concatenate((antibody_grid, antigen_grid, void_grid))
 
-        self.mrc = mrc_path
+        self.mrc = mrc
         self.target_tensor = target_tensor
         # self.save_mrc_lig()
-        # self.mrc.data
-        # self.out_grid
         pass
-
-    # def save_mrc_lig(self):
-    #     """
-    #     Save all the channels of the ligand in separate mrc files
-    #     """
-    #     outbasename = os.path.dirname(self.pdb_name)
-    #     mrc_utils.save_density(density=self.out_grid,
-    #                            outfilename=os.path.join(outbasename, 'out_grid.mrc'),
-    #                            origin=self.mrc.origin)
 
 
 if __name__ == '__main__':
@@ -196,7 +176,7 @@ if __name__ == '__main__':
     # systems = process_csv('../data/reduced_clean.csv')
     # print(systems)
 
-    comp = Complex(mrc_path='../data/pdb_em/3IXX_5103/5103_carved.mrc',
+    comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
                    pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
                    pdb_name='3IXX',
                    antibody_selection='chain G or chain H or chain I or chain J')

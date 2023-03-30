@@ -1,12 +1,16 @@
-import os.path
+import os
+import sys
 
-import pickle
-import requests
-import json
-import wget
-import pandas as pd
 import numpy as np
+import pandas as pd
+import requests
 from tqdm import tqdm
+
+if __name__ == '__main__':
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    sys.path.append(os.path.join(script_dir, '..'))
+
+from utils.python_utils import download_with_overwrite
 
 
 def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv'):
@@ -52,18 +56,8 @@ def get_mapping_ids(list_of_ids=("6GH5", "3JAU")):
     #     except:
     #         counts.append(0)
     # un = np.unique(counts, return_counts=True)
-
     # pickle.dump(mapping_ids, open('result_mapping.p', 'wb'))
     return mapping_ids
-
-
-def download_with_overwrite(url, outname, overwrite=False):
-    if os.path.exists(outname):
-        if overwrite:
-            os.remove(outname)
-            wget.download(url, out=outname)
-    else:
-        wget.download(url, out=outname)
 
 
 def download_one_mrc(emd_id='0001', outdir='.', overwrite=False):

@@ -1,41 +1,12 @@
 import os
 import sys
 
-import pymol.cmd as cmd
 import mrcfile
 import numpy as np
 import scipy
 import subprocess
 
-
-def pymol_parse(pdbname):
-    cmd.load(pdbname, "temp_parsing")
-    xyz = cmd.get_coords('temp_parsing', 1)
-    cmd.delete("temp_parsing")
-    return xyz
-
-
-'''
-# Just to benchmark the parsing time against pymol.
-# To use coordinates, pymol is 10 times faster.
-
-from Bio.PDB import MMCIFParser
-def bio_python(pdbname, parser):
-    """
-    Just to benchmark against
-    """
-    structure = parser.get_structure("poulet", pdbname)
-    coords = [atom.get_vector() for atom in structure.get_atoms()]
-    return coords
-
-
-
-# 3.16s vs 0.27 for pymol
-a = time.perf_counter()
-for i in range(10):
-    bio_python(pdbname, parser=parser)
-print(f'time1 : {time.perf_counter() - a}')
-'''
+from utils.pymol_utils import get_protein_coords
 
 
 def load_mrc(mrc, mode='r'):
@@ -64,7 +35,7 @@ def load_mrc(mrc, mode='r'):
 
 def save_canonical_mrc(outname, data, voxel_size, origin, overwrite=False):
     """
-    Save an mrc with well behaved axis
+    Save a mrc with well-behaved axis
     Dump an uncompressed file. Chimerax does not handle compressed mrc files
     :param outname: Name of the file
     :param data: data with shape expected to be (x,y,z)
@@ -87,7 +58,7 @@ def save_canonical_mrc(outname, data, voxel_size, origin, overwrite=False):
         # new_mrc.header.cella is done when updating voxel size
 
 
-class MRC_grid():
+class MRCGrid:
     """
     This class is just used to factor out the interfacing with MRC files
     We loose the utilities developped in the mrcfile package and assume a unit voxel_size for simplicity.
@@ -96,8 +67,8 @@ class MRC_grid():
     so that the shape and origin are aligned
     """
 
-    def __init__(self, MRC_file):
-        self.original_mrc = load_mrc(MRC_file)
+    def __init__(self, mrc_file):
+        self.original_mrc = load_mrc(mrc_file)
 
         # TODO : look into mx,my,mz
         self.voxel_size = np.array(self.original_mrc.voxel_size[..., None].view(dtype=np.float32))
@@ -127,24 +98,25 @@ class MRC_grid():
 
     def carve(self, pdb_name, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False):
         """
-            This goes from full size to a reduced size, centered around a pdb.
-            The main steps are :
-                - Getting the coordinates to get a box around the PDB
-                - Selecting the right voxels in this box
-                - Optionally filter out the values further away from filter_cutoff
-                - Creating a new mrc with the origin and the size of the 'cell'
-        :param mrc: Either name or mrc file
+        This goes from full size to a reduced size, centered around a pdb.
+        The main steps are :
+            - Getting the coordinates to get a box around the PDB
+            - Selecting the right voxels in this box
+            - Optionally filter out the values further away from filter_cutoff
+            - Creating a new mrc with the origin and the size of the 'cell'
         :param pdb_name: path to the pdb
-        :param out_name: path to the output mrc. If the extension is not .mrc but .map, the origin is not read correctly by
-            Chimera
+        :param out_name: path to the output mrc.
+            If the extension is not .mrc but .map, the origin is not read correctly by Chimerax
         :param padding: does not need to be an integer
-        :param filter_cutoff: negative value will skip the filtering step. Otherwise it's a cutoff in Angstroms
+        :param filter_cutoff: negative value will skip the filtering step.
+            Otherwise, it's a cutoff in Angstroms to zero the density around the pdb
+        :param overwrite: boolean
         """
         if os.path.exists(out_name) and not overwrite:
             return
 
         # Get the bounds from the pdb
-        coords = pymol_parse(pdbname=pdb_name)
+        coords = get_protein_coords(pdb_name=pdb_name)
         xyz_min = coords.min(axis=0)
         xyz_max = coords.max(axis=0)
 
@@ -180,12 +152,14 @@ class MRC_grid():
                            voxel_size=self.voxel_size,
                            overwrite=overwrite)
 
-    def resample(self, padding=0, out_name='resample.mrc', overwrite=False, new_voxel_size=1.):
+    def resample(self, out_name='resample.mrc', new_voxel_size=1., overwrite=False, padding=0):
         """
-            A script to change the voxel size of a mrc
-            The main operation is building a linear interpolation model and doing inference over it.
+        A script to change the voxel size of a mrc
+        The main operation is building a linear interpolation model and doing inference over it.
         :param out_name: Name of the mrc to dump
         :param new_voxel_size: either one or 3 numbers
+        :param padding: same
+        :param overwrite: boolean
         :return: None
         """
         if os.path.exists(out_name) and not overwrite:
@@ -229,53 +203,6 @@ class MRC_grid():
                            overwrite=overwrite)
 
 
-def save_coords(coords, topology, outfilename, selection=None):
-    """
-    Save the coordinates to a pdb file
-    • coords: coordinates
-    • topology: topology
-    • outfilename: name of the oupyt pdb
-    • selection: Boolean array to select atoms
-    """
-    object_name = 'struct_save_coords'
-    cmd.delete(object_name)
-    if selection is None:
-        selection = np.ones(len(topology['resids']), dtype=bool)
-    for i, coords_ in enumerate(coords):
-        if selection[i]:
-            name = topology['names'][i]
-            resn = topology['resnames'][i]
-            resi = topology['resids'][i]
-            chain = topology['chains'][i]
-            elem = name[0]
-            cmd.pseudoatom(object_name,
-                           name=name,
-                           resn=resn,
-                           resi=resi,
-                           chain=chain,
-                           elem=elem,
-                           hetatm=0,
-                           segi=chain,
-                           pos=list(coords_))
-    cmd.save(outfilename, selection=object_name)
-    cmd.delete(object_name)
-
-
-def save_density(density, outfilename, origin, spacing=1, padding=0):
-    """
-    Save the density file as mrc for the given atomname
-    """
-    density = density.astype('float32')
-    with mrcfile.new(outfilename, overwrite=True) as mrc:
-        mrc.set_data(density.T)
-        mrc.voxel_size = spacing
-        mrc.header['origin']['x'] = origin[0] - padding + .5 * spacing
-        mrc.header['origin']['y'] = origin[1] - padding + .5 * spacing
-        mrc.header['origin']['z'] = origin[2] - padding + .5 * spacing
-        mrc.update_header_from_data()
-        mrc.update_header_stats()
-
-
 if __name__ == '__main__':
     pass
     # import time
@@ -288,7 +215,6 @@ if __name__ == '__main__':
     # 8C7H_16460
     # 7MHZ_23837
     # 7F3Q_31434
-
 
     datadir_name = "."
     # datadir_name = "data/pdb_em/"
@@ -303,9 +229,9 @@ if __name__ == '__main__':
     map_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map")
     aligned_name = os.path.join(datadir_name, dirname, f"aligned.mrc")
     carved_name = os.path.join(datadir_name, dirname, f"carved.mrc")
-    resampled_name = os.path.join(datadir_name, dirname, f"resampled_2.mrc")
-    # mrc = MRC_grid(map_path)
-    # mrc.save(outname=aligned_name, overwrite=True)
-    # mrc.carve(pdb_name=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
-    mrc = MRC_grid(carved_name)
+    resampled_name = os.path.join(datadir_name, dirname, f"resampled_3.mrc")
+    mrc = MRCGrid(map_path)
+    mrc.save(outname=aligned_name, overwrite=True)
+    mrc.carve(pdb_name=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
+    mrc = MRCGrid(carved_name)
     mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)
