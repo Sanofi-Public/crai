@@ -7,15 +7,60 @@ Then we need to resample the experimental maps to get a fixed voxel_size value o
 import os
 import sys
 
-import pandas as pd
 from collections import defaultdict
+import multiprocessing
+import pandas as pd
+from tqdm import tqdm
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from utils.mrc_utils import MRCGrid
+from utils.mrc_utils import MRCGrid, load_mrc
 from utils.pymol_utils import list_id_to_pymol_sel
+
+
+def init(l):
+    global lock
+    lock = l
+
+
+def do_one(dirname, datadir_name):
+    """
+    Any jobs that needs to be run on the database, such as statistics, to be done in parallel
+    :param dirname:
+    :param datadir_name:
+    :return:
+    """
+    pdb_name, mrc = dirname.split("_")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
+    carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
+    resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
+    # mrc = MRCGrid(mrcgz_path)
+    try:
+        mrc = load_mrc(mrcgz_path)
+        boo = mrc.header.mx.item() != mrc.data.shape[0] or \
+              mrc.header.my.item() != mrc.data.shape[1] or \
+              mrc.header.mz.item() != mrc.data.shape[2]
+        if boo:
+            print(f'{dirname} : {mrc.header.mx.item()}')
+    except Exception as e:
+        print(f"Failed for system : {dirname}")
+
+
+def parallel_do(datadir_name="../data/pdb_em", ):
+    """
+    Run just do in parallel
+    :param datadir_name:
+    :return:
+    """
+    files_list = os.listdir(datadir_name)
+    l = multiprocessing.Lock()
+    pool = multiprocessing.Pool(initializer=init, initargs=(l,))
+    njobs = len(files_list)
+    pool.starmap(do_one,
+                 tqdm(zip(files_list, [datadir_name, ] * njobs), total=njobs))
 
 
 def process_csv(csv_file="../data/cleaned.csv"):
@@ -80,6 +125,9 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
 
 if __name__ == '__main__':
     pass
-    process_csv()
+    parallel_do()
+    # 3J3O_5291
+
+    # process_csv()
     # process_database(overwrite=True)
     # ['5A8H_3096', '7CZW_30519', '7SJO_25163']

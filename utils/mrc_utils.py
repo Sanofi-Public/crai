@@ -216,13 +216,16 @@ if __name__ == '__main__':
     # 7MHZ_23837
     # 7F3Q_31434
 
-    datadir_name = "."
+    datadir_name = ".."
+    # datadir_name = "data/pdb_em_large/"
     # datadir_name = "data/pdb_em/"
 
     # dirname = "3IXX_5103"
     # dirname = "7MHY_23836"
     dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
+    # dirname = "7X1M_32944"  #
+    # dirname = "3JCX_6629"  #
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
