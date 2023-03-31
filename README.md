@@ -1,7 +1,6 @@
 # crIA-EM
 
 TODO : 
-- mx!=1
 - TM_align of chains in the same complex for redundancy removal
 - carving/chain
 

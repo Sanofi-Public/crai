@@ -114,7 +114,7 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
             resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
 
             mrc = MRCGrid(mrcgz_path)
-            mrc.carve(pdb_name=pdb_path, out_name=carved_name, overwrite=overwrite)
+            mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite)
             mrc = MRCGrid(carved_name)
             mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=overwrite)
         except Exception as e:

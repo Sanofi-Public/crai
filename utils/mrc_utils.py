@@ -70,7 +70,9 @@ class MRCGrid:
     def __init__(self, mrc_file):
         self.original_mrc = load_mrc(mrc_file)
 
-        # TODO : look into mx,my,mz
+        # The mx,my,mz are almost always equal to the data shape, except for 3J30.
+        # This does not make a difference.
+        # We ignore the nx fields too and copy voxel size that is already in xyz space.
         self.voxel_size = np.array(self.original_mrc.voxel_size[..., None].view(dtype=np.float32))
 
         # The data and the 'x,y,z' annotation might not match.
@@ -83,7 +85,6 @@ class MRCGrid:
                              int(self.original_mrc.header.mapc) - 1)
         self.reverse_axis_mapping = tuple(self.axis_mapping.index(i) for i in range(3))
         data = self.original_mrc.data.copy()
-        # self.data = np.transpose(data, axes=self.axis_mapping)
         self.data = np.transpose(data, axes=self.reverse_axis_mapping)
 
         # Origin tells you where the lower corner lies in the map.
@@ -96,7 +97,7 @@ class MRCGrid:
         shift_array_xyz = np.array([shift_array[self.reverse_axis_mapping[i]] for i in range(3)])
         self.origin = original_origin + shift_array_xyz * self.voxel_size
 
-    def carve(self, pdb_name, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False):
+    def carve(self, pdb_path, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False):
         """
         This goes from full size to a reduced size, centered around a pdb.
         The main steps are :
@@ -104,7 +105,7 @@ class MRCGrid:
             - Selecting the right voxels in this box
             - Optionally filter out the values further away from filter_cutoff
             - Creating a new mrc with the origin and the size of the 'cell'
-        :param pdb_name: path to the pdb
+        :param pdb_path: path to the pdb
         :param out_name: path to the output mrc.
             If the extension is not .mrc but .map, the origin is not read correctly by Chimerax
         :param padding: does not need to be an integer
@@ -116,7 +117,8 @@ class MRCGrid:
             return
 
         # Get the bounds from the pdb
-        coords = get_protein_coords(pdb_name=pdb_name)
+        pdb_name = os.path.basename(pdb_path).split('.')[0]
+        coords = get_protein_coords(pdb_path=pdb_path, pdb_name=pdb_name)
         xyz_min = coords.min(axis=0)
         xyz_max = coords.max(axis=0)
 
@@ -222,10 +224,10 @@ if __name__ == '__main__':
 
     # dirname = "3IXX_5103"
     # dirname = "7MHY_23836"
-    dirname = "7WLC_32581"  # looks ok
+    # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "7X1M_32944"  #
-    # dirname = "3JCX_6629"  #
+    dirname = "3J3O_5291"  #
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
@@ -235,6 +237,6 @@ if __name__ == '__main__':
     resampled_name = os.path.join(datadir_name, dirname, f"resampled_3.mrc")
     mrc = MRCGrid(map_path)
     mrc.save(outname=aligned_name, overwrite=True)
-    mrc.carve(pdb_name=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
+    mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
     mrc = MRCGrid(carved_name)
     mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)
