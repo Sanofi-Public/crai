@@ -1,15 +1,16 @@
 # crIA-EM
 
 TODO : 
-- TM_align of chains in the same complex for redundancy removal
-- carving/chain
+- Phenix validate
+- Model building
+- 
 
 ```shell
 conda create -n cria -y
 conda activate cria
 conda install -c schrodinger pymol
 conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
-pip install wget requests pandas tqdm mrcfile scikit-learn scipy mmtf-python
+pip install wget requests pandas tqdm mrcfile scikit-learn scipy mmtf-python matplotlib
 ```
 
 ## Listing and downloading systems
