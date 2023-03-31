@@ -1,7 +1,7 @@
 import pymol.cmd as cmd
 
 
-def get_protein_coords(pdb_path, pdb_name=None, selection=None, remove_hydrogen=True):
+def get_protein_coords(pdb_path, pdb_name=None, pymol_selection=None, remove_hydrogen=True):
     """
     The goal is to go from pdb files and optionnally some selections to the (n,1)
     Using a name is useful for multiprocessing and not the default
@@ -13,8 +13,8 @@ def get_protein_coords(pdb_path, pdb_name=None, selection=None, remove_hydrogen=
     if remove_hydrogen:
         cmd.remove('hydrogens')
     prot_selection = f'{pdb_name} and polymer.protein'
-    selection = prot_selection if selection is None else f"{prot_selection} and ({selection})"
-    coords = cmd.get_coords(selection=f'{selection}')
+    pymol_selection = prot_selection if pymol_selection is None else f"{prot_selection} and ({pymol_selection})"
+    coords = cmd.get_coords(selection=f'{pymol_selection}')
     cmd.delete(pdb_name)
     return coords
 

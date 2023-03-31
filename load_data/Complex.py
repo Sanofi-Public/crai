@@ -152,9 +152,9 @@ class Complex:
 
         # Now let's get the relevant coordinates to embed in this grid
         antibody_coords = pymol_utils.get_protein_coords(pdb_name=pdb_name, pdb_path=pdb_path,
-                                                         selection=antibody_selection)
+                                                         pymol_selection=antibody_selection)
         antigen_coords = pymol_utils.get_protein_coords(pdb_name=pdb_name, pdb_path=pdb_path,
-                                                        selection=f"not ({antibody_selection})")
+                                                        pymol_selection=f"not ({antibody_selection})")
 
         # Get the corresponding grid
         antibody_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)

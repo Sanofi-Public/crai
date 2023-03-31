@@ -6,6 +6,10 @@ import numpy as np
 import scipy
 import subprocess
 
+if __name__ == '__main__':
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    sys.path.append(os.path.join(script_dir, '..'))
+
 from utils.pymol_utils import get_protein_coords
 
 
@@ -67,7 +71,7 @@ class MRCGrid:
     so that the shape and origin are aligned
     """
 
-    def __init__(self, mrc_file):
+    def __init__(self, mrc_file, normalize=False):
         self.original_mrc = load_mrc(mrc_file)
 
         # The mx,my,mz are almost always equal to the data shape, except for 3J30.
@@ -96,8 +100,23 @@ class MRCGrid:
                                 self.original_mrc.header.nxstart))  # nxstart always correspond to 'c'
         shift_array_xyz = np.array([shift_array[self.reverse_axis_mapping[i]] for i in range(3)])
         self.origin = original_origin + shift_array_xyz * self.voxel_size
+        if normalize:
+            self.normalize()
 
-    def carve(self, pdb_path, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False):
+    def normalize(self):
+        """
+        :return:
+        """
+        relued = np.maximum(self.data, np.zeros_like(self.data))
+        flat = relued.flatten()
+        above_zero = flat[flat > 0.]
+        sorted_above_zero = np.sort(above_zero)
+        threshold = sorted_above_zero[int(0.95 * len(sorted_above_zero))]
+        relued = relued / threshold
+        new_data = np.minimum(relued, np.ones_like(relued))
+        self.data = new_data
+
+    def carve(self, pdb_path, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False, pymol_sel=None):
         """
         This goes from full size to a reduced size, centered around a pdb.
         The main steps are :
@@ -109,6 +128,7 @@ class MRCGrid:
         :param out_name: path to the output mrc.
             If the extension is not .mrc but .map, the origin is not read correctly by Chimerax
         :param padding: does not need to be an integer
+        :param pymol_sel: An optional pymol selection around which to do the carving
         :param filter_cutoff: negative value will skip the filtering step.
             Otherwise, it's a cutoff in Angstroms to zero the density around the pdb
         :param overwrite: boolean
@@ -118,7 +138,7 @@ class MRCGrid:
 
         # Get the bounds from the pdb
         pdb_name = os.path.basename(pdb_path).split('.')[0]
-        coords = get_protein_coords(pdb_path=pdb_path, pdb_name=pdb_name)
+        coords = get_protein_coords(pdb_path=pdb_path, pdb_name=pdb_name, pymol_selection=pymol_sel)
         xyz_min = coords.min(axis=0)
         xyz_max = coords.max(axis=0)
 
@@ -154,7 +174,7 @@ class MRCGrid:
                            voxel_size=self.voxel_size,
                            overwrite=overwrite)
 
-    def resample(self, out_name='resample.mrc', new_voxel_size=1., overwrite=False, padding=0):
+    def resample(self, out_name='resample.mrc', new_voxel_size=2., overwrite=False, padding=0):
         """
         A script to change the voxel size of a mrc
         The main operation is building a linear interpolation model and doing inference over it.
@@ -224,10 +244,10 @@ if __name__ == '__main__':
 
     # dirname = "3IXX_5103"
     # dirname = "7MHY_23836"
-    # dirname = "7WLC_32581"  # looks ok
+    dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "7X1M_32944"  #
-    dirname = "3J3O_5291"  #
+    # dirname = "3J3O_5291"  # large offset between pdb and cryoem
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
