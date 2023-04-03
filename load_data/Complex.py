@@ -73,7 +73,7 @@ def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=
         return min_bounds_x, max_bounds_x, min_bounds_y, max_bounds_y, min_bounds_z, max_bounds_z, subgrid_feature
 
 
-def fill_grid_from_coords(coords, bins, features=None, sigma=2.):
+def fill_grid_from_coords(coords, bins, features=None, sigma=1.):
     """
     Generate a grid from the coordinates
     :param coords: (n,3) array
@@ -114,7 +114,7 @@ def get_bins(coords, spacing, padding, xyz_min=None, xyz_max=None):
     return xi, yi, zi
 
 
-def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min=None, xyz_max=None, sigma=2.):
+def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min=None, xyz_max=None, sigma=1.):
     """
     Generate a grid from the coordinates
     :param coords: (n,3) array
@@ -164,6 +164,7 @@ class Complex:
 
         self.mrc = mrc
         self.target_tensor = target_tensor
+
         # self.save_mrc_lig()
         pass
 
@@ -182,9 +183,19 @@ if __name__ == '__main__':
     #                pdb_name='3IXX',
     #                antibody_selection='chain G or chain H or chain I or chain J')
 
-    # comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
-    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
-    #                pdb_name='3IXX',
-    #                antibody_selection='chain G or chain H or chain I or chain J')
+    datadir_name = ".."
+    dirname = '7LO8_23464'
 
+    pdb_name, mrc_name = dirname.split("_")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
 
+    comp = Complex(mrc_path=mrc_path,
+                   pdb_path=pdb_path,
+                   pdb_name=pdb_name,
+                   antibody_selection='chain H or chain L')
+
+    target = comp.target_tensor
+    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antibody.mrc"), data=target[0], overwrite=True)
+    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antigen.mrc"), data=target[1], overwrite=True)
+    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "void.mrc"), data=target[2], overwrite=True)

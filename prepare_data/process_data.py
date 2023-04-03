@@ -202,6 +202,7 @@ def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
         # Now let us compute output files for each unique antibody in the system.
         # We also give it a unique id.
         mrc = MRCGrid(mrcgz_path)
+        mrc.normalize()
         local_ab_id = 0
         local_rows = []
         for antibody in filtered:
@@ -232,6 +233,7 @@ def process_database(datadir_name="../data/pdb_em",
     files_list = os.listdir(datadir_name)
     pdb_selections = process_csv(csv_file=csv_in)
 
+    # do_one_dirname(dirname='7V3L_31683', datadir_name='..', pdb_selections=pdb_selections, overwrite=True)
     # do_one_dirname(dirname='5H37_9575', datadir_name='..', pdb_selections=pdb_selections, overwrite=True)
     # return
 
@@ -333,11 +335,12 @@ if __name__ == '__main__':
 
     process_database(overwrite=True)
     # correct_db()
-    # Skipped : ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383',
+    # Succeeded on 1695 systems, 249 skipped, 2 failed
+    # Skipped = ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383',
     #            '5H32_9574', '3J3O_5291', '7YKJ_33892', '8DL7_27498', '7USL_26738', '8DZI_27799', '7X90_33062',
-    #            '7T3M_25663', '3J30_5580', '8HIK_34819', '7SK7_25175', '7VGR_31977', '8CW9_27024', '6JFH_9811',
-    #            '7T0Z_25585', '8DKE_27488', '7ZYI_15024', '5VJ6_8695', '8DKX_27493', '7URF_26711', '7X8Y_33060',
-    #            '8DM4_27526', '7UZ5_26879', '7NRH_12544', '3IY4_5109', '7WTI_32787',
+    #            '7T3M_25663', '3J30_5580', '8HIK_34819', '7SK7_25175', '7VGR_31977',
+    #            '8CW9_27024', '6JFH_9811', '7T0Z_25585', '8DKE_27488', '7ZYI_15024', '5VJ6_8695', '8DKX_27493',
+    #            '7URF_26711', '7X8Y_33060', '8DM4_27526', '7UZ5_26879', '7NRH_12544', '3IY4_5109', '7WTI_32787',
     #            '7RU4_24696', '7T5O_25699', '7DK5_30703', '7XCZ_33130', '7WCD_32421', '8DZH_27798', '8DIU_27443',
     #            '8HS2_34983', '7C2S_30278', '8HSC_34993', '7U9O_26402', '6XJA_22204', '8GSC_34231', '6IDK_9650',
     #            '7T9N_25763', '7WRO_32734', '7WO5_32639', '7UZ7_26881', '8HC8_34655', '7TL0_25982', '7ZBU_14591',
@@ -369,4 +372,4 @@ if __name__ == '__main__':
     #            '7X8Z_33061', '7WCK_32423', '7SK9_25177', '8DKW_27492', '8D48_27177', '8F6I_28884', '7U0X_26267',
     #            '7UOT_26653', '7ZLH_14780', '7WCP_32427', '8DVD_27735', '7RU8_24699', '8ADZ_15376', '8E7M_27939',
     #            '6AVU_7013', '3IY5_5110', '3J3Z_5673', '7WOA_32646', '7DWU_30884', '7WP0_32665']
-    # Failed :  ['7L06_23095', '6CM3_7516', '7XLT_33286', '7LU9_23518', '6EDU_9038']
+    # Failed :  ['7LU9_23518', '6EDU_9038']

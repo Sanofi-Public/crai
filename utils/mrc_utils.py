@@ -219,9 +219,10 @@ class MRCGrid:
                            voxel_size=new_voxel_size,
                            overwrite=overwrite)
 
-    def save(self, outname, overwrite=False):
+    def save(self, outname, data=None, overwrite=False):
+        data = self.data if data is None else data
         save_canonical_mrc(outname=outname,
-                           data=self.data,
+                           data=data,
                            origin=self.origin,
                            voxel_size=self.voxel_size,
                            overwrite=overwrite)
