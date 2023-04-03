@@ -116,7 +116,8 @@ class MRCGrid:
         new_data = np.minimum(relued, np.ones_like(relued))
         self.data = new_data
 
-    def carve(self, pdb_path, out_name='carved.mrc', padding=4, filter_cutoff=-1, overwrite=False, pymol_sel=None):
+    def carve(self, pdb_path, out_name='carved.mrc', margin=6, padding=0, filter_cutoff=-1, overwrite=False,
+              pymol_sel=None):
         """
         This goes from full size to a reduced size, centered around a pdb.
         The main steps are :
@@ -127,7 +128,8 @@ class MRCGrid:
         :param pdb_path: path to the pdb
         :param out_name: path to the output mrc.
             If the extension is not .mrc but .map, the origin is not read correctly by Chimerax
-        :param padding: does not need to be an integer
+        :param margin: extension of the spatial domain to consider
+        :param padding: a posteriori zero expansion of the grid
         :param pymol_sel: An optional pymol selection around which to do the carving
         :param filter_cutoff: negative value will skip the filtering step.
             Otherwise, it's a cutoff in Angstroms to zero the density around the pdb
@@ -139,8 +141,8 @@ class MRCGrid:
         # Get the bounds from the pdb
         pdb_name = os.path.basename(pdb_path).split('.')[0]
         coords = get_protein_coords(pdb_path=pdb_path, pdb_name=pdb_name, pymol_selection=pymol_sel)
-        xyz_min = coords.min(axis=0)
-        xyz_max = coords.max(axis=0)
+        xyz_min = coords.min(axis=0) - margin
+        xyz_max = coords.max(axis=0) + margin
 
         # Using the origin, find the corresponding cells in the mrc
         mins_array = ((xyz_min - self.origin) / self.voxel_size).astype(int, casting='unsafe')
@@ -259,4 +261,5 @@ if __name__ == '__main__':
     mrc.save(outname=aligned_name, overwrite=True)
     mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
     mrc = MRCGrid(carved_name)
+    mrc.normalize()
     mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)

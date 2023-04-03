@@ -219,7 +219,10 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
                     heavy_chain, light_chain, antigen, resolution = antibody
                 carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
                 resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
-                mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite)
+                angstrom_expand = 10
+                expanded_selection = f"({antibody_selection} around {angstrom_expand}) or {antigen_selection}"
+                mrc.carve(pdb_name, pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite,
+                          pymol_sel=expanded_selection, margin=6)
                 mrc = MRCGrid(carved_name)
                 mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
                 row = [pdb_name, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen,
