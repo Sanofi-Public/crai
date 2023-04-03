@@ -187,55 +187,96 @@ def filter_copies(pdb_path, pdb_selections):
     return list_to_keep
 
 
-def process_database(datadir_name="../data/pdb_em", overwrite=False):
+def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
+    pdb_name, mrc_name = dirname.split("_")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz")
+
+    try:
+        # Don't compute for systems that got discarded (for instance on resolution)
+        sels = pdb_selections[pdb_name]
+        if len(sels) == 0:
+            return 1, dirname
+        filtered = filter_copies(pdb_path, sels)
+
+        # Now let us compute output files for each unique antibody in the system.
+        # We also give it a unique id.
+        mrc = MRCGrid(mrcgz_path)
+        local_ab_id = 0
+        local_rows = []
+        for antibody in filtered:
+            antibody_selection, antigen_selection, \
+                heavy_chain, light_chain, antigen, resolution = antibody
+            carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
+            resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
+            angstrom_expand = 10
+            expanded_selection = f"({antibody_selection} around {angstrom_expand}) or {antigen_selection}"
+            mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite,
+                      pymol_sel=expanded_selection, margin=6)
+            mrc = MRCGrid(carved_name)
+            mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+            row = [pdb_name, mrc_name, dirname, local_ab_id, heavy_chain, light_chain, antigen,
+                   resolution, antibody_selection, antigen_selection]
+            local_ab_id += 1
+            local_rows.append(row)
+    except:
+        return 2, dirname
+    return 0, local_rows
+
+
+def process_database(datadir_name="../data/pdb_em",
+                     csv_in="../data/cleaned.csv",
+                     csv_dump='../data/final.csv',
+                     parallel=True,
+                     overwrite=False):
     files_list = os.listdir(datadir_name)
-    pdb_selections = process_csv()
+    pdb_selections = process_csv(csv_file=csv_in)
 
     skip_list, fail_list = [], []
     columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
               " antibody_selection, antigen_selection".split(', ')
     df = pd.DataFrame(columns=columns)
-    for i, dirname in enumerate(files_list):
-        if not i % 10:
-            print("Done {}/{} files".format(i, len(files_list)))
-        try:
-            pdb_name, mrc = dirname.split("_")
-            pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-            mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
-
-            # Don't compute for systems that got discarded (for instance on resolution)
-            sels = pdb_selections[pdb_name]
-            if len(sels) == 0:
-                skip_list.append(dirname)
-                continue
-            filtered = filter_copies(pdb_path, sels)
-
-            # Now let us compute output files for each unique antibody in the system.
-            # We also give it a unique id.
-            mrc = MRCGrid(mrcgz_path)
-            local_ab_id = 0
-            for antibody in filtered:
-                antibody_selection, antigen_selection, \
-                    heavy_chain, light_chain, antigen, resolution = antibody
-                carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
-                resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
-                angstrom_expand = 10
-                expanded_selection = f"({antibody_selection} around {angstrom_expand}) or {antigen_selection}"
-                mrc.carve(pdb_name, pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite,
-                          pymol_sel=expanded_selection, margin=6)
-                mrc = MRCGrid(carved_name)
-                mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
-                row = [pdb_name, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen,
-                       resolution, antibody_selection, antigen_selection]
-                df.loc[len(df)] = row
-                local_ab_id += 1
-        except Exception as e:
-            print(e)
-            fail_list.append(dirname)
-    csv_dump = '../data/final.csv'
+    if not parallel:
+        for i, dirname in enumerate(files_list):
+            if not i % 10:
+                print("Done {}/{} files".format(i, len(files_list)))
+            try:
+                success, rows = do_one_dirname(dirname=dirname,
+                                               datadir_name=datadir_name,
+                                               pdb_selections=pdb_selections,
+                                               overwrite=overwrite)
+                if success:
+                    for row in rows:
+                        df.loc[len(df)] = row
+                else:
+                    skip_list.append(dirname)
+            except Exception as e:
+                print(e)
+                fail_list.append(dirname)
+    else:
+        files_list = os.listdir(datadir_name)
+        l = multiprocessing.Lock()
+        pool = multiprocessing.Pool(initializer=init, initargs=(l,))
+        njobs = len(files_list)
+        # dirname, datadir_name, pdb_selections, overwrite
+        inputs = zip(files_list,
+                     [datadir_name, ] * njobs,
+                     [pdb_selections, ] * njobs,
+                     [overwrite, ] * njobs,
+                     )
+        results = pool.starmap(do_one_dirname, tqdm(inputs, total=njobs))
+        for fail_code, result in results:
+            if fail_code == 0:
+                for row in result:
+                    df.loc[len(df)] = row
+            elif fail_code == 1:
+                skip_list.append(result)
+            elif fail_code == 2:
+                fail_list.append(result)
     df.to_csv(csv_dump)
-    print(fail_list)
-    print(skip_list)
+    print(f"Succeeded on {len(df)} systems, {len(skip_list)} skipped, {len(fail_list)} failed")
+    print("Skipped : ", skip_list)
+    print("Failed : ", fail_list)
 
 
 def correct_db(csv='../data/final.csv', new_csv='../data/final_corrected.csv', dirpath="../data/pdb_em"):
@@ -288,8 +329,8 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
-    # correct_db()
     process_database(overwrite=True)
+    # correct_db()
     ## skip_list = \
     # ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383', '5H32_9574',
     #  '3J3O_5291', '7YKJ_33892', '8DL7_27498', '7USL_26738', '8DZI_27799', '7X90_33062', '7T3M_25663', '3J30_5580',
