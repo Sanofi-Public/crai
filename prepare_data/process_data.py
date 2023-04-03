@@ -185,8 +185,8 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
     files_list = os.listdir(datadir_name)
     pdb_selections = process_csv()
 
-    skip_list, fail_list = []
-    columns = "pdb, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
+    skip_list, fail_list = [], []
+    columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
               " antibody_selection, antigen_selection".split(', ')
     df = pd.DataFrame(columns=columns)
     for i, dirname in enumerate(files_list):
@@ -216,7 +216,7 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
                 mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite)
                 mrc = MRCGrid(carved_name)
                 mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
-                row = [pdb_name, local_ab_id, heavy_chain, light_chain, antigen,
+                row = [pdb_name, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen,
                        resolution, antibody_selection, antigen_selection]
                 df.loc[len(df)] = row
                 local_ab_id += 1
@@ -227,6 +227,30 @@ def process_database(datadir_name="../data/pdb_em", overwrite=False):
     df.to_csv(csv_dump)
     print(fail_list)
     print(skip_list)
+
+
+def correct_db(csv='../data/final.csv', new_csv='../data/final_corrected.csv', dirpath="../data/pdb_em"):
+    new_columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
+                  " antibody_selection, antigen_selection".split(', ')
+    new_df = pd.DataFrame(columns=new_columns)
+    old_df = pd.read_csv(csv)
+    files_list = os.listdir(dirpath)
+    mapping = {}
+    # Get pdb : mrc, dirname
+    for i, dirname in enumerate(files_list):
+        pdb_name, mrc = dirname.split("_")
+        mapping[pdb_name] = dirname, mrc
+    # Fill the new one with missing values
+    for i, row in old_df.iterrows():
+        row_values = row.values
+        index, pdb_name, local_ab_id, heavy_chain, light_chain, antigen, resolution, \
+            antibody_selection, antigen_selection = row_values
+        mrc, dirname = mapping[pdb_name]
+        new_row = [pdb_name, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen,
+                   resolution, antibody_selection, antigen_selection]
+        new_df.loc[len(new_df)] = new_row
+    # Dump it
+    new_df.to_csv(new_csv)
 
 
 if __name__ == '__main__':
@@ -253,5 +277,38 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
-    process_database(overwrite=True)
-    # ['5A8H_3096', '7CZW_30519', '7SJO_25163']
+    correct_db()
+    # process_database(overwrite=True)
+    ## skip_list = \
+    # ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383', '5H32_9574',
+    #  '3J3O_5291', '7YKJ_33892', '8DL7_27498', '7USL_26738', '8DZI_27799', '7X90_33062', '7T3M_25663', '3J30_5580',
+    #  '8HIK_34819', '7SK7_25175', '7VGR_31977', '8CW9_27024', '6JFH_9811', '7T0Z_25585', '8DKE_27488', '7ZYI_15024',
+    #  '5VJ6_8695', '8DKX_27493', '7URF_26711', '7X8Y_33060', '8DM4_27526', '7UZ5_26879', '7NRH_12544', '3IY4_5109',
+    #  '7WTI_32787', '7RU4_24696', '7T5O_25699', '7DK5_30703', '7XCZ_33130', '7WCD_32421', '8DZH_27798', '8DIU_27443',
+    #  '8HS2_34983', '7C2S_30278', '8HSC_34993', '7U9O_26402', '6XJA_22204', '8GSC_34231', '6IDK_9650', '7T9N_25763',
+    #  '7WRO_32734', '7WO5_32639', '7UZ7_26881', '8HC8_34655', '7TL0_25982', '7ZBU_14591', '7WTG_32785', '8HC3_34650',
+    #  '7XDK_33150', '6JFI_9812', '5A7X_3086', '7SJ0_25149', '7L3N_23156', '7WJZ_32553', '7UZ9_26883', '7WOC_32648',
+    #  '8HIJ_34818', '7UZB_26885', '7XDB_33142', '7QTI_14141', '7T0W_25583', '7UPX_26677', '7UZ4_26878', '7WRZ_32738',
+    #  '7XCK_33123', '7TJQ_25929', '7WBH_32398', '7ZLK_14783', '7WTH_32786', '5Y0A_6793', '7URE_26710', '7WO7_32641',
+    #  '3JCC_6543', '3J7E_5994', '7SJN_25162', '7WH8_32497', '3IY2_5107', '7SK8_25176', '7T17_25606', '7RU5_24697',
+    #  '3J8W_6184', '7ZLI_14781', '8AE0_15377', '7XQ8_33390', '7QTK_14143', '5GZR_9542', '3J70_5020', '3JAB_6258',
+    #  '8DIM_27440', '7ZLG_14779', '8DM3_27525', '7DWT_30883', '8HII_34817', '7WRY_32737', '7X7T_33047', '8HC4_34651',
+    #  '7SK3_25171', '4CKD_2548', '7SWW_25487', '7WSC_32753', '2R6P_1418', '3IYW_5190', '7RU3_24695', '6XDG_22137',
+    #  '8DLR_27512', '8GSD_34232', '6IDI_9649', '6IDL_9651', '4UOM_2645', '7WWJ_32867', '6AVR_7012', '8EMA_27848',
+    #  '7TN9_26005', '3J2X_5576', '7WTF_32784', '7WHB_32498', '7X6A_33019', '8EPA_28523', '3J93_6200', '7U0P_26262',
+    #  '8DL6_27497', '7UPL_26669', '3J2Y_5578', '5ANY_3144', '5A8H_3096', '8DW2_27749', '3IY7_5112', '3IXY_5102',
+    #  '7UVL_26813', '8F6F_28882', '7YR0_34041', '7WOG_32651', '7SK4_25172', '7XDA_33140', '7V23_31635', '8HC7_34654',
+    #  '3J8Z_5990', '8DT3_27690', '7YR1_34042', '7WR9_32719', '7WTK_32789', '7V27_31638', '8F6H_28883', '7UZ6_26880',
+    #  '7XW7_33493', '7B09_11964', '7WCU_32429', '7XCP_33125', '8HHY_34807', '8GSF_34234', '7QTJ_14142', '7V24_31636',
+    #  '8DLW_27518', '7URC_26708', '8DLS_27514', '8F6E_28881', '8DE6_27385', '7WR8_32718', '7X8W_33059', '7WHD_32499',
+    #  '8DL8_27499', '8C7H_16460', '8F6J_28885', '7SIX_25148', '7URD_26709', '3J2Z_5579', '7RAL_24365', '8ADY_15375',
+    #  '3IXX_5103', '8GSE_34233', '3JCB_6542', '7WWI_32866', '7X92_33064', '8HCB_34658', '7WJY_32552', '8HC2_34649',
+    #  '7L6M_23145', '8AE3_15380', '7Z3A_14474', '3IY0_5105', '8DW3_27750', '7UZA_26884', '7WOB_32647', '7UMM_26605',
+    #  '4UOK_2655', '7WO4_32638', '7URA_26707', '8HHZ_34808', '8HC9_34656', '7SJO_25163', '8AE2_15379', '7WRL_32732',
+    #  '8DUA_27718', '7Z12_14438', '7WTJ_32788', '7SK5_25173', '7WRJ_32728', '7U0Q_26263', '8A1E_15073', '7WUR_32839',
+    #  '7WWK_32868', '7VGS_31978', '7UOV_26655', '3J8V_6121', '7UZ8_26882', '7SWX_25488', '4UIH_2968', '7URX_26720',
+    #  '7U9P_26404', '8HC6_34653', '3IY1_5106', '3JBQ_6258', '6AVQ_7011', '3IY3_5108', '3JBA_6424', '8HHX_34806',
+    #  '7YAR_33718', '7WK0_32554', '7X91_33063', '8DAD_27270', '3IY6_5111', '7X8Z_33061', '7WCK_32423', '7SK9_25177',
+    #  '8DKW_27492', '8D48_27177', '8F6I_28884', '7U0X_26267', '7UOT_26653', '7ZLH_14780', '7WCP_32427', '8DVD_27735',
+    #  '7RU8_24699', '8ADZ_15376', '8E7M_27939', '6AVU_7013', '3IY5_5110', '3J3Z_5673', '7WOA_32646', '7DWU_30884',
+    #  '7WP0_32665']
