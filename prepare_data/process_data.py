@@ -157,13 +157,19 @@ def filter_pairwise_copies(pdb_path, sel1, sel2):
     cmd.extract("sel1", sel1)
     cmd.extract("sel2", sel2)
     test = cmd.align(mobile="sel2", target="sel1")
-    c1 = cmd.get_coords("sel1")
-    c2 = cmd.get_coords("sel2")
-    if len(c1) == len(c2):
-        max_diff = np.max(c1 - c2)
-        if max_diff < 1:
-            return 1
+    rmsd = test[0]
+    # We choose a low cutoff for RMSD, for some sytems (5A1Z_2996) the RMSD can be
+    # very small (0.95)despite lacking symmetry
+    if rmsd < 0.05:
+        return 1
     return 0
+    # c1 = cmd.get_coords("sel1")
+    # c2 = cmd.get_coords("sel2")
+    # if len(c1) == len(c2):
+    #     max_diff = np.max(c1 - c2)
+    #     if max_diff < 1:
+    #         return 1
+    # return 0
 
 
 def filter_copies(pdb_path, pdb_selections):
@@ -269,16 +275,18 @@ if __name__ == '__main__':
     #             print(pdb_em)
     # =>5A1Z_2996, 6PZY_20540
 
-    # dirname = '5A1Z_2996' # keeps all 3, no symmetry
-    # dirname = '6PZY_20540' # goes from 3 to one, there are indeed isomorphic
+    # dirname = '5A1Z_2996'  # keeps all 3, no symmetry
+    # dirname = '6PZY_20540'  # goes from 3 to one, there are indeed isomorphic
+    # dirname = '6V4N_21042'  # goes from 4 to one, there are indeed isomorphic
+    # datadir_name = ".."
     # datadir_name = "../data/pdb_em_large"
     # pdb_name, mrc = dirname.split("_")
     # sels = pdb_selections[pdb_name]
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
-    correct_db()
-    # process_database(overwrite=True)
+    # correct_db()
+    process_database(overwrite=True)
     ## skip_list = \
     # ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383', '5H32_9574',
     #  '3J3O_5291', '7YKJ_33892', '8DL7_27498', '7USL_26738', '8DZI_27799', '7X90_33062', '7T3M_25663', '3J30_5580',
