@@ -73,7 +73,7 @@ def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=
         return min_bounds_x, max_bounds_x, min_bounds_y, max_bounds_y, min_bounds_z, max_bounds_z, subgrid_feature
 
 
-def fill_grid_from_coords(coords, bins, features=None, sigma=1.):
+def fill_grid_from_coords(coords, bins, features=None, sigma=2.):
     """
     Generate a grid from the coordinates
     :param coords: (n,3) array
@@ -114,7 +114,7 @@ def get_bins(coords, spacing, padding, xyz_min=None, xyz_max=None):
     return xi, yi, zi
 
 
-def build_grid_from_coords(coords, features=None, spacing=2., padding=3, xyz_min=None, xyz_max=None, sigma=1.):
+def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min=None, xyz_max=None, sigma=2.):
     """
     Generate a grid from the coordinates
     :param coords: (n,3) array
@@ -169,6 +169,7 @@ class Complex:
 
 
 if __name__ == '__main__':
+    pass
     # dataset = ABDataset()
     # point = dataset[17]
     # print(point)
@@ -176,7 +177,14 @@ if __name__ == '__main__':
     # systems = process_csv('../data/reduced_clean.csv')
     # print(systems)
 
-    comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
-                   pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
-                   pdb_name='3IXX',
-                   antibody_selection='chain G or chain H or chain I or chain J')
+    # comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
+    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
+    #                pdb_name='3IXX',
+    #                antibody_selection='chain G or chain H or chain I or chain J')
+
+    # comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
+    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
+    #                pdb_name='3IXX',
+    #                antibody_selection='chain G or chain H or chain I or chain J')
+
+
