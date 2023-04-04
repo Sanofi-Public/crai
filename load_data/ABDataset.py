@@ -28,11 +28,15 @@ class ABDataset(Dataset):
         pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.mmtf.gz')
         mrc_path = os.path.join(self.data_root, dirname, f'resampled_{local_ab_id}_2.mrc')
 
-        comp = Complex(mrc_path=mrc_path,
-                       pdb_path=pdb_path,
-                       pdb_name=pdb_id,
-                       antibody_selection=antibody_selection)
-        return dirname, comp.mrc.data[None, ...], comp.target_tensor
+        try:
+            comp = Complex(mrc_path=mrc_path,
+                           pdb_path=pdb_path,
+                           pdb_name=pdb_id,
+                           antibody_selection=antibody_selection)
+            return dirname, comp.mrc.data[None, ...], comp.target_tensor
+        except:
+            print(f"Buggy data loading for system : {dirname}")
+            return None, None, None
 
 
 if __name__ == '__main__':

@@ -27,6 +27,12 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
 
     for epoch in range(n_epochs):
         for step, (name, input_grid, output_grid) in enumerate(loader):
+            if name is None:
+                continue
+
+            if min(input_grid.squeeze().shape) < 16:
+                print(f"Grid too small for {name}")
+                continue
             input_grid = input_grid.to(device)
             output_grid = output_grid.to(device)
 
@@ -58,6 +64,11 @@ def validate(model, device, loss_fn, loader):
     losses = list()
     with torch.no_grad():
         for step, (name, input_grid, output_grid) in enumerate(loader):
+            if name is None:
+                continue
+            if min(input_grid.squeeze().shape) < 16:
+                print(f"Grid too small for {name}")
+                continue
 
             input_grid = input_grid.to(device)
             output_grid = output_grid.to(device)[:, None]
@@ -85,8 +96,8 @@ if __name__ == '__main__':
 
     # Setup learning
     data_root = "data/pdb_em"
-    # csv_to_read = "data/final.csv"
-    csv_to_read = "data/reduced_final.csv"
+    csv_to_read = "data/final.csv"
+    # csv_to_read = "data/reduced_final.csv"
     os.makedirs("saved_models", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     writer = SummaryWriter(log_dir=f"logs/{model_name}")
