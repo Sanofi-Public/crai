@@ -238,7 +238,7 @@ def process_database(datadir_name="../data/pdb_em",
     # return
 
     skip_list, fail_list = [], []
-    columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
+    columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
               " antibody_selection, antigen_selection".split(', ')
     df = pd.DataFrame(columns=columns)
     if not parallel:
@@ -284,7 +284,7 @@ def process_database(datadir_name="../data/pdb_em",
 
 
 def correct_db(csv='../data/final.csv', new_csv='../data/final_corrected.csv', dirpath="../data/pdb_em"):
-    new_columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
+    new_columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
                   " antibody_selection, antigen_selection".split(', ')
     new_df = pd.DataFrame(columns=new_columns)
     old_df = pd.read_csv(csv)

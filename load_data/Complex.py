@@ -159,6 +159,8 @@ class Complex:
         # Get the corresponding grid
         antibody_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)
         antigen_grid = fill_grid_from_coords(coords=antigen_coords, bins=bins)
+        antibody_grid = np.tanh(antibody_grid)
+        antigen_grid = np.tanh(antigen_grid)
         void_grid = np.maximum(0, 1 - antibody_grid - antigen_grid)
         target_tensor = np.concatenate((antibody_grid, antigen_grid, void_grid))
 
