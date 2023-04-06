@@ -71,37 +71,44 @@ class MRCGrid:
     so that the shape and origin are aligned
     """
 
-    def __init__(self, mrc_file, normalize=False):
-        self.original_mrc = load_mrc(mrc_file)
+    def __init__(self, data, voxel_size, origin, normalize=False):
+        self.data = data
+        self.voxel_size = voxel_size
+        self.origin = origin
+        if normalize:
+            self.normalize()
+
+    @staticmethod
+    def from_mrc(mrc_file, normalize=False):
+        original_mrc = load_mrc(mrc_file)
 
         # The mx,my,mz are almost always equal to the data shape, except for 3J30.
         # This does not make a difference.
         # We ignore the nx fields too and copy voxel size that is already in xyz space.
-        self.voxel_size = np.array(self.original_mrc.voxel_size[..., None].view(dtype=np.float32))
+        voxel_size = np.array(original_mrc.voxel_size[..., None].view(dtype=np.float32))
 
         # The data and the 'x,y,z' annotation might not match.
         # axis_mapping tells us which axis of the data matches which 'xyz' dimension :
         # Convention is : x:0,y:1,z:2   numpy indexing order s:0,r:1,c:2
         # {first_axis (s) : X, Y or Z, second axis (r): x/y/z, third axis (c) : x/y/z}
         # reverse axis mapping tells us which x,y,z is where in the data array
-        self.axis_mapping = (int(self.original_mrc.header.maps) - 1,
-                             int(self.original_mrc.header.mapr) - 1,
-                             int(self.original_mrc.header.mapc) - 1)
-        self.reverse_axis_mapping = tuple(self.axis_mapping.index(i) for i in range(3))
-        data = self.original_mrc.data.copy()
-        self.data = np.transpose(data, axes=self.reverse_axis_mapping)
+        axis_mapping = (int(original_mrc.header.maps) - 1,
+                        int(original_mrc.header.mapr) - 1,
+                        int(original_mrc.header.mapc) - 1)
+        reverse_axis_mapping = tuple(axis_mapping.index(i) for i in range(3))
+        data = original_mrc.data.copy()
+        data = np.transpose(data, axes=reverse_axis_mapping)
 
         # Origin tells you where the lower corner lies in the map.
         # In addition, nxstart gives you an offset for the map : We choose to also normalise that.
         # The shift array convention is as crappy as the s,r,c order:
-        original_origin = np.array(self.original_mrc.header.origin[..., None].view(dtype=np.float32))
-        shift_array = np.array((self.original_mrc.header.nzstart,  # nzstart always correspond to 's'
-                                self.original_mrc.header.nystart,  # nystart always correspond to 'r'
-                                self.original_mrc.header.nxstart))  # nxstart always correspond to 'c'
-        shift_array_xyz = np.array([shift_array[self.reverse_axis_mapping[i]] for i in range(3)])
-        self.origin = original_origin + shift_array_xyz * self.voxel_size
-        if normalize:
-            self.normalize()
+        original_origin = np.array(original_mrc.header.origin[..., None].view(dtype=np.float32))
+        shift_array = np.array((original_mrc.header.nzstart,  # nzstart always correspond to 's'
+                                original_mrc.header.nystart,  # nystart always correspond to 'r'
+                                original_mrc.header.nxstart))  # nxstart always correspond to 'c'
+        shift_array_xyz = np.array([shift_array[reverse_axis_mapping[i]] for i in range(3)])
+        origin = original_origin + shift_array_xyz * voxel_size
+        return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize=normalize)
 
     def normalize(self):
         """
@@ -115,9 +122,9 @@ class MRCGrid:
         relued = relued / threshold
         new_data = np.minimum(relued, np.ones_like(relued))
         self.data = new_data
+        return self
 
-    def carve(self, pdb_path, out_name='carved.mrc', margin=6, padding=0, filter_cutoff=-1, overwrite=False,
-              pymol_sel=None):
+    def carve(self, pdb_path, margin=6, padding=0, filter_cutoff=-1, out_name=None, overwrite=False, pymol_sel=None):
         """
         This goes from full size to a reduced size, centered around a pdb.
         The main steps are :
@@ -135,7 +142,7 @@ class MRCGrid:
             Otherwise, it's a cutoff in Angstroms to zero the density around the pdb
         :param overwrite: boolean
         """
-        if os.path.exists(out_name) and not overwrite:
+        if out_name is not None and os.path.exists(out_name) and not overwrite:
             return
 
         # Get the bounds from the pdb
@@ -170,13 +177,14 @@ class MRCGrid:
             filter_array = np.reshape(filter_array, data.shape)
             data = filter_array * data
 
-        save_canonical_mrc(outname=out_name,
-                           data=data,
-                           origin=shifted_origin,
-                           voxel_size=self.voxel_size,
-                           overwrite=overwrite)
+        carved_mrc = MRCGrid(data=data,
+                             origin=shifted_origin,
+                             voxel_size=self.voxel_size)
+        if out_name is not None:
+            carved_mrc.save(outname=out_name, overwrite=overwrite)
+        return carved_mrc
 
-    def resample(self, out_name='resample.mrc', new_voxel_size=2., overwrite=False, padding=0):
+    def resample(self, new_voxel_size=2., out_name=None, overwrite=False, padding=0):
         """
         A script to change the voxel size of a mrc
         The main operation is building a linear interpolation model and doing inference over it.
@@ -186,7 +194,7 @@ class MRCGrid:
         :param overwrite: boolean
         :return: None
         """
-        if os.path.exists(out_name) and not overwrite:
+        if out_name is not None and os.path.exists(out_name) and not overwrite:
             return
 
         # Cast int, float, tuples into (3,) array
@@ -213,11 +221,12 @@ class MRCGrid:
         new_data_grid = np.pad(new_data_grid, pad_width=padding)
         new_origin = self.origin - padding * new_voxel_size
 
-        save_canonical_mrc(outname=out_name,
-                           data=new_data_grid,
-                           origin=new_origin,
-                           voxel_size=new_voxel_size,
-                           overwrite=overwrite)
+        resampled_mrc = MRCGrid(data=new_data_grid,
+                                origin=new_origin,
+                                voxel_size=new_voxel_size)
+        if out_name is not None:
+            resampled_mrc.save(outname=out_name, overwrite=overwrite)
+        return resampled_mrc
 
     def save(self, outname, data=None, overwrite=False):
         data = self.data if data is None else data
@@ -245,12 +254,10 @@ if __name__ == '__main__':
     # datadir_name = "data/pdb_em_large/"
     # datadir_name = "data/pdb_em/"
 
-    # dirname = "3IXX_5103"
-    # dirname = "7MHY_23836"
-    dirname = "7WLC_32581"  # looks ok
+    # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
-    # dirname = "7X1M_32944"  #
     # dirname = "3J3O_5291"  # large offset between pdb and cryoem
+    dirname = "7V3L_31683"
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
@@ -258,9 +265,8 @@ if __name__ == '__main__':
     aligned_name = os.path.join(datadir_name, dirname, f"aligned.mrc")
     carved_name = os.path.join(datadir_name, dirname, f"carved.mrc")
     resampled_name = os.path.join(datadir_name, dirname, f"resampled_3.mrc")
-    mrc = MRCGrid(map_path)
+    mrc = MRCGrid.from_mrc(mrc_file=map_path)
     mrc.save(outname=aligned_name, overwrite=True)
-    mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
-    mrc = MRCGrid(carved_name)
-    mrc.normalize()
-    mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)
+    carved_mrc = mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
+    carved_mrc.normalize()
+    carved_mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)

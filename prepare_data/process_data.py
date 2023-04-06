@@ -41,7 +41,7 @@ def do_one(dirname, datadir_name):
     mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
     carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
     resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
-    # mrc = MRCGrid(mrcgz_path)
+    # mrc = MRCGrid.from_mrc(mrcgz_path)
     try:
         mrc = load_mrc(mrcgz_path)
         boo = mrc.header.mx.item() != mrc.data.shape[0] or \
@@ -141,7 +141,7 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     return pdb_selections
 
 
-def filter_pairwise_copies(pdb_path, sel1, sel2):
+def get_rmsd_pairsel(pdb_path, sel1, sel2):
     """
     The goal is to remove asymetric units by comparing their coordinates
     :param pdb_path:
@@ -158,18 +158,7 @@ def filter_pairwise_copies(pdb_path, sel1, sel2):
     cmd.extract("sel2", sel2)
     test = cmd.align(mobile="sel2", target="sel1")
     rmsd = test[0]
-    # We choose a low cutoff for RMSD, for some sytems (5A1Z_2996) the RMSD can be
-    # very small (0.95)despite lacking symmetry
-    if rmsd < 0.05:
-        return 1
-    return 0
-    # c1 = cmd.get_coords("sel1")
-    # c2 = cmd.get_coords("sel2")
-    # if len(c1) == len(c2):
-    #     max_diff = np.max(c1 - c2)
-    #     if max_diff < 1:
-    #         return 1
-    # return 0
+    return rmsd
 
 
 def filter_copies(pdb_path, pdb_selections):
@@ -179,7 +168,11 @@ def filter_copies(pdb_path, pdb_selections):
     for other in pdb_selections:
         found = False
         for kept in list_to_keep:
-            if filter_pairwise_copies(pdb_path=pdb_path, sel1=other[0], sel2=kept[0]):
+            rmsd = get_rmsd_pairsel(pdb_path=pdb_path, sel1=other[0], sel2=kept[0])
+            # print(rmsd)
+            # We choose a low cutoff for RMSD, for some sytems (5A1Z_2996) the RMSD can be
+            # very small (0.95)despite lacking symmetry
+            if rmsd < 0.75:
                 found = True
                 break
         if not found:
@@ -201,21 +194,18 @@ def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
 
         # Now let us compute output files for each unique antibody in the system.
         # We also give it a unique id.
-        mrc = MRCGrid(mrcgz_path)
-        mrc.normalize()
+        mrc = MRCGrid.from_mrc(mrcgz_path, normalize=True)
         local_ab_id = 0
         local_rows = []
         for antibody in filtered:
             antibody_selection, antigen_selection, \
                 heavy_chain, light_chain, antigen, resolution = antibody
-            carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
+            # carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
             resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
             angstrom_expand = 10
             expanded_selection = f"(({antibody_selection}) expand {angstrom_expand}) or {antigen_selection}"
-            mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=overwrite,
-                      pymol_sel=expanded_selection, margin=6)
-            mrc = MRCGrid(carved_name)
-            mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+            carved = mrc.carve(pdb_path=pdb_path, pymol_sel=expanded_selection, margin=6)
+            carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
             row = [pdb_name, mrc_name, dirname, local_ab_id, heavy_chain, light_chain, antigen,
                    resolution, antibody_selection, antigen_selection]
             local_ab_id += 1
@@ -312,7 +302,7 @@ if __name__ == '__main__':
     # parallel_do()
     # 3J3O_5291
 
-    # pdb_selections = process_csv()
+    pdb_selections = process_csv()
 
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]
@@ -323,17 +313,28 @@ if __name__ == '__main__':
     #             print(pdb_em)
     # =>5A1Z_2996, 6PZY_20540
 
-    # dirname = '5A1Z_2996'  # keeps all 3, no symmetry
-    # dirname = '6PZY_20540'  # goes from 3 to one, there are indeed isomorphic
-    # dirname = '6V4N_21042'  # goes from 4 to one, there are indeed isomorphic
+    # dirname = '5A1Z_2996'  # keeps all 3, no symmetry, min_diff = 0.88
+    # dirname = '6PZY_20540'  # goes from 3 to one, there are indeed isomorphic, max_same = 0
+    # dirname = '6V4N_21042'  # goes from 4 to one, there are indeed isomorphic, max_same = 0.004
+    # dirname = '7K7I_22700'  # goes from 5 to one, there are indeed isomorphic, max_same = 0.27
+    # dirname = '7KDE_22820'  # Goes from 2*3 to 2, with a C3 symmetry and 2 different AB
+    # In this example : max_same = 0.58 min_diff=1.28
+
     # datadir_name = ".."
-    # datadir_name = "../data/pdb_em_large"
+    # datadir_name = "../data/pdb_em"
     # pdb_name, mrc = dirname.split("_")
     # sels = pdb_selections[pdb_name]
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
-    process_database(overwrite=True)
+    dirname = '7KDE_22820'  # Buggy creation
+    datadir_name = "../data/pdb_em"
+    pdb_name, mrc = dirname.split("_")
+    sels = pdb_selections[pdb_name]
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
+
+    # process_database(overwrite=True)
     # correct_db()
     # Succeeded on 1695 systems, 249 skipped, 2 failed
     # Skipped = ['7X1M_32944', '8HC5_34652', '8HCA_34657', '7XXL_33506', '3J42_5674', '7ZLJ_14782', '7U8G_26383',

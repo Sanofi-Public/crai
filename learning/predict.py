@@ -11,7 +11,7 @@ from learning.model import UnetModel
 
 
 def predict(mrc_path, model, out_name=None, overwrite=True):
-    mrc = mrc_utils.MRCGrid(mrc_path)
+    mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     with torch.no_grad():
         out = model(mrc_grid)[0].numpy()

@@ -142,7 +142,7 @@ class Complex:
 
     def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None):
         # First get the MRC data
-        mrc = mrc_utils.MRCGrid(mrc_path)
+        mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
 
         # Then get the corresponding empty grid, this follows 'resample' with origin offset
         bins = [np.arange(start=mrc.origin[i],

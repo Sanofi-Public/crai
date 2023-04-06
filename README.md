@@ -31,8 +31,6 @@ Once we have downloaded our raw data, we want to refine our maps.
 They often contain unused regions.
 For this reason, we start by creating a carved version that represents the mrc file cut around the PDB file.
 Then we resample our maps to have a given resolution for our dataset.
-
-
 We do this for all the maps in our dataset, so that we have regularly sampled densities around our PDB files.
 
 ## Loading our data
