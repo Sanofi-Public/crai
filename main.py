@@ -64,7 +64,7 @@ def validate(model, device, loss_fn, loader):
     losses = list()
     with torch.no_grad():
         for step, (name, input_grid, output_grid) in enumerate(loader):
-            if name is None:
+            if name == "failed":
                 continue
             if min(input_grid.squeeze().shape) < 16:
                 print(f"Grid too small for {name}")
@@ -128,12 +128,3 @@ if __name__ == '__main__':
     model.cpu()
     torch.save(model.state_dict(), model_path)
 
-    # Validate
-    # model = RMSDModel()
-    # model.load_state_dict(torch.load(model_path))
-    # model.to(device)
-    # ground_truth, prediction = validate(model=model, device=device, loss_fn=loss_fn, loader=val_loader)
-    # correlation = scipy.stats.linregress(ground_truth, prediction)
-    # print(correlation)
-    #
-    # evaluate_all(model, batch_size=1, save_name=model_name)

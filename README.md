@@ -9,7 +9,7 @@ TODO :
 conda create -n cria -y
 conda activate cria
 conda install -c schrodinger pymol
-conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+conda install pytorch pytorch-cuda=11.7 -c pytorch -c nvidia
 pip install wget requests pandas tqdm mrcfile scikit-learn scipy mmtf-python matplotlib tensorboard
 ```
 

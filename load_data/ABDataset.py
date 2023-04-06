@@ -36,7 +36,7 @@ class ABDataset(Dataset):
             return dirname, comp.mrc.data[None, ...], comp.target_tensor
         except:
             print(f"Buggy data loading for system : {dirname}")
-            return None, None, None
+            return ["failed"], [], []
 
 
 if __name__ == '__main__':
