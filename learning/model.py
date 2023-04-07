@@ -133,11 +133,19 @@ def unet_from_hparams(hparams, load_weights=False):
     return unet
 
 
+def bi_pred_head(x):
+    categorical_slices_x = x[..., :3, :, :, :]
+    regression_slices_x = x[..., 3:, :, :, :]
+    softm = nn.functional.softmax(categorical_slices_x, dim=1)
+    output = torch.cat([softm, regression_slices_x], dim=1)
+    return output
+
+
 class UnetModel(nn.Module):
     def __init__(self,
                  in_channels=1,
                  out_channels_decoder=32,
-                 out_channels_network=3,
+                 predict_mse=False,
                  model_depth=4,
                  num_feature_map=16, ):
         super(UnetModel, self).__init__()
@@ -149,12 +157,16 @@ class UnetModel(nn.Module):
                                     model_depth=model_depth,
                                     num_feat_maps=self.num_feat_maps)
         mid_channels = max(out_channels_decoder // 2, 5)
+        out_channels_network = 5 if predict_mse else 3
         self.conv3d_final = nn.Sequential(
             nn.Conv3d(in_channels=out_channels_decoder, out_channels=mid_channels, kernel_size=1),
             nn.ReLU(),
             nn.Conv3d(in_channels=mid_channels, out_channels=out_channels_network, kernel_size=1),
         )
-        self.final_act = partial(nn.functional.softmax, dim=1)
+        if predict_mse:
+            self.final_act = partial(nn.functional.softmax, dim=1)
+        else:
+            self.final_act = bi_pred_head
 
     def forward(self, x):
         mid, downsampling_features = self.encoder(x)

@@ -328,14 +328,15 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
-    # dirname = '7KDE_22820'  # Buggy creation
-    # datadir_name = "../data/pdb_em"
-    # pdb_name, mrc = dirname.split("_")
-    # sels = pdb_selections[pdb_name]
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-    # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
+    dirname = '7KDE_22820'  # Buggy creation
+    dirname = '7LO8_23464'
+    datadir_name = "../data/pdb_em"
+    pdb_name, mrc = dirname.split("_")
+    sels = pdb_selections[pdb_name]
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
-    process_database(overwrite=True)
+    # process_database(overwrite=True)
     # correct_db()
     # Succeeded on 1113 systems, 249 skipped, 0 failed
     # Skipped = ['3JCC_6543', '7DK5_30703', '7WWJ_32867', '3IY4_5109', '3J8Z_5990', '3IYW_5190', '7Z3A_14474',

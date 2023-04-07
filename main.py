@@ -87,7 +87,15 @@ def validate(model, device, loss_fn, loader):
 def local_loss_fn(x, y):
     # return weighted_ce_loss(x,y)
     # return weighted_dice_loss(x,y)
-    return weighted_dice_loss(x, y) + weighted_ce_loss(x, y)
+    categorical_slices_x = x[..., :3, :, :, :]
+    categorical_slices_y = y[..., :3, :, :, :]
+    loss = weighted_dice_loss(categorical_slices_x, categorical_slices_y) \
+           + weighted_ce_loss(categorical_slices_x, categorical_slices_y)
+    if x.shape[-4] > 3:
+        mse_slices_x = x[..., -2:, :, :, :]
+        mse_slices_y = y[..., -2:, :, :, :]
+        loss += torch.nn.functional.mse_loss(mse_slices_x, mse_slices_y)
+    return loss
 
 
 if __name__ == '__main__':
@@ -103,8 +111,8 @@ if __name__ == '__main__':
 
     # Setup learning
     data_root = "data/pdb_em"
-    csv_to_read = "data/final.csv"
-    # csv_to_read = "data/reduced_final.csv"
+    # csv_to_read = "data/final.csv"
+    csv_to_read = "data/reduced_final.csv"
     os.makedirs("saved_models", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     writer = SummaryWriter(log_dir=f"logs/{model_name}")
@@ -112,21 +120,26 @@ if __name__ == '__main__':
     gpu_number = args.gpu
     device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
 
+    # Setup data
+    # num_workers = 0
+    rotate = True
+    return_sdf = True
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    ab_dataset = ABDataset(data_root=data_root,
+                           csv_to_read=csv_to_read,
+                           rotate=rotate,
+                           return_sdf=return_sdf)
+    train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
+                                                        shuffle=True,
+                                                        num_workers=num_workers)
+
     # Learning hyperparameters
     n_epochs = 100
     loss_fn = local_loss_fn
     accumulated_batch = 5
-    model = UnetModel().to(device)
+    model = UnetModel(predict_mse=return_sdf).to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
-    # Setup data
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    ab_dataset = ABDataset(data_root=data_root,
-                           csv_to_read=csv_to_read)
-    train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
-                                                        shuffle=True,
-                                                        num_workers=num_workers)
     # Train
     train(model=model, device=device, loss_fn=loss_fn, loader=train_loader,
           optimizer=optimizer, writer=writer, n_epochs=n_epochs, val_loader=val_loader,

@@ -140,7 +140,7 @@ class Complex:
       because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None):
+    def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
         # First get the MRC data
         mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
 
@@ -163,12 +163,32 @@ class Complex:
         antigen_grid = np.tanh(antigen_grid)
         void_grid = np.maximum(0, 1 - antibody_grid - antigen_grid)
         target_tensor = np.concatenate((antibody_grid, antigen_grid, void_grid))
+        if return_sdf:
+            antibody_dists = self.sdf(antibody_grid)[None, ...]
+            antigen_dists = self.sdf(antigen_grid)[None, ...]
+            target_tensor = np.concatenate((target_tensor, antibody_dists, antigen_dists), axis=0)
 
         self.mrc = mrc
         self.target_tensor = target_tensor
 
         # self.save_mrc_lig()
         pass
+
+    @staticmethod
+    def sdf(grid):
+        """
+        Compute a signed distance function of the isolevel pseudo surface defined
+           as pixels comprised between 0.05 and 0.15
+        :param grid:
+        :return:
+        """
+        import scipy
+        grid = np.squeeze(grid)
+        filter_array = np.logical_or(grid < 0.05, grid > 0.15)
+        distances_to_surf = scipy.ndimage.distance_transform_edt(filter_array)
+        target_distance = np.tanh(distances_to_surf / 3)  # 6A is the right size ?
+        sdf = np.sign(grid - 0.1) * target_distance
+        return sdf.astype(np.float32)
 
 
 if __name__ == '__main__':
@@ -185,7 +205,8 @@ if __name__ == '__main__':
     #                pdb_name='3IXX',
     #                antibody_selection='chain G or chain H or chain I or chain J')
 
-    datadir_name = ".."
+    # datadir_name = ".."
+    datadir_name = "../data/pdb_em"
     dirname = '7LO8_23464'
 
     pdb_name, mrc_name = dirname.split("_")
@@ -195,9 +216,13 @@ if __name__ == '__main__':
     comp = Complex(mrc_path=mrc_path,
                    pdb_path=pdb_path,
                    pdb_name=pdb_name,
-                   antibody_selection='chain H or chain L')
+                   antibody_selection='chain H or chain L',
+                   return_sdf=True)
 
     target = comp.target_tensor
     comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antibody.mrc"), data=target[0], overwrite=True)
     comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antigen.mrc"), data=target[1], overwrite=True)
     comp.mrc.save(outname=os.path.join(datadir_name, dirname, "void.mrc"), data=target[2], overwrite=True)
+
+    array = Complex.sdf(target[0])
+    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "thresh.mrc"), data=array, overwrite=True)
