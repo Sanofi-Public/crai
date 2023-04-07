@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import torch
 from torch.utils.data import Subset, DataLoader
 
@@ -54,3 +55,20 @@ def get_split_dataloaders(dataset,
     valid_loader = DataLoader(dataset=valid_set, **kwargs)
     test_loader = DataLoader(dataset=test_set, **kwargs)
     return train_loader, valid_loader, test_loader
+
+
+def rotate_tensors(tensors):
+    """
+    There are 8 admissible SO(3) rotations, first a complete flip around an axis then a p4 in the plane
+    The Cayley diagram can be seen here : https://arxiv.org/abs/1804.04656
+    :param tensors: The tensors to rotate
+    :return:
+    """
+    assert isinstance(tensors, list)
+    flip_around_x = random.randint(0, 1)
+    rotate_in_plane = random.randint(0, 3)
+
+    flip_around_x = 1
+    tensors = [np.rot90(tensor, k=2 * flip_around_x, axes=(-3, -2)) for tensor in tensors]
+    tensors = [np.rot90(tensor, k=rotate_in_plane, axes=(-2, -1)) for tensor in tensors]
+    return tensors

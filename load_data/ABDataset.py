@@ -1,6 +1,8 @@
 import os
+import random
 import sys
 
+import numpy as np
 import pandas as pd
 from torch.utils.data.dataset import Dataset
 
@@ -9,15 +11,18 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from load_data.Complex import Complex
+from utils.learning_utils import rotate_tensors
 
 
 class ABDataset(Dataset):
 
     def __init__(self,
                  data_root="../data/pdb_em",
-                 csv_to_read="../data/final.csv"):
+                 csv_to_read="../data/final.csv",
+                 rotate=True):
         self.data_root = data_root
         self.df = pd.read_csv(csv_to_read)[["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
+        self.rotate = rotate
 
     def __len__(self):
         return len(self.df)
@@ -33,7 +38,11 @@ class ABDataset(Dataset):
                            pdb_path=pdb_path,
                            pdb_name=pdb_id,
                            antibody_selection=antibody_selection)
-            return dirname, comp.mrc.data[None, ...], comp.target_tensor
+            input_tensor = comp.mrc.data[None, ...]
+            target_tensor = comp.target_tensor
+            if self.rotate:
+                input_tensor, target_tensor = rotate_tensors([input_tensor, target_tensor])
+            return dirname, input_tensor, target_tensor
         except:
             print(f"Buggy data loading for system : {dirname}")
             return ["failed"], [], []
@@ -61,5 +70,7 @@ if __name__ == '__main__':
 
     dataset = ABDataset(data_root='../data/pdb_em', csv_to_read='../data/reduced_final.csv')
     res = dataset[3]
+    print(res[1].shape)
+    print(res[2].shape)
     a = 1
     # print(res)
