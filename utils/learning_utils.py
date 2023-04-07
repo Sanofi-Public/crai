@@ -68,7 +68,7 @@ def rotate_tensors(tensors):
     flip_around_x = random.randint(0, 1)
     rotate_in_plane = random.randint(0, 3)
 
-    flip_around_x = 1
     tensors = [np.rot90(tensor, k=2 * flip_around_x, axes=(-3, -2)) for tensor in tensors]
     tensors = [np.rot90(tensor, k=rotate_in_plane, axes=(-2, -1)) for tensor in tensors]
+    tensors = [np.ascontiguousarray(tensor) for tensor in tensors]
     return tensors

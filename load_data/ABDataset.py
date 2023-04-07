@@ -14,6 +14,18 @@ from load_data.Complex import Complex
 from utils.learning_utils import rotate_tensors
 
 
+def sdf(grid, thresh):
+    filter_array = np.zeros_like(data)
+    for coord in coords:
+        coord_array = ((coord - xyz_min) / self.voxel_size + (padding,) * 3).astype(int, casting='unsafe')
+        filter_array[tuple(coord_array)] += 1
+    filter_array = np.float_(1. - (filter_array > 0.))
+    filter_array = scipy.ndimage.distance_transform_edt(filter_array, sampling=self.voxel_size)
+    filter_array = np.array([filter_array < filter_cutoff]).astype(np.float32)
+    filter_array = np.reshape(filter_array, data.shape)
+    data = filter_array * data
+
+
 class ABDataset(Dataset):
 
     def __init__(self,
