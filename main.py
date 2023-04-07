@@ -37,7 +37,6 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
             output_grid = output_grid.to(device)
 
             prediction = model(input_grid)
-
             loss = loss_fn(prediction, output_grid)
             loss.backward()
 
@@ -48,8 +47,10 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
 
             if not step % 20:
                 step_total = len(loader) * epoch + step
-                print(
-                    f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
+                print("GT        : ", torch.mean(output_grid[0], dim=(1, 2, 3)).data)
+                print("predicted : ", torch.mean(prediction[0], dim=(1, 2, 3)).data)
+                eluded_time = time.time() - time_init
+                print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
                 writer.add_scalar('train_loss', loss.item(), step_total)
         if val_loader is not None:
             print("validation")
@@ -83,6 +84,12 @@ def validate(model, device, loss_fn, loader):
     return losses
 
 
+def local_loss_fn(x, y):
+    # return weighted_ce_loss(x,y)
+    # return weighted_dice_loss(x,y)
+    return weighted_dice_loss(x, y) + weighted_ce_loss(x, y)
+
+
 if __name__ == '__main__':
     import argparse
 
@@ -107,8 +114,7 @@ if __name__ == '__main__':
 
     # Learning hyperparameters
     n_epochs = 100
-    loss_fn = weighted_dice_loss
-    # loss_fn = weighted_CE_loss
+    loss_fn = local_loss_fn
     accumulated_batch = 5
     model = UnetModel().to(device)
     optimizer = torch.optim.Adam(model.parameters())
@@ -127,4 +133,3 @@ if __name__ == '__main__':
           accumulated_batch=accumulated_batch)
     model.cpu()
     torch.save(model.state_dict(), model_path)
-

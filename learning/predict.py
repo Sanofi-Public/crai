@@ -10,8 +10,10 @@ from utils import mrc_utils
 from learning.model import UnetModel
 
 
-def predict(mrc_path, model, out_name=None, overwrite=True):
+def predict(mrc_path, model, process=True, out_name=None, overwrite=True):
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+    if process:
+        mrc = mrc.resample().normalize()
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     with torch.no_grad():
         out = model(mrc_grid)[0].numpy()
@@ -35,13 +37,16 @@ if __name__ == '__main__':
     #                pdb_name='3IXX',
     #                antibody_selection='chain G or chain H or chain I or chain J')
 
-    datadir_name = ".."
+    datadir_name = "../data/pdb_em"
+    # datadir_name = ".."
+    # dirname = '6NQD_0485'
     dirname = '7V3L_31683'
     # dirname = '7LO8_23464'
     pdb_name, mrc_name = dirname.split("_")
-    mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
+    # mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
+    mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz")
 
-    model_name = 'first'
+    model_name = 'second'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     model = UnetModel()
     model.load_state_dict(torch.load(model_path))
