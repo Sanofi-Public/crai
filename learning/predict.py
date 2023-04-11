@@ -21,6 +21,7 @@ def predict(mrc_path, model, process=True, out_name=None, overwrite=True):
         mrc.save(data=out[0], outname=f"{out_name}_antibody.mrc", overwrite=overwrite)
         mrc.save(data=out[1], outname=f"{out_name}_antigen.mrc", overwrite=overwrite)
         mrc.save(data=out[2], outname=f"{out_name}_void.mrc", overwrite=overwrite)
+        mrc.save(data=out[3], outname=f"{out_name}_antibody_dist.mrc", overwrite=overwrite)
 
 
 if __name__ == '__main__':
@@ -39,15 +40,16 @@ if __name__ == '__main__':
 
     datadir_name = "../data/pdb_em"
     # datadir_name = ".."
-    # dirname = '6NQD_0485'
-    dirname = '7V3L_31683'
-    # dirname = '7LO8_23464'
+    # dirname = '7V3L_31683' # present in train set
+    # dirname = '7LO8_23464'  # this is test set
+    dirname = '6NQD_0485'
     pdb_name, mrc_name = dirname.split("_")
-    # mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
-    mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz")
+    mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
+    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
 
-    model_name = 'second'
+    model_name = 'fourth'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
-    model = UnetModel()
+    model = UnetModel(predict_mse=True)
     model.load_state_dict(torch.load(model_path))
-    predict(mrc_path=mrc_path, model=model, out_name=os.path.join(datadir_name, dirname, model_name))
+    dump_name = f"{model_name}_{'small' if small else 'large'}"
+    predict(mrc_path=mrc_path, model=model, out_name=os.path.join(datadir_name, dirname, dump_name))

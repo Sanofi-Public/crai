@@ -164,9 +164,9 @@ class UnetModel(nn.Module):
             nn.Conv3d(in_channels=mid_channels, out_channels=out_channels_network, kernel_size=1),
         )
         if predict_mse:
-            self.final_act = partial(nn.functional.softmax, dim=1)
-        else:
             self.final_act = bi_pred_head
+        else:
+            self.final_act = partial(nn.functional.softmax, dim=1)
 
     def forward(self, x):
         mid, downsampling_features = self.encoder(x)
