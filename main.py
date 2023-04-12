@@ -27,7 +27,7 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
 
     for epoch in range(n_epochs):
         for step, (name, input_grid, output_grid) in enumerate(loader):
-            if name[0] == 'failed':
+            if name[0] == 'failed' or isinstance(input_grid, list):
                 continue
             input_grid = input_grid.to(device)
             output_grid = output_grid.to(device)
@@ -54,6 +54,11 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
             mean_val_loss = np.mean(losses)
             print(f'Validation loss ={mean_val_loss}')
             writer.add_scalar('loss_val', mean_val_loss, epoch)
+        if epoch == 99:
+            model.cpu()
+            model_path = os.path.join("saved_models", 'fifth_100.pth')
+            torch.save(model.state_dict(), model_path)
+            model.to(device)
 
 
 def validate(model, device, loss_fn, loader):
@@ -61,10 +66,7 @@ def validate(model, device, loss_fn, loader):
     losses = list()
     with torch.no_grad():
         for step, (name, input_grid, output_grid) in enumerate(loader):
-            if name == "failed":
-                continue
-            if min(input_grid.squeeze().shape) < 16:
-                print(f"Grid too small for {name}")
+            if name[0] == 'failed' or isinstance(input_grid, list):
                 continue
 
             input_grid = input_grid.to(device)
@@ -85,7 +87,8 @@ def local_loss_fn(x, y):
     # return weighted_dice_loss(x,y)
     categorical_slices_x = x[..., :3, :, :, :]
     categorical_slices_y = y[..., :3, :, :, :]
-    weight = torch.mean(categorical_slices_y, dim=(-3, -2, -1))
+    weight = 1 / (torch.mean(categorical_slices_y, dim=(-3, -2, -1)) + 1e-4)
+    weight = weight / torch.sum(weight)
     weight = weight[..., None, None, None]
     loss = weighted_dice_loss(categorical_slices_x, categorical_slices_y) \
            + weighted_ce_loss(categorical_slices_x, categorical_slices_y, weight=weight)
