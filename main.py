@@ -27,11 +27,7 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
 
     for epoch in range(n_epochs):
         for step, (name, input_grid, output_grid) in enumerate(loader):
-            if name is None:
-                continue
-
-            if min(input_grid.squeeze().shape) < 16:
-                print(f"Grid too small for {name}")
+            if name[0] == 'failed':
                 continue
             input_grid = input_grid.to(device)
             output_grid = output_grid.to(device)
@@ -72,7 +68,7 @@ def validate(model, device, loss_fn, loader):
                 continue
 
             input_grid = input_grid.to(device)
-            output_grid = output_grid.to(device)[:, None]
+            output_grid = output_grid.to(device)
 
             prediction = model(input_grid)
             loss = loss_fn(prediction, output_grid)
@@ -89,8 +85,10 @@ def local_loss_fn(x, y):
     # return weighted_dice_loss(x,y)
     categorical_slices_x = x[..., :3, :, :, :]
     categorical_slices_y = y[..., :3, :, :, :]
+    weight = torch.mean(categorical_slices_y, dim=(-3, -2, -1))
+    weight = weight[..., None, None, None]
     loss = weighted_dice_loss(categorical_slices_x, categorical_slices_y) \
-           + weighted_ce_loss(categorical_slices_x, categorical_slices_y)
+           + weighted_ce_loss(categorical_slices_x, categorical_slices_y, weight=weight)
     if x.shape[-4] > 3:
         mse_slices_x = x[..., -2:, :, :, :]
         mse_slices_y = y[..., -2:, :, :, :]
@@ -102,7 +100,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument("-m", "--model_name", default='large_mixed')
+    parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
@@ -111,8 +109,8 @@ if __name__ == '__main__':
 
     # Setup learning
     data_root = "data/pdb_em"
-    # csv_to_read = "data/final.csv"
-    csv_to_read = "data/reduced_final.csv"
+    csv_to_read = "data/final.csv"
+    # csv_to_read = "data/reduced_final.csv"
     os.makedirs("saved_models", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     writer = SummaryWriter(log_dir=f"logs/{model_name}")
@@ -121,9 +119,9 @@ if __name__ == '__main__':
     device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
 
     # Setup data
-    # num_workers = 0
     rotate = True
     return_sdf = True
+    # num_workers = 0
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
