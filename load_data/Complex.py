@@ -201,7 +201,8 @@ if __name__ == '__main__':
     # print(systems)
 
     # comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
-    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
+    # #               pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
+    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.cif',
     #                pdb_name='3IXX',
     #                antibody_selection='chain G or chain H or chain I or chain J')
 
@@ -210,7 +211,8 @@ if __name__ == '__main__':
     dirname = '7LO8_23464'
 
     pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
 
     comp = Complex(mrc_path=mrc_path,

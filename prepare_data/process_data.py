@@ -37,7 +37,8 @@ def do_one(dirname, datadir_name):
     :return:
     """
     pdb_name, mrc = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
     mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
     carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
     resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
@@ -182,7 +183,8 @@ def filter_copies(pdb_path, pdb_selections):
 
 def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
     pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz")
 
     try:
