@@ -75,6 +75,10 @@ def download_one_mmtf(pdb_id='1ycr', outdir='.', overwrite=False):
     mmtf_outname = os.path.join(outdir, f'{pdb_id}.mmtf.gz')
     download_with_overwrite(url=mmtf_url, outname=mmtf_outname, overwrite=overwrite)
 
+def download_one_mmtf(pdb_id='1ycr', outdir='.', overwrite=False):
+    mmtf_url = f"https://mmtf.rcsb.org/v1.0/full/{pdb_id}.mmtf.gz"
+    mmtf_outname = os.path.join(outdir, f'{pdb_id}.mmtf.gz')
+    download_with_overwrite(url=mmtf_url, outname=mmtf_outname, overwrite=overwrite)
 
 def get_database(mapping, root='../data/pdb_em', overwrite=False):
     """
