@@ -8,6 +8,7 @@ import sys
 
 import numpy as np
 from sklearn.gaussian_process.kernels import RBF
+import pymol2
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -133,6 +134,25 @@ def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min
                                  sigma=sigma)
 
 
+def get_rmsd_pairsel(pdb_path, sel1, sel2):
+    """
+    The goal is to remove asymetric units by comparing their coordinates
+    :param pdb_path:
+    :param sel1:
+    :param sel2:
+    :return: 1 if they are copies 0 otherwise
+    """
+    with pymol2.PyMOL() as p:
+        p.cmd.load(pdb_path, 'toto')
+        sel1 = f'toto  and ({sel1})'
+        sel2 = f'toto  and ({sel2})'
+        p.cmd.extract("sel1", sel1)
+        p.cmd.extract("sel2", sel2)
+        test = p.cmd.align(mobile="sel2", target="sel1")
+        rmsd = test[0]
+        return rmsd
+
+
 class Complex:
     """
     Object containing a protein and a density
@@ -140,16 +160,25 @@ class Complex:
       because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
+    def __init__(self, mrc_path, pdb_name, pdb_path, antibody_selection=None, return_grid=True, return_sdf=False):
         # First get the MRC data
-        mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+        self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+        if return_grid:
+            self.target_tensor = self.get_target_grid(pdb_name=pdb_name,
+                                                      pdb_path=pdb_path,
+                                                      antibody_selection=antibody_selection,
+                                                      return_sdf=return_sdf)
+        else:
+            self.target_tensor = self.get_objects(pdb_name=pdb_name,
+                                                  pdb_path=pdb_path,
+                                                  antibody_selection=antibody_selection)
 
-        # Then get the corresponding empty grid, this follows 'resample' with origin offset
-        bins = [np.arange(start=mrc.origin[i],
-                          stop=(mrc.origin + mrc.data.shape * mrc.voxel_size)[i],
-                          step=mrc.voxel_size[i])
+    def get_target_grid(self, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
+        # Get the corresponding empty grid, this follows 'resample' with origin offset
+        bins = [np.arange(start=self.mrc.origin[i],
+                          stop=(self.mrc.origin + self.mrc.data.shape * self.mrc.voxel_size)[i],
+                          step=self.mrc.voxel_size[i])
                 for i in range(3)]
-
         # Now let's get the relevant coordinates to embed in this grid
         antibody_coords = pymol_utils.get_protein_coords(pdb_name=pdb_name, pdb_path=pdb_path,
                                                          pymol_selection=antibody_selection)
@@ -167,12 +196,8 @@ class Complex:
             antibody_dists = self.sdf(antibody_grid)[None, ...]
             antigen_dists = self.sdf(antigen_grid)[None, ...]
             target_tensor = np.concatenate((target_tensor, antibody_dists, antigen_dists), axis=0)
-
-        self.mrc = mrc
         self.target_tensor = target_tensor
-
-        # self.save_mrc_lig()
-        pass
+        return target_tensor
 
     @staticmethod
     def sdf(grid):
@@ -190,20 +215,13 @@ class Complex:
         sdf = np.sign(grid - 0.1) * target_distance
         return sdf.astype(np.float32)
 
+    def get_objects(self, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
+        get_rmsd_pairsel(pdb_name,)
+        return 0
+
 
 if __name__ == '__main__':
     pass
-    # dataset = ABDataset()
-    # point = dataset[17]
-    # print(point)
-
-    # systems = process_csv('../data/reduced_clean.csv')
-    # print(systems)
-
-    # comp = Complex(mrc='../data/pdb_em/3IXX_5103/5103_carved.mrc',
-    #                pdb_path='../data/pdb_em/3IXX_5103/3IXX.mmtf.gz',
-    #                pdb_name='3IXX',
-    #                antibody_selection='chain G or chain H or chain I or chain J')
 
     # datadir_name = ".."
     datadir_name = "../data/pdb_em"
@@ -219,10 +237,12 @@ if __name__ == '__main__':
                    antibody_selection='chain H or chain L',
                    return_sdf=True)
 
-    target = comp.target_tensor
-    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antibody.mrc"), data=target[0], overwrite=True)
-    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antigen.mrc"), data=target[1], overwrite=True)
-    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "void.mrc"), data=target[2], overwrite=True)
+    # We get the right grid supervision :
+    # target = comp.target_tensor
+    # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antibody.mrc"), data=target[0], overwrite=True)
+    # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antigen.mrc"), data=target[1], overwrite=True)
+    # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "void.mrc"), data=target[2], overwrite=True)
 
-    array = Complex.sdf(target[0])
-    comp.mrc.save(outname=os.path.join(datadir_name, dirname, "thresh.mrc"), data=array, overwrite=True)
+    # We get the right SDF supervision :
+    # array = Complex.sdf(target[0])
+    # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "thresh.mrc"), data=array, overwrite=True)

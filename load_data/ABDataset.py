@@ -32,7 +32,8 @@ class ABDataset(Dataset):
     def __getitem__(self, item):
         row = self.df.loc[item].values
         pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
-        pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.mmtf.gz')
+        pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
+        # pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.mmtf.gz')
         mrc_path = os.path.join(self.data_root, dirname, f'resampled_{local_ab_id}_2.mrc')
 
         try:

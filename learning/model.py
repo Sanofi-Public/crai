@@ -156,8 +156,9 @@ class UnetModel(nn.Module):
         self.decoder = DecoderBlock(out_channels=out_channels_decoder,
                                     model_depth=model_depth,
                                     num_feat_maps=self.num_feat_maps)
-        mid_channels = max(out_channels_decoder // 2, 5)
         out_channels_network = 5 if predict_mse else 3
+
+        mid_channels = max(out_channels_decoder // 2, 5)
         self.conv3d_final = nn.Sequential(
             nn.Conv3d(in_channels=out_channels_decoder, out_channels=mid_channels, kernel_size=1),
             nn.ReLU(),

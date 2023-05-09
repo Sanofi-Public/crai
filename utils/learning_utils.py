@@ -24,11 +24,11 @@ def weighted_dice_loss(output, target, weight=None):
     :param target:
     :return:
     """
-    grid_loss_values = (2 * target * output + 0.01) / (target + output + 0.01)
+    grid_loss_values = 1 - (2 * target * output + 0.01) / (target + output + 0.01)
     if weight is None:
-        return -torch.mean(grid_loss_values)
+        return torch.mean(grid_loss_values)
     expanded = weight.expand_as(target)
-    return -torch.mean(expanded * grid_loss_values)
+    return torch.mean(expanded * grid_loss_values)
 
 
 def get_split_dataloaders(dataset,

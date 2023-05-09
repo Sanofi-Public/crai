@@ -9,12 +9,10 @@ import os
 import sys
 
 from collections import defaultdict
-import csv
 import multiprocessing
-import numpy as np
 import pandas as pd
+import pymol2
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -149,16 +147,15 @@ def get_rmsd_pairsel(pdb_path, sel1, sel2):
     :param sel2:
     :return: 1 if they are copies 0 otherwise
     """
-    from pymol import cmd
-    cmd.reinitialize()
-    cmd.load(pdb_path, 'toto')
-    sel1 = f'toto  and ({sel1})'
-    sel2 = f'toto  and ({sel2})'
-    cmd.extract("sel1", sel1)
-    cmd.extract("sel2", sel2)
-    test = cmd.align(mobile="sel2", target="sel1")
-    rmsd = test[0]
-    return rmsd
+    with pymol2.PyMOL() as p:
+        p.cmd.load(pdb_path, 'toto')
+        sel1 = f'toto  and ({sel1})'
+        sel2 = f'toto  and ({sel2})'
+        p.cmd.extract("sel1", sel1)
+        p.cmd.extract("sel2", sel2)
+        test = p.cmd.align(mobile="sel2", target="sel1")
+        rmsd = test[0]
+        return rmsd
 
 
 def filter_copies(pdb_path, pdb_selections):
@@ -168,7 +165,9 @@ def filter_copies(pdb_path, pdb_selections):
     for other in pdb_selections:
         found = False
         for kept in list_to_keep:
-            rmsd = get_rmsd_pairsel(pdb_path=pdb_path, sel1=other[0], sel2=kept[0])
+            rmsd = get_rmsd_pairsel(pdb_path=pdb_path,
+                                    sel1=other[0],
+                                    sel2=kept[0])
             # print(rmsd)
             # We choose a low cutoff for RMSD, for some sytems (5A1Z_2996) the RMSD can be
             # very small (0.95) despite lacking symmetry
@@ -177,6 +176,8 @@ def filter_copies(pdb_path, pdb_selections):
                 break
         if not found:
             list_to_keep.append(other)
+
+    print(list_to_keep)
     return list_to_keep
 
 
@@ -200,7 +201,6 @@ def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
         for antibody in filtered:
             antibody_selection, antigen_selection, \
                 heavy_chain, light_chain, antigen, resolution = antibody
-            # carved_name = os.path.join(datadir_name, dirname, f"carved_{local_ab_id}.mrc")
             resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
             angstrom_expand = 10
             expanded_selection = f"(({antibody_selection}) expand {angstrom_expand}) or {antigen_selection}"
@@ -251,7 +251,8 @@ def process_database(datadir_name="../data/pdb_em",
     else:
         files_list = os.listdir(datadir_name)
         l = multiprocessing.Lock()
-        pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=os.cpu_count() - 15)
+        nprocs = max(4, os.cpu_count() - 15)
+        pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=nprocs)
         njobs = len(files_list)
         inputs = zip(files_list,
                      [datadir_name, ] * njobs,
@@ -318,7 +319,7 @@ if __name__ == '__main__':
     # dirname = '6V4N_21042'  # goes from 4 to one, there are indeed isomorphic, max_same = 0.004
     # dirname = '7K7I_22700'  # goes from 5 to one, there are indeed isomorphic, max_same = 0.27
     # dirname = '7KDE_22820'  # Goes from 2*3 to 2, with a C3 symmetry and 2 different AB
-    #                               in this example : max_same = 0.58 min_diff=1.28
+    #                             # in this example : max_same = 0.58 min_diff=1.28
     # dirname = '6USF_20863'  # keeps 2 with rmsd=3, though written as redundant on the PDB
 
     # datadir_name = ".."

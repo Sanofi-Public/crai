@@ -9,6 +9,7 @@ def get_protein_coords(pdb_path, pdb_name=None, pymol_selection=None, remove_hyd
     pdb_name = 'toto' if pdb_name is None else pdb_name
 
     # Load the protein, prepare the general selection
+    cmd.feedback("disable", "all", "everything")
     cmd.load(pdb_path, pdb_name)
     if remove_hydrogen:
         cmd.remove('hydrogens')

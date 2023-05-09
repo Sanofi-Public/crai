@@ -112,8 +112,8 @@ if __name__ == '__main__':
 
     # Setup learning
     data_root = "data/pdb_em"
-    csv_to_read = "data/final.csv"
-    # csv_to_read = "data/reduced_final.csv"
+    # csv_to_read = "data/final.csv"
+    csv_to_read = "data/reduced_final.csv"
     os.makedirs("saved_models", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     writer = SummaryWriter(log_dir=f"logs/{model_name}")
@@ -124,8 +124,8 @@ if __name__ == '__main__':
     # Setup data
     rotate = True
     return_sdf = True
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    num_workers = 0
+    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
@@ -135,10 +135,13 @@ if __name__ == '__main__':
                                                         num_workers=num_workers)
 
     # Learning hyperparameters
-    n_epochs = 100
+    n_epochs = 700
     loss_fn = local_loss_fn
     accumulated_batch = 5
-    model = UnetModel(predict_mse=return_sdf).to(device)
+    model = UnetModel(predict_mse=return_sdf,
+                      out_channels_decoder=128,
+                      num_feature_map=24,)
+    model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
     # Train
