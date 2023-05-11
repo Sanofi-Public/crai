@@ -140,10 +140,11 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     return pdb_selections
 
 
-def get_rmsd_pairsel(pdb_path, sel1, sel2):
+def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='polymer.protein'):
     """
     The goal is to remove asymetric units by comparing their coordinates
-    :param pdb_path:
+    :param pdb_path1:
+    :param pdb_path2: if None, just use one PDB
     :param sel1:
     :param sel2:
     :return: 1 if they are copies 0 otherwise
@@ -151,6 +152,12 @@ def get_rmsd_pairsel(pdb_path, sel1, sel2):
     with pymol2.PyMOL() as p:
         p.cmd.load(pdb_path, 'toto')
         sel1 = f'toto  and ({sel1})'
+
+        if pdb_path2 is None:
+            sel2 = f'toto  and ({sel2})'
+        if pdb_path2 is not None:
+            p.cmd.load(pdb_path2, 'titi')
+            sel2 = f'titi  and ({sel2})'
         sel2 = f'toto  and ({sel2})'
         p.cmd.extract("sel1", sel1)
         p.cmd.extract("sel2", sel2)
