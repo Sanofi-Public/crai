@@ -76,6 +76,12 @@ def download_one_mmtf(pdb_id='1ycr', outdir='.', overwrite=False):
     download_with_overwrite(url=mmtf_url, outname=mmtf_outname, overwrite=overwrite)
 
 
+def download_one_cif(pdb_id='1ycr', outdir='.', overwrite=False):
+    cif_url = f'http://www.pdb.org/pdb/download/downloadFile.do?fileFormat=cif&structureId={pdb_id}'
+    cif_outname = os.path.join(outdir, f'{pdb_id}.cif')
+    download_with_overwrite(url=cif_url, outname=cif_outname, overwrite=overwrite)
+
+
 def get_database(mapping, root='../data/pdb_em', overwrite=False):
     """
     Builds a database with flat files
@@ -89,8 +95,9 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
         em_id = em[4:]
         dir_to_build = os.path.join(root, f'{pdb}_{em_id}')
         os.makedirs(dir_to_build, exist_ok=True)
-        download_one_mmtf(pdb_id=pdb, outdir=dir_to_build, overwrite=overwrite)
-        download_one_mrc(emd_id=em_id, outdir=dir_to_build, overwrite=overwrite)
+        # download_one_mmtf(pdb_id=pdb, outdir=dir_to_build, overwrite=overwrite)
+        download_one_cif(pdb_id=pdb, outdir=dir_to_build, overwrite=overwrite)
+        # download_one_mrc(emd_id=em_id, outdir=dir_to_build, overwrite=overwrite)
 
 
 if __name__ == '__main__':

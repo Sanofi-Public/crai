@@ -290,7 +290,8 @@ if __name__ == '__main__':
     dirname = '7LO8_23464'
 
     pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
 
     # comp = Complex(mrc_path=mrc_path,

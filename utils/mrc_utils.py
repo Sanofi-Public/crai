@@ -260,7 +260,8 @@ if __name__ == '__main__':
     dirname = "7V3L_31683"
 
     pdb_name, mrc = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     map_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map")
     aligned_name = os.path.join(datadir_name, dirname, f"aligned.mrc")
     carved_name = os.path.join(datadir_name, dirname, f"carved.mrc")
