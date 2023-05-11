@@ -134,23 +134,86 @@ def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min
                                  sigma=sigma)
 
 
-def get_rmsd_pairsel(pdb_path, sel1, sel2):
+# def get_rmsd_pairsel(pdb_path1, pdb_path2=None, sel1='polymer.protein', sel2='polymer.protein'):
+#     """
+#     The goal is to remove asymetric units by comparing their coordinates
+#     :param pdb_path1:
+#     :param pdb_path2: if None, just use one PDB
+#     :param sel1:
+#     :param sel2:
+#     :return: 1 if they are copies 0 otherwise
+#     """
+#     # extract toto, 7LO8 and (chain H or chain L)
+#     # extract titi, 5A1Z and (chain I or chain J)
+#     with pymol2.PyMOL() as p:
+#         p.cmd.load(pdb_path1, 'toto')
+#         sel1 = f'toto  and ({sel1})'
+#         if pdb_path2 is None:
+#             sel2 = f'toto  and ({sel2})'
+#         if pdb_path2 is not None:
+#             p.cmd.load(pdb_path2, 'titi')
+#             sel2 = f'titi  and ({sel2})'
+#         p.cmd.remove('hydrogens')
+#         p.cmd.extract("sel1", sel1)
+#         p.cmd.extract("sel2", sel2)
+#
+#         coords2 = p.cmd.get_coords("sel2")
+#
+#         test = p.cmd.align(mobile="sel2", target="sel1")
+#         rmsd = test[0]
+#         transformation_matrix = p.cmd.get_object_matrix('sel2')
+#         transformation_matrix = np.asarray(transformation_matrix).reshape((4, 4))
+#         rot = transformation_matrix[:3, :3]
+#         translation = transformation_matrix[:3, 3]
+#
+#         rotated = np.matmul(rot, coords2.T)
+#         translated = rotated + translation[:, None]
+#         new_coords = translated.T
+#         new_com2 = new_coords.mean(axis=0)
+#
+#         rot_coords2 = p.cmd.get_coords("sel2")
+#         rot_com2 = rot_coords2.mean(axis=0)
+#         return rmsd
+
+def template_align(pdb_path_ref, pdb_path, sel='polymer.protein'):
     """
-    The goal is to remove asymetric units by comparing their coordinates
+    We want to get the transformation to insert the template at the right spot.
+    Pymol "align" returns the solid transform as R (x + t), so to avoid getting huge translations (centering first)
+       we have to look align the template onto the query, so that it outputs the translation to reach the com
+       and the right rotation.
+    Therefore, the returned matrix has columns that transform the templates and the largest weight should be
+    on the last row
+
+    :param pdb_path_ref:
     :param pdb_path:
-    :param sel1:
-    :param sel2:
+    :param sel:
     :return: 1 if they are copies 0 otherwise
     """
     with pymol2.PyMOL() as p:
-        p.cmd.load(pdb_path, 'toto')
-        sel1 = f'toto  and ({sel1})'
-        sel2 = f'toto  and ({sel2})'
-        p.cmd.extract("sel1", sel1)
-        p.cmd.extract("sel2", sel2)
-        test = p.cmd.align(mobile="sel2", target="sel1")
+        p.cmd.load(pdb_path_ref, 'ref')
+        p.cmd.load(pdb_path, 'in_pdb')
+        sel = f'in_pdb and ({sel})'
+        p.cmd.extract("to_align", sel)
+        coords_ref = p.cmd.get_coords("ref")
+
+        # Now perform the alignment. The com of the aligned template is the object detection objective
+        test = p.cmd.align(mobile="ref", target="to_align")
         rmsd = test[0]
-        return rmsd
+        rot_com = p.cmd.get_coords("ref").mean(axis=0)
+
+        # We retrieve the parameters of the transformation, notably the rotation
+        transformation_matrix = p.cmd.get_object_matrix('ref')
+        transformation_matrix = np.asarray(transformation_matrix).reshape((4, 4))
+        rotation = transformation_matrix[:3, :3]
+
+        # # We can retrieve the translation and make the operations by hand to check everything is working fine
+        # # We can compare the manual and automatic com computations
+        # translation = transformation_matrix[:3, 3]
+        # rotated = np.matmul(rot, coords_ref.T)
+        # translated = rotated + translation[:, None]
+        # new_coords = translated.T
+        # new_com = new_coords.mean(axis=0)
+        return rmsd, rot_com, rotation
 
 
 class Complex:
@@ -169,9 +232,12 @@ class Complex:
                                                       antibody_selection=antibody_selection,
                                                       return_sdf=return_sdf)
         else:
-            self.target_tensor = self.get_objects(pdb_name=pdb_name,
-                                                  pdb_path=pdb_path,
-                                                  antibody_selection=antibody_selection)
+            ref_path = '../prepare_data/cropped.pdb'
+            rmsd, rot_com, rotation = template_align(pdb_path_ref=ref_path, sel=antibody_selection, pdb_path=pdb_path)
+            if rmsd > 5:
+                raise ValueError("The RMSD between template and query is suspiciously high")
+            self.com = rot_com
+            self.rotation = rotation
 
     def get_target_grid(self, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
         # Get the corresponding empty grid, this follows 'resample' with origin offset
@@ -215,10 +281,6 @@ class Complex:
         sdf = np.sign(grid - 0.1) * target_distance
         return sdf.astype(np.float32)
 
-    def get_objects(self, pdb_name, pdb_path, antibody_selection=None, return_sdf=False):
-        get_rmsd_pairsel(pdb_name,)
-        return 0
-
 
 if __name__ == '__main__':
     pass
@@ -231,11 +293,11 @@ if __name__ == '__main__':
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
 
-    comp = Complex(mrc_path=mrc_path,
-                   pdb_path=pdb_path,
-                   pdb_name=pdb_name,
-                   antibody_selection='chain H or chain L',
-                   return_sdf=True)
+    # comp = Complex(mrc_path=mrc_path,
+    #                pdb_path=pdb_path,
+    #                pdb_name=pdb_name,
+    #                antibody_selection='chain H or chain L',
+    #                return_sdf=True)
 
     # We get the right grid supervision :
     # target = comp.target_tensor
@@ -246,3 +308,20 @@ if __name__ == '__main__':
     # We get the right SDF supervision :
     # array = Complex.sdf(target[0])
     # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "thresh.mrc"), data=array, overwrite=True)
+
+    # Now for the object detection
+    antibody_selection = 'chain H or chain L'
+    pdb_path = '../prepare_data/rotated.pdb'
+    # ref_path = '../prepare_data/aligned.pdb'
+    ref_path = '../prepare_data/cropped.pdb'
+    template_align(pdb_path_ref=ref_path, sel=antibody_selection, pdb_path=pdb_path)
+
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+    mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
+    comp_coords = Complex(mrc_path=mrc_path,
+                          pdb_path=pdb_path,
+                          pdb_name=pdb_name,
+                          antibody_selection='chain H or chain L',
+                          return_grid=False)
+
+

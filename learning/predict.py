@@ -7,7 +7,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from utils import mrc_utils
-from learning.model import UnetModel
+from learning.Unet import UnetModel
 
 
 def predict(mrc_path, model, process=True, out_name=None, overwrite=True):

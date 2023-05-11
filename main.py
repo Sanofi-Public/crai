@@ -18,7 +18,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, ''))
 
 from load_data.ABDataset import ABDataset
-from learning.model import UnetModel
+from learning.Unet import UnetModel
 from utils.learning_utils import weighted_dice_loss, weighted_ce_loss, get_split_dataloaders
 
 
