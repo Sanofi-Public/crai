@@ -1,8 +1,6 @@
 import os
-import random
 import sys
 
-import numpy as np
 import pandas as pd
 from torch.utils.data.dataset import Dataset
 
@@ -11,7 +9,6 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from load_data.Complex import Complex
-from utils.learning_utils import rotate_tensors
 
 
 class ABDataset(Dataset):
@@ -41,11 +38,10 @@ class ABDataset(Dataset):
             comp = Complex(mrc_path=mrc_path,
                            pdb_path=pdb_path,
                            antibody_selection=antibody_selection,
+                           rotate=self.rotate,
                            return_sdf=self.return_sdf)
-            input_tensor = comp.mrc.data[None, ...]
+            input_tensor = comp.input_tensor
             target_tensor = comp.target_tensor
-            if self.rotate:
-                input_tensor, target_tensor = rotate_tensors([input_tensor, target_tensor])
             return dirname, input_tensor, target_tensor
 
 

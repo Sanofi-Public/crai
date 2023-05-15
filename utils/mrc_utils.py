@@ -11,6 +11,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from utils.pymol_utils import get_protein_coords
+from utils.learning_utils import Rotor
 
 
 def load_mrc(mrc, mode='r'):
@@ -146,8 +147,7 @@ class MRCGrid:
             return
 
         # Get the bounds from the pdb
-        pdb_name = os.path.basename(pdb_path).split('.')[0]
-        coords = get_protein_coords(pdb_path=pdb_path, pdb_name=pdb_name, pymol_selection=pymol_sel)
+        coords = get_protein_coords(pdb_path=pdb_path, pymol_selection=pymol_sel)
         xyz_min = coords.min(axis=0) - margin
         xyz_max = coords.max(axis=0) + margin
 
@@ -228,6 +228,23 @@ class MRCGrid:
             resampled_mrc.save(outname=out_name, overwrite=overwrite)
         return resampled_mrc
 
+    def rotate(self, rotate_around_z=None, rotate_in_plane=None):
+        """
+        Rotate the MRC data around
+        :param rotate_around_z:
+        :param rotate_in_plane:
+        :return:
+        """
+        rotor = Rotor(rotate_around_z=rotate_around_z, rotate_in_plane=rotate_in_plane)
+
+        new_data, new_origin = rotor.rotate_around_origin(tensor=self.data,
+                                                          origin=self.origin,
+                                                          voxel_size=self.voxel_size)
+        rotated_mrc = MRCGrid(data=new_data,
+                              origin=new_origin,
+                              voxel_size=self.voxel_size)
+        return rotated_mrc
+
     def save(self, outname, data=None, overwrite=False):
         data = self.data if data is None else data
         save_canonical_mrc(outname=outname,
@@ -250,24 +267,28 @@ if __name__ == '__main__':
     # 7MHZ_23837
     # 7F3Q_31434
 
-    datadir_name = ".."
+    # datadir_name = ".."
     # datadir_name = "data/pdb_em_large/"
-    # datadir_name = "data/pdb_em/"
+    datadir_name = "../data/pdb_em/"
 
     # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "3J3O_5291"  # large offset between pdb and cryoem
-    dirname = "7V3L_31683"
+    dirname = "6PZY_20540"
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     map_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map")
     aligned_name = os.path.join(datadir_name, dirname, f"aligned.mrc")
     carved_name = os.path.join(datadir_name, dirname, f"carved.mrc")
-    resampled_name = os.path.join(datadir_name, dirname, f"resampled_3.mrc")
+    resampled_name = os.path.join(datadir_name, dirname, f"resampled_0_2.mrc")
+    rotated_name = os.path.join(datadir_name, dirname, f"rotated.mrc")
     mrc = MRCGrid.from_mrc(mrc_file=map_path)
     mrc.save(outname=aligned_name, overwrite=True)
-    carved_mrc = mrc.carve(pdb_path=pdb_path, out_name=carved_name, overwrite=True, padding=4, filter_cutoff=2)
+    carved_mrc = mrc.carve(pdb_path=pdb_path, out_name=carved_name, pymol_sel='chain C or chain D',
+                           overwrite=True, padding=4, filter_cutoff=2)
     carved_mrc.normalize()
-    carved_mrc.resample(out_name=resampled_name, new_voxel_size=3, overwrite=True)
+    resampled_mrc = carved_mrc.resample(out_name=resampled_name, new_voxel_size=2, overwrite=True)
+    rotated_mrc = resampled_mrc.rotate(rotate_around_z=1, rotate_in_plane=1)
+    rotated_mrc.save(outname='../data/pdb_em/6PZY_20540/rotated.mrc', overwrite=True)
+    mrc.save(outname="rotated.mrc", overwrite=True)
