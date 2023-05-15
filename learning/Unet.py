@@ -147,7 +147,8 @@ class UnetModel(nn.Module):
                  out_channels_decoder=32,
                  predict_mse=False,
                  model_depth=4,
-                 num_feature_map=16, ):
+                 num_feature_map=16,
+                 ):
         super(UnetModel, self).__init__()
         self.num_feat_maps = num_feature_map
         self.encoder = EncoderBlock(in_channels=in_channels,

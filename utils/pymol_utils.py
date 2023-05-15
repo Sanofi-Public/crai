@@ -1,22 +1,21 @@
+import numpy as np
 import pymol.cmd as cmd
+import pymol2
 
 
-def get_protein_coords(pdb_path, pdb_name=None, pymol_selection=None, remove_hydrogen=True):
+def get_protein_coords(pdb_path, pymol_selection=None, remove_hydrogen=True):
     """
     The goal is to go from pdb files and optionnally some selections to the (n,1)
     Using a name is useful for multiprocessing and not the default
     """
-    pdb_name = 'toto' if pdb_name is None else pdb_name
-
-    # Load the protein, prepare the general selection
-    cmd.feedback("disable", "all", "everything")
-    cmd.load(pdb_path, pdb_name)
-    if remove_hydrogen:
-        cmd.remove('hydrogens')
-    prot_selection = f'{pdb_name} and polymer.protein'
-    pymol_selection = prot_selection if pymol_selection is None else f"{prot_selection} and ({pymol_selection})"
-    coords = cmd.get_coords(selection=f'{pymol_selection}')
-    cmd.delete(pdb_name)
+    with pymol2.PyMOL() as p:
+        # Load the protein, prepare the general selection
+        p.cmd.feedback("disable", "all", "everything")
+        p.cmd.load(pdb_path, 'toto')
+        if remove_hydrogen:
+            p.cmd.remove('hydrogens')
+        pymol_selection = 'polymer.protein' if pymol_selection is None else f"polymer.protein and ({pymol_selection})"
+        coords = p.cmd.get_coords(selection=f'{pymol_selection}')
     return coords
 
 

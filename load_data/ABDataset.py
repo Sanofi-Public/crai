@@ -40,7 +40,6 @@ class ABDataset(Dataset):
 
             comp = Complex(mrc_path=mrc_path,
                            pdb_path=pdb_path,
-                           pdb_name=pdb_id,
                            antibody_selection=antibody_selection,
                            return_sdf=self.return_sdf)
             input_tensor = comp.mrc.data[None, ...]
