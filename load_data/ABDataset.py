@@ -8,7 +8,7 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from load_data.Complex import Complex
+from load_data.GridComplex import GridComplex
 
 
 class ABDataset(Dataset):
@@ -35,11 +35,11 @@ class ABDataset(Dataset):
 
         try:
 
-            comp = Complex(mrc_path=mrc_path,
-                           pdb_path=pdb_path,
-                           antibody_selection=antibody_selection,
-                           rotate=self.rotate,
-                           return_sdf=self.return_sdf)
+            comp = GridComplex(mrc_path=mrc_path,
+                               pdb_path=pdb_path,
+                               antibody_selection=antibody_selection,
+                               rotate=self.rotate,
+                               return_sdf=self.return_sdf)
             input_tensor = comp.input_tensor
             target_tensor = comp.target_tensor
             return dirname, input_tensor, target_tensor

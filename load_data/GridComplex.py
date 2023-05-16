@@ -1,6 +1,7 @@
 """
 This script introduces the 'Complex' class that is fulling the Database object
 A Complex takes as input a pdb, a mrc and some extra selection tools and outputs a grid aligned with the mrc.
+It makes the conversion from (n,3+features) matrices to the grid format.
 """
 
 import os
@@ -8,9 +9,7 @@ import sys
 import time
 
 import numpy as np
-from scipy.spatial.transform import Rotation
 from sklearn.gaussian_process.kernels import RBF
-import pymol2
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -18,10 +17,6 @@ if __name__ == '__main__':
 
 from utils import mrc_utils, pymol_utils
 from utils.learning_utils import Rotor
-
-"""
-Make the conversion from (n,3+features) matrices to the grid format.
-"""
 
 
 def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=False):
@@ -137,75 +132,24 @@ def build_grid_from_coords(coords, features=None, spacing=2., padding=0, xyz_min
                                  sigma=sigma)
 
 
-def template_align(pdb_path_ref, pdb_path, sel='polymer.protein'):
-    """
-    We want to get the transformation to insert the template at the right spot.
-    Pymol "align" returns the solid transform as R (x + t), so to avoid getting huge translations (centering first)
-       we have to align the template onto the query, so that it outputs the translation to reach the com
-       and the right rotation.
-    Therefore, the returned matrix has columns that transform the templates and the largest weight should be
-    on the last row
-
-    :param pdb_path_ref:
-    :param pdb_path:
-    :param sel:
-    :return: 1 if they are copies 0 otherwise
-    """
-    with pymol2.PyMOL() as p:
-        p.cmd.load(pdb_path_ref, 'ref')
-        p.cmd.load(pdb_path, 'in_pdb')
-        sel = f'in_pdb and ({sel})'
-        p.cmd.extract("to_align", sel)
-        coords_ref = p.cmd.get_coords("ref")
-
-        # Now perform the alignment. The com of the aligned template is the object detection objective
-        test = p.cmd.align(mobile="ref", target="to_align")
-        rmsd = test[0]
-        com = p.cmd.get_coords("ref").mean(axis=0)
-
-        # We retrieve the parameters of the transformation, notably the rotation
-        transformation_matrix = p.cmd.get_object_matrix('ref')
-        transformation_matrix = np.asarray(transformation_matrix).reshape((4, 4))
-        rotation = transformation_matrix[:3, :3]
-
-        # # We can retrieve the translation and make the operations by hand to check everything is working fine
-        # # We can compare the manual and automatic com computations
-        # translation = transformation_matrix[:3, 3]
-        # rotated = np.matmul(rotation, coords_ref.T)
-        # translated = rotated + translation[:, None]
-        # new_coords = translated.T
-        # new_com = new_coords.mean(axis=0)
-        return rmsd, com, rotation
-
-
-class Complex:
+class GridComplex:
     """
     Object containing a protein and a density
     The main difficulty arises from the creation of the grid for the output,
       because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc_path, pdb_path, antibody_selection=None, return_grid=True, return_sdf=False, rotate=True):
+    def __init__(self, mrc_path, pdb_path, antibody_selection=None, return_sdf=False, rotate=True):
         # First get the MRC data
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
 
         self.rotor = Rotor() if rotate else Rotor(0, 0)
 
-        if return_grid:
-            self.target_tensor = self.get_target_grid(pdb_path=pdb_path,
-                                                      antibody_selection=antibody_selection,
-                                                      return_sdf=return_sdf)
-            self.input_tensor = self.mrc.data[None, ...]
-            self.input_tensor, self.target_tensor = Rotor().rotate_tensor([self.input_tensor, self.target_tensor])
-
-        else:
-            ref_path = '../prepare_data/cropped.pdb'
-            rmsd, com, rotation = template_align(pdb_path_ref=ref_path, sel=antibody_selection, pdb_path=pdb_path)
-            if rmsd > 5:
-                raise ValueError("The RMSD between template and query is suspiciously high")
-            self.com = self.rotor.r_tot.apply(com - self.mrc.origin) + self.mrc.origin
-            self.rotation = self.rotor.r_tot * Rotation.from_matrix(rotation)
-            self.input_tensor = self.rotor.rotate_tensor(self.mrc.data[None, ...])
+        self.target_tensor = self.get_target_grid(pdb_path=pdb_path,
+                                                  antibody_selection=antibody_selection,
+                                                  return_sdf=return_sdf)
+        self.input_tensor = self.mrc.data[None, ...]
+        self.input_tensor, self.target_tensor = Rotor().rotate_tensor([self.input_tensor, self.target_tensor])
 
     def get_target_grid(self, pdb_path, antibody_selection=None, return_sdf=False):
         # Get the corresponding empty grid, this follows 'resample' with origin offset
@@ -254,82 +198,24 @@ class Complex:
 
 
 if __name__ == '__main__':
-    pass
-
-    # datadir_name = ".."
     datadir_name = "../data/pdb_em"
-    # dirname = '7LO8_23464'
-    # pdb_name, mrc_name = dirname.split("_")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-    # mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
+    dirname = '7LO8_23464'
+    pdb_name, mrc_name = dirname.split("_")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
 
-    # comp = Complex(mrc_path=mrc_path,
-    #                pdb_path=pdb_path,
-    #                antibody_selection='chain H or chain L',
-    #                return_sdf=False,
-    #                # return_sdf=True,
-    #                )
+    comp = GridComplex(mrc_path=mrc_path,
+                       pdb_path=pdb_path,
+                       antibody_selection='chain H or chain L',
+                       return_sdf=False,
+                       # return_sdf=True,
+                       )
     # We get the right grid supervision :
-    # target = comp.target_tensor
+    target = comp.target_tensor
     # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antibody.mrc"), data=target[0], overwrite=True)
     # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "antigen.mrc"), data=target[1], overwrite=True)
     # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "void.mrc"), data=target[2], overwrite=True)
 
     # We get the right SDF supervision :
-    # array = Complex.sdf(target[0])
+    array = GridComplex.sdf(target[0])
     # comp.mrc.save(outname=os.path.join(datadir_name, dirname, "thresh.mrc"), data=array, overwrite=True)
-
-    # Now for the object detection
-    # antibody_selection = 'chain H or chain L'
-    # pdb_path = '../prepare_data/rotated.pdb'
-    # # ref_path = '../prepare_data/aligned.pdb'
-    # ref_path = '../prepare_data/cropped.pdb'
-    # template_align(pdb_path_ref=ref_path, sel=antibody_selection, pdb_path=pdb_path)
-
-    # dirname = '5H37_9575'
-    # pdb_name, mrc_name = dirname.split("_")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    # mrc_path = os.path.join(datadir_name, dirname, "emd_9575.map")
-    # resampled_name = os.path.join(datadir_name, dirname, f"resampled_0_2.mrc")
-    # angstrom_expand = 10
-    # antibody_selection = 'chain I or chain M'
-    # expanded_selection = f"(({antibody_selection}) expand {angstrom_expand}) "
-    # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
-    # carved = mrc.carve(pdb_path=pdb_path, pymol_sel=expanded_selection, margin=6)
-    # carved.resample(out_name=resampled_name,
-    #                 new_voxel_size=2,
-    #                 overwrite=True)
-
-    # dirname = "7V3L_31683"
-    # antibody_selection = 'chain D or chain E'
-
-    dirname = '6PZY_20540'
-    antibody_selection = 'chain C or chain D'
-    pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-    mrc_path = os.path.join(datadir_name, dirname, "resampled_0_2.mrc")
-    comp_coords = Complex(mrc_path=mrc_path,
-                          pdb_path=pdb_path,
-                          antibody_selection=antibody_selection,
-                          rotate=False,
-                          return_grid=False)
-
-    # To plot: get a rotated version of the mrc and compare it to the rotated template
-    rotor = Complex.rotor
-    mrc = Complex.mrc.rotate(rotate_around_z=rotor.rotate_around_z, rotate_in_plane=rotor.rotate_in_plane)
-    mrc.save(outname="rotated.mrc", overwrite=True)
-
-    with pymol2.PyMOL() as p:
-        ref_path = '../prepare_data/cropped.pdb'
-        p.cmd.load(ref_path, 'ref')
-        coords_ref = p.cmd.get_coords("ref")
-        translation, rotation = comp_coords.com, comp_coords.rotation
-        rotated = rotation.apply(coords_ref)
-        new_coords = rotated + translation[None, :]
-        new_com = new_coords.mean(axis=0)
-        p.cmd.load_coords(new_coords, "ref", state=1)
-        p.cmd.save('test.pdb', "ref")
-
-    # Chimerax command to put colored pseudo atom
-    # shape sphere center 81.9, 14.9, 44.9 radius 2 color blue
