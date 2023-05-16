@@ -149,7 +149,7 @@ class GridComplex:
                                                   antibody_selection=antibody_selection,
                                                   return_sdf=return_sdf)
         self.input_tensor = self.mrc.data[None, ...]
-        self.input_tensor, self.target_tensor = Rotor().rotate_tensor([self.input_tensor, self.target_tensor])
+        self.input_tensor, self.target_tensor = Rotor().rotate_tensors([self.input_tensor, self.target_tensor])
 
     def get_target_grid(self, pdb_path, antibody_selection=None, return_sdf=False):
         # Get the corresponding empty grid, this follows 'resample' with origin offset
@@ -158,14 +158,11 @@ class GridComplex:
                           step=self.mrc.voxel_size[i])
                 for i in range(3)]
         # Now let's get the relevant coordinates to embed in this grid
-        t0 = time.perf_counter()
-
         antibody_coords = pymol_utils.get_protein_coords(pdb_path=pdb_path,
                                                          pymol_selection=antibody_selection)
         antigen_coords = pymol_utils.get_protein_coords(pdb_path=pdb_path,
                                                         pymol_selection=f"not ({antibody_selection})")
 
-        print(f"Time to get coords : {time.perf_counter() - t0}")
         # Get the corresponding grid
         antibody_grid = fill_grid_from_coords(coords=antibody_coords, bins=bins)
         antigen_grid = fill_grid_from_coords(coords=antigen_coords, bins=bins)

@@ -107,5 +107,11 @@ if __name__ == '__main__':
 
     # download_one_mrc()
     # download_one_mmtf()
-
     get_database(test_mapping)
+
+    # path = '../data/pdb_em'
+    # for system in os.listdir(path):
+    #     print(system)
+    #     pdb_name, mrc_name = system.split("_")
+    #     outdir = os.path.join(path, system)
+    #     download_one_cif(pdb_id=pdb_name, outdir=outdir, overwrite=False)

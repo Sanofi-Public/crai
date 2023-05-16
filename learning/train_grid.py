@@ -56,7 +56,7 @@ def train(model, device, optimizer, loss_fn, loader, writer, n_epochs=10, val_lo
             writer.add_scalar('loss_val', mean_val_loss, epoch)
         if epoch == 99:
             model.cpu()
-            model_path = os.path.join("saved_models", 'fifth_100.pth')
+            model_path = os.path.join("../saved_models", 'fifth_100.pth')
             torch.save(model.state_dict(), model_path)
             model.to(device)
 
@@ -77,7 +77,6 @@ def validate(model, device, loss_fn, loader):
 
             losses.append(loss.item())
             if not step % 20:
-                error_norm = torch.sqrt(loss).item()
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
     return losses
 
@@ -114,10 +113,10 @@ if __name__ == '__main__':
     data_root = "data/pdb_em"
     # csv_to_read = "data/final.csv"
     csv_to_read = "data/reduced_final.csv"
-    os.makedirs("saved_models", exist_ok=True)
-    os.makedirs("logs", exist_ok=True)
+    os.makedirs("../saved_models", exist_ok=True)
+    os.makedirs("../logs", exist_ok=True)
     writer = SummaryWriter(log_dir=f"logs/{model_name}")
-    model_path = os.path.join("saved_models", f'{model_name}.pth')
+    model_path = os.path.join("../saved_models", f'{model_name}.pth')
     gpu_number = args.gpu
     device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
 
