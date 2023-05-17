@@ -11,6 +11,8 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from prepare_data.get_templates import REF_PATH_FV, REF_PATH_FAB
+REF_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../prepare_data/reference.pdb')
+
 from utils import mrc_utils
 from utils.learning_utils import Rotor
 

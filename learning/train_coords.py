@@ -109,8 +109,8 @@ if __name__ == '__main__':
     num_workers = 0
     # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
-    csv_to_read = "../data/reduced_final.csv"
-    # csv_to_read = "data/final.csv"
+    #csv_to_read = "../data/reduced_final.csv"
+    csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
