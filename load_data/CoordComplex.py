@@ -10,7 +10,7 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_data.get_templates import REF_PATH
+from prepare_data.get_templates import REF_PATH_FV, REF_PATH_FAB
 from utils import mrc_utils
 from utils.learning_utils import Rotor
 
@@ -21,7 +21,7 @@ def transform_template(rotation, translation, out_name=None):
     """
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH, 'ref')
+        p.cmd.load(REF_PATH_FV, 'ref')
         coords_ref = p.cmd.get_coords("ref")
         rotated = rotation.apply(coords_ref)
         new_coords = rotated + translation[None, :]
@@ -46,10 +46,15 @@ def template_align(pdb_path, sel='polymer.protein'):
     """
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH, 'ref')
         p.cmd.load(pdb_path, 'in_pdb')
         sel = f'in_pdb and ({sel})'
         p.cmd.extract("to_align", sel)
+        residues_to_align = len(p.cmd.get_model("in_pdb").get_residues())
+        if residues_to_align < 300:
+            # len_fv = len(p.cmd.get_model("ref").get_residues())  # len_fv=237, len_fab=446
+            p.cmd.load(REF_PATH_FV, 'ref')
+        else:
+            p.cmd.load(REF_PATH_FAB, 'ref')
         coords_ref = p.cmd.get_coords("ref")
 
         # Now perform the alignment. The com of the aligned template is the object detection objective
@@ -114,8 +119,11 @@ if __name__ == '__main__':
     # dirname = "7V3L_31683"
     # antibody_selection = 'chain D or chain E'
 
-    dirname = '6PZY_20540'
-    antibody_selection = 'chain C or chain D'
+    # dirname = '6PZY_20540'
+    # antibody_selection = 'chain C or chain D'
+
+    dirname = '6JHS_9829'
+    antibody_selection = 'chain E or chain D'
 
     pdb_name, mrc_name = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
@@ -132,7 +140,7 @@ if __name__ == '__main__':
     comp_coords = CoordComplex(mrc_path=resampled_path,
                                pdb_path=pdb_path,
                                antibody_selection=antibody_selection,
-                               rotate=True)
+                               rotate=False)
 
     # To plot: get a rotated version of the mrc and compare it to the rotated template
     comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
