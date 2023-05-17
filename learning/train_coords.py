@@ -106,23 +106,23 @@ if __name__ == '__main__':
 
     # Setup data
     rotate = True
-    num_workers = 0
-    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    # num_workers = 0
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
-    #csv_to_read = "../data/reduced_final.csv"
+    # csv_to_read = "../data/reduced_final.csv"
     csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
                            return_grid=False)
-
-    fake_out = torch.randn((1, 9, 23, 28, 19))
-    fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
-    coords_loss(fake_out, ab_dataset[0][1])
     train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
                                                         shuffle=True,
                                                         collate_fn=lambda x: x[0],
                                                         num_workers=num_workers)
+    # # Test loss
+    # fake_out = torch.randn((1, 9, 23, 28, 19))
+    # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
+    # coords_loss(fake_out, ab_dataset[0][1])
 
     # Learning hyperparameters
     n_epochs = 700

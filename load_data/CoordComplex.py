@@ -49,7 +49,7 @@ def template_align(pdb_path, sel='polymer.protein'):
         p.cmd.load(pdb_path, 'in_pdb')
         sel = f'in_pdb and ({sel})'
         p.cmd.extract("to_align", sel)
-        residues_to_align = len(p.cmd.get_model("in_pdb").get_residues())
+        residues_to_align = len(p.cmd.get_model("to_align").get_residues())
         if residues_to_align < 300:
             # len_fv = len(p.cmd.get_model("ref").get_residues())  # len_fv=237, len_fab=446
             p.cmd.load(REF_PATH_FV, 'ref')
@@ -150,3 +150,6 @@ if __name__ == '__main__':
 
     # Chimerax command to put colored pseudo atom
     # shape sphere center 81.9, 14.9, 44.9 radius 2 color blue
+    # extract toto, 6JHS and (chain E or chain D)
+    # extract toto, 7JVC and (chain C or chain D)
+    # extract toto, 7XOB and (chain P or chain O)

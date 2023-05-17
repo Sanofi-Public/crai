@@ -57,7 +57,8 @@ class ABDataset(Dataset):
         try:
             return self.unwrapped_get_item(item)
         except Exception as e:
-            print(f"Buggy data loading for system : {dirname}, {e}")
+            print(f"Buggy data loading for system : {dirname}, local : {local_ab_id},"
+                  f" selection :  {antibody_selection}, {e}")
             return "failed", None
 
 
