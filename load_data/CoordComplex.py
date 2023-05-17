@@ -10,9 +10,7 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_data.get_templates import REF_PATH_FV, REF_PATH_FAB
-REF_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../prepare_data/reference.pdb')
-
+from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from utils import mrc_utils
 from utils.learning_utils import Rotor
 
@@ -111,7 +109,7 @@ if __name__ == '__main__':
 
     # # Check that template aligns work on a transformed copy
     # antibody_selection = 'chain H or chain L'
-    # pdb_path = '../prepare_data/rotated.pdb'
+    # pdb_path = '../prepare_database/rotated.pdb'
     # template_align(sel=antibody_selection, pdb_path=pdb_path)
 
     datadir_name = "../data/pdb_em"
