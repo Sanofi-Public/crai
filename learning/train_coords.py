@@ -62,13 +62,13 @@ def coords_loss(prediction, complex):
     offset_x = complex.translation[0] - bin_x[position_x]
     offset_y = complex.translation[1] - bin_y[position_y]
     offset_z = complex.translation[2] - bin_z[position_z]
-    gt_offset = torch.Tensor([offset_x, offset_y, offset_z], device=device)
+    gt_offset = torch.tensor([offset_x, offset_y, offset_z], device=device)
     offset_loss = torch.nn.MSELoss()(vector_pose[:3], gt_offset)
 
     # Get the right pose. For that get the rotation supervision as a R3 vector and an angle.
     # We will penalise the R3 with its norm and it's dot product to ground truth
     rz, angle = rotation_to_supervision(complex.rotation)
-    rz = torch.Tensor(rz, device=device)
+    rz = torch.tensor(rz, device=device)
     predicted_rz = vector_pose[3:6]
     rz_norm = torch.norm(predicted_rz)
     rz_loss = 1 - torch.dot(predicted_rz / rz_norm, rz) + (rz_norm - 1) ** 2
@@ -76,7 +76,7 @@ def coords_loss(prediction, complex):
     # Following AF2 and to avoid singularities, we frame the prediction of an angle as a regression task in the plane.
     # We turn our angle into a unit vector of R2, push predicted norm to and penalize dot product to ground truth
     vec_angle = [np.cos(angle), np.sin(angle)]
-    vec_angle = torch.Tensor(vec_angle, device=device)
+    vec_angle = torch.tensor(vec_angle, device=device)
     predicted_angle = vector_pose[6:]
     angle_norm = torch.norm(predicted_angle)
     angle_loss = 1 - torch.dot(predicted_angle / rz_norm, vec_angle) + (angle_norm - 1) ** 2
