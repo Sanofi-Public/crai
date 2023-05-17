@@ -18,7 +18,7 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from utils.learning_utils import get_split_dataloaders, rotation_to_supervision
-from learning.train_functions import train, setup_learning
+from learning.train_functions import setup_learning
 
 
 def coords_loss(prediction, complex):
@@ -81,15 +81,81 @@ def coords_loss(prediction, complex):
     angle_norm = torch.norm(predicted_angle)
     angle_loss = 1 - torch.dot(predicted_angle / rz_norm, vec_angle) + (angle_norm - 1) ** 2
 
-    loss = position_loss + offset_loss + rz_loss + angle_loss
-    return loss
+    return position_loss, offset_loss, rz_loss, angle_loss
 
 
-def loop_fn(model, device, complex):
-    input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
-    prediction = model(input_tensor)
-    loss = coords_loss(prediction, complex)
-    return loss
+def train(model, device, optimizer, loader,
+          writer=None, n_epochs=10, val_loader=None, accumulated_batch=1, save_path=''):
+    best_mean_val_loss = 10000.
+    time_init = time.time()
+    for epoch in range(n_epochs):
+        for step, (name, complex) in enumerate(loader):
+            if complex is None:
+                continue
+            if step > 0:
+                continue
+
+            input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
+            prediction = model(input_tensor)
+            position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            loss = position_loss + offset_loss + rz_loss + angle_loss
+            loss.backward()
+
+            # Accumulated gradients
+            if not step % accumulated_batch:
+                optimizer.step()
+                model.zero_grad()
+
+            if not step % 20:
+                step_total = len(loader) * epoch + step
+                eluded_time = time.time() - time_init
+                print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
+                writer.add_scalar('train_loss', loss.item(), step_total)
+                writer.add_scalar('train_position_loss', position_loss.item(), step_total)
+                writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
+                writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
+                writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
+        if val_loader is not None:
+            print("validation")
+            losses = validate(model=model, device=device, loader=val_loader)
+            losses = np.array(losses)
+            val_loss, position_loss, offset_loss, rz_loss, angle_loss = np.mean(losses, axis=0)
+            print(f'Validation loss ={val_loss}')
+            writer.add_scalar('val_loss', val_loss, epoch)
+            writer.add_scalar('val_position_loss', position_loss, epoch)
+            writer.add_scalar('val_offset_loss', offset_loss, epoch)
+            writer.add_scalar('val_rz_loss', rz_loss, epoch)
+            writer.add_scalar('val_angle_loss', angle_loss, epoch)
+            # Model checkpointing
+            if val_loss < best_mean_val_loss:
+                best_mean_val_loss = val_loss
+                model.cpu()
+                torch.save(model.state_dict(), save_path)
+                model.to(device)
+
+
+def validate(model, device, loader):
+    time_init = time.time()
+    losses = list()
+    with torch.no_grad():
+        for step, (name, complex) in enumerate(loader):
+            if complex is None:
+                continue
+            if step > 2:
+                continue
+            input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
+            prediction = model(input_tensor)
+            position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            loss = position_loss + offset_loss + rz_loss + angle_loss
+            losses.append([loss.item(),
+                           position_loss.item(),
+                           offset_loss.item(),
+                           rz_loss.item(),
+                           angle_loss.item()
+                           ])
+            if not step % 20:
+                print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
+    return losses
 
 
 if __name__ == '__main__':
@@ -133,8 +199,29 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters())
 
     # Train
-    train(model=model, device=device, loop_fn=loop_fn, loader=train_loader,
+    train(model=model, device=device, loader=train_loader,
           optimizer=optimizer, writer=writer, n_epochs=n_epochs, val_loader=val_loader,
           accumulated_batch=accumulated_batch, save_path=best_model_path)
     model.cpu()
     torch.save(model.state_dict(), last_model_path)
+
+    # ######################################
+    # 
+    # pl.seed_everything(seed, workers=True)
+    # # init model
+    # model = PIPModule(cfg)
+    # tb_logger = TensorBoardLogger(save_dir=log_dir, version=name)
+    # loggers = [tb_logger]
+    # # init trainer
+    # trainer = pl.Trainer(
+    #     accelerator="gpu",
+    #     devices=[args.gpu],
+    #     max_epochs=200,
+    #     logger=loggers,
+    # )
+    # # datamodule
+    # datamodule = PLDataModule(PIPDataset, cfg.dataset.data_dir, cfg.loader.batch_size_train)
+    # # train
+    # trainer.fit(model, datamodule=datamodule)
+    # # test
+    # trainer.test(model, datamodule=datamodule)

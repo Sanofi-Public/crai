@@ -65,7 +65,7 @@ def setup_learning(model_name, gpu_number):
     # Setup learning
     os.makedirs("../saved_models", exist_ok=True)
     os.makedirs("../logs", exist_ok=True)
-    writer = SummaryWriter(log_dir=f"logs/{model_name}")
+    writer = SummaryWriter(log_dir=f"../logs/{model_name}")
     best_model_path = os.path.join("../saved_models", f'{model_name}_best.pth')
     last_model_path = os.path.join("../saved_models", f'{model_name}_last.pth')
     device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
