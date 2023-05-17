@@ -127,3 +127,24 @@ class Rotor:
         new_origin = np.min((origin, rot_top), axis=0)
         new_tensor = self.rotate_tensor(tensor)
         return new_tensor, new_origin
+
+
+def vector_to_angle(p):
+    """
+    Compute the minimum rotation turning uz into p
+    """
+    uz = np.array([0, 0, 1])
+    cross = np.cross(uz, p)
+    angle = np.arccos(np.dot(uz, p))
+    uz_to_p = Rotation.from_rotvec(angle * cross)
+    possible_p = uz_to_p.apply(uz)
+    if np.dot(possible_p, p) < 0.999:
+        angle = -angle
+    return angle
+
+
+def rotation_to_supervision(rotation):
+    matrix = rotation.as_matrix()
+    rz = matrix[:, 2]
+    angle = vector_to_angle(rz)
+    return rz, angle

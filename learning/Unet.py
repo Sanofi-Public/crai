@@ -27,6 +27,13 @@ class ConvBlock(nn.Module):
 
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, model_depth=4, pool_size=2, num_feat_maps=16):
+        """
+        Model depth correspond to the number of convolution block, which is one more than the max pool
+        x_0 -> conv_0 -> maxpool_0 -> x_1
+        x_1 -> conv_1 -> maxpool_1 -> x_2
+        ...
+        x_d-1 -> conv_d -> x_d
+        """
         super(EncoderBlock, self).__init__()
         self.num_feat_maps = num_feat_maps
         self.num_conv_blocks = 2
@@ -38,6 +45,7 @@ class EncoderBlock(nn.Module):
                 # print(in_channels, feat_map_channels)
                 self.conv_block = ConvBlock(in_channels=in_channels,
                                             out_channels=feat_map_channels,
+                                            # stride=2,
                                             use_batch_norm=depth < 2)
                 self.module_dict["conv_{}_{}".format(depth, i)] = self.conv_block
                 in_channels, feat_map_channels = feat_map_channels, feat_map_channels * 2
@@ -55,6 +63,7 @@ class EncoderBlock(nn.Module):
                     downsampling_features.append(x)
             elif k.startswith("max_pooling"):
                 x = op(x)
+            # print(k, x.shape)
         return x, downsampling_features
 
 
@@ -76,17 +85,24 @@ class ConvTranspose(nn.Module):
 class DecoderBlock(nn.Module):
     """
     Constructs back the input like grids from the condensed representation and the intermediate values.
-    The final size of the map is
+    Similarly, model depth correspond to the number of transposed convolution block, which is one more than the max pool
+    x_0 -> conv_0 -> maxpool_0 -> x_1
+    x_1 -> conv_1 -> maxpool_1 -> x_2
+    ...
+    x_d-1 -> conv_d -> x_d
+
+    Therefore, there are only d-2 maxpooling ops
     """
 
-    def __init__(self, out_channels, model_depth=4, num_feat_maps=16):
+    def __init__(self, out_channels, model_depth=4, num_feat_maps=16, max_decode=0):
         super(DecoderBlock, self).__init__()
         self.num_conv_blocks = 2
         self.num_feat_maps = num_feat_maps
         # user nn.ModuleDict() to store ops and the fact that the order is kept
         self.module_dict = nn.ModuleDict()
 
-        for depth in range(model_depth - 2, -1, -1):
+        # Only decode until a certain depth
+        for depth in range(model_depth - 2, max_decode - 1, - 1):
             feat_map_channels = 2 ** (depth + 1) * self.num_feat_maps
             self.deconv = ConvTranspose(in_channels=feat_map_channels * 4, out_channels=feat_map_channels * 4)
             self.module_dict["deconv_{}".format(depth)] = self.deconv
@@ -97,7 +113,7 @@ class DecoderBlock(nn.Module):
                 else:
                     self.conv = ConvBlock(in_channels=feat_map_channels * 2, out_channels=feat_map_channels * 2)
                     self.module_dict["conv_{}_{}".format(depth, i)] = self.conv
-            if depth == 0:
+            if depth == max_decode:
                 self.final_conv = ConvBlock(in_channels=feat_map_channels * 2, out_channels=out_channels)
                 self.module_dict["final_conv"] = self.final_conv
 
@@ -109,6 +125,7 @@ class DecoderBlock(nn.Module):
         """
 
         for k, op in self.module_dict.items():
+
             if k.startswith("deconv"):
                 x = op(x)
                 # If the input has a shape that is not a power of 2, we need to pad when deconvoluting
@@ -121,16 +138,6 @@ class DecoderBlock(nn.Module):
             else:
                 x = op(x)
         return x
-
-
-def unet_from_hparams(hparams, load_weights=False):
-    model_depth = hparams.get('argparse', 'model_depth')
-    num_feature_map = hparams.get('argparse', 'num_feature_map')
-    unet = UnetModel(model_depth=model_depth,
-                     num_feature_map=num_feature_map)
-    if load_weights:
-        unet.load_weights(hparams=hparams)
-    return unet
 
 
 def bi_pred_head(x):
@@ -178,12 +185,44 @@ class UnetModel(nn.Module):
         return out
 
 
+class HalfUnetModel(nn.Module):
+    def __init__(self,
+                 in_channels=1,
+                 out_channels_decoder=128,
+                 out_channels=9,
+                 model_depth=4,
+                 num_feature_map=16,
+                 max_decode=2,
+                 ):
+        super(HalfUnetModel, self).__init__()
+        self.num_feat_maps = num_feature_map
+        self.encoder = EncoderBlock(in_channels=in_channels,
+                                    model_depth=model_depth,
+                                    num_feat_maps=self.num_feat_maps)
+        self.decoder = DecoderBlock(out_channels=out_channels_decoder,
+                                    model_depth=model_depth,
+                                    num_feat_maps=self.num_feat_maps,
+                                    max_decode=max_decode)
+
+        self.final_conv = nn.Conv3d(in_channels=out_channels_decoder, out_channels=9, kernel_size=1)
+
+    def forward(self, x):
+        mid, downsampling_features = self.encoder(x)
+        x = self.decoder(mid, downsampling_features=downsampling_features)
+        x = self.final_conv(x)
+        x[0, 0, ...] = torch.sigmoid(x[0, 0, ...])
+        return x
+
+
 if __name__ == '__main__':
-    model = UnetModel(in_channels=1)
-    in_shape = (16,) * 3
-    grid_em, grid_target = torch.ones((1, 1, *in_shape), dtype=torch.float32), \
-        torch.ones((1, 3, *in_shape), dtype=torch.float32)
+    # in_shape = (16,) * 3
+    in_shape = (53, 73, 58)
+    grid_em = torch.ones((1, 1, *in_shape), dtype=torch.float32)
+
+    # model = UnetModel(in_channels=1)
+    # out = model(grid_em)
+    # print(out.shape)
+
+    model = HalfUnetModel(in_channels=1, model_depth=5)
     out = model(grid_em)
     print(out.shape)
-    # out, loss = model.persistent_training_call(grid_prot, grid_hd, 0)
-    # out, loss = model.persistent_training_call(grid_prot, grid_pl, 1)

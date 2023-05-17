@@ -43,16 +43,12 @@ class ABDataset(Dataset):
                                antibody_selection=antibody_selection,
                                rotate=self.rotate,
                                return_sdf=self.return_sdf)
-            input_tensor = comp.input_tensor
-            target = comp.target_tensor
         else:
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selection=antibody_selection,
                                 rotate=self.rotate)
-            input_tensor = comp.input_tensor
-            target = (comp.rotation, comp.translation)
-        return dirname, input_tensor, target
+        return dirname, comp
 
     def __getitem__(self, item):
         row = self.df.loc[item].values
@@ -62,7 +58,7 @@ class ABDataset(Dataset):
             return self.unwrapped_get_item(item)
         except Exception as e:
             print(f"Buggy data loading for system : {dirname}, {e}")
-            return "failed", [], []
+            return "failed", None
 
 
 if __name__ == '__main__':

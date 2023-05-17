@@ -20,6 +20,7 @@ def transform_template(rotation, translation, out_name=None):
     Take our template and apply the learnt rotation to it.
     """
     with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH, 'ref')
         coords_ref = p.cmd.get_coords("ref")
         rotated = rotation.apply(coords_ref)
@@ -44,6 +45,7 @@ def template_align(pdb_path, sel='polymer.protein'):
     :return: 
     """
     with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH, 'ref')
         p.cmd.load(pdb_path, 'in_pdb')
         sel = f'in_pdb and ({sel})'

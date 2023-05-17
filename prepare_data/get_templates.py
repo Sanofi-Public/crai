@@ -19,6 +19,7 @@ def get_template(pdb_path, pymol_sel, crop_sel, out_name):
     # distance /origin, /ptz
 
     with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(pdb_path, 'toto')
 
         # First let's extract the whole antibody for PCA computation.
