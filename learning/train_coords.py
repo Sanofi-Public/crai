@@ -87,14 +87,13 @@ def coords_loss(prediction, complex):
 def train(model, device, optimizer, loader,
           writer=None, n_epochs=10, val_loader=None, accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
+    last_model_path = f'{save_path}_last.pth'
+    best_model_path = f'{save_path}_best.pth'
     time_init = time.time()
     for epoch in range(n_epochs):
         for step, (name, complex) in enumerate(loader):
             if complex is None:
                 continue
-            if step > 0:
-                continue
-
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
@@ -115,6 +114,11 @@ def train(model, device, optimizer, loader,
                 writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
                 writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
                 writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
+
+        model.cpu()
+        torch.save(model.state_dict(), last_model_path)
+        model.to(device)
+
         if val_loader is not None:
             print("validation")
             losses = validate(model=model, device=device, loader=val_loader)
@@ -130,7 +134,7 @@ def train(model, device, optimizer, loader,
             if val_loss < best_mean_val_loss:
                 best_mean_val_loss = val_loss
                 model.cpu()
-                torch.save(model.state_dict(), save_path)
+                torch.save(model.state_dict(), best_model_path)
                 model.to(device)
 
 
@@ -140,8 +144,6 @@ def validate(model, device, loader):
     with torch.no_grad():
         for step, (name, complex) in enumerate(loader):
             if complex is None:
-                continue
-            if step > 2:
                 continue
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
@@ -167,8 +169,8 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
-    writer, best_model_path, last_model_path, device = setup_learning(model_name=args.model_name,
-                                                                      gpu_number=args.gpu)
+    writer, save_path, device = setup_learning(model_name=args.model_name,
+                                               gpu_number=args.gpu)
 
     # Setup data
     rotate = True
@@ -201,9 +203,7 @@ if __name__ == '__main__':
     # Train
     train(model=model, device=device, loader=train_loader,
           optimizer=optimizer, writer=writer, n_epochs=n_epochs, val_loader=val_loader,
-          accumulated_batch=accumulated_batch, save_path=best_model_path)
-    model.cpu()
-    torch.save(model.state_dict(), last_model_path)
+          accumulated_batch=accumulated_batch, save_path=save_path)
 
     # ######################################
     # 
