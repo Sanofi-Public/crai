@@ -25,11 +25,25 @@ def weighted_dice_loss(output, target, weight=None):
     :param target:
     :return:
     """
+
     grid_loss_values = 1 - (2 * target * output + 0.01) / (target + output + 0.01)
     if weight is None:
         return torch.mean(grid_loss_values)
     expanded = weight.expand_as(target)
     return torch.mean(expanded * grid_loss_values)
+
+
+def weighted_bce(output, target, weights=None):
+    output = torch.clamp(output, min=1e-8, max=1 - 1e-8)
+    if weights is not None:
+        assert len(weights) == 2
+
+        loss = weights[1] * (target * torch.log(output)) + \
+               weights[0] * ((1 - target) * torch.log(1 - output))
+    else:
+        loss = target * torch.log(output) + (1 - target) * torch.log(1 - output)
+
+    return torch.neg(torch.mean(loss))
 
 
 def get_split_dataloaders(dataset,

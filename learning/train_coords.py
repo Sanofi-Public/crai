@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
-from utils.learning_utils import get_split_dataloaders, rotation_to_supervision
+from utils.learning_utils import get_split_dataloaders, rotation_to_supervision, weighted_bce
 from learning.train_functions import setup_learning
 
 
@@ -53,7 +53,7 @@ def coords_loss(prediction, complex):
     # Now let's add finding this spot as a loss term
     BCE_target = torch.zeros(size=pred_shape, device=device)
     BCE_target[position_x, position_y, position_z] = 1
-    position_loss = torch.nn.BCELoss()(prediction[0, 0, ...], BCE_target)
+    position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
 
     # Extract the predicted vector at this location
     vector_pose = prediction[0, 1:, position_x, position_y, position_z]
