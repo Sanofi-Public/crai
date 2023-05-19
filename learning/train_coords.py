@@ -79,7 +79,7 @@ def coords_loss(prediction, complex):
     vec_angle = torch.tensor(vec_angle, device=device, dtype=torch.float)
     predicted_angle = vector_pose[6:]
     angle_norm = torch.norm(predicted_angle)
-    angle_loss = 1 - torch.dot(predicted_angle / rz_norm, vec_angle) + (angle_norm - 1) ** 2
+    angle_loss = 1 - torch.dot(predicted_angle / angle_norm, vec_angle) + (angle_norm - 1) ** 2
 
     return position_loss, offset_loss, rz_loss, angle_loss
 

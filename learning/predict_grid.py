@@ -10,7 +10,7 @@ from utils import mrc_utils
 from learning.Unet import UnetModel
 
 
-def predict(mrc_path, model, process=True, out_name=None, overwrite=True):
+def predict_grid(mrc_path, model, process=True, out_name=None, overwrite=True):
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     if process:
         mrc = mrc.resample().normalize()
@@ -55,4 +55,4 @@ if __name__ == '__main__':
                       )
     model.load_state_dict(torch.load(model_path))
     dump_name = f"{model_name}_{'small' if small else 'large'}"
-    predict(mrc_path=mrc_path, model=model, out_name=os.path.join(datadir_name, dirname, dump_name))
+    predict_grid(mrc_path=mrc_path, model=model, out_name=os.path.join(datadir_name, dirname, dump_name))

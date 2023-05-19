@@ -129,22 +129,31 @@ class Rotor:
         return new_tensor, new_origin
 
 
-def vector_to_angle(p):
+def vector_to_rotation(rz):
     """
-    Compute the minimum rotation turning uz into p
+    Compute the minimum rotation M turning uz into rz.
     """
     uz = np.array([0, 0, 1])
-    cross = np.cross(uz, p)
-    angle = np.arccos(np.dot(uz, p))
+    cross = np.cross(uz, rz)
+    cross = cross / np.linalg.norm(cross)
+    angle = np.arccos(np.dot(uz, rz))
     uz_to_p = Rotation.from_rotvec(angle * cross)
     possible_p = uz_to_p.apply(uz)
-    if np.dot(possible_p, p) < 0.999:
-        angle = -angle
-    return angle
+    if not np.dot(possible_p, rz) > 0.999:
+        uz_to_p = Rotation.from_rotvec(-angle * cross)
+    # assert p_prime == p
+    # p_prime = uz_to_p.apply(uz)
+    return uz_to_p
 
 
 def rotation_to_supervision(rotation):
+    # Let's decompose our rotation into the minimum affecting uz : M = uz_to_p and an angle t rotation around p.
+    # rot(p,t) = (uz_to_p)^-1 * rotation
     matrix = rotation.as_matrix()
     rz = matrix[:, 2]
-    angle = vector_to_angle(rz)
-    return rz, angle
+    uz_to_p = vector_to_rotation(rz)
+
+    # Now we can decompose the rotation p -> p' and a rotation around p of angle t.
+    rot_pt = uz_to_p.inv() * rotation
+    pt = rot_pt.as_rotvec()
+    return rz, pt[2]
