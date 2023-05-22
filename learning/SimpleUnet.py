@@ -1,54 +1,57 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from functools import partial
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, k_size=3, stride=1, padding=1, use_batch_norm=True):
+    def __init__(self, in_channels, out_channels, k_size=3, stride=1, padding=1,
+                 use_batch_norm=True,
+                 num_convs=2):
         super(ConvBlock, self).__init__()
-        self.conv3d_a = nn.Conv3d(in_channels=in_channels, out_channels=out_channels, kernel_size=k_size,
-                                  stride=stride, padding=padding)
-        self.conv3d_b = nn.Conv3d(in_channels=out_channels, out_channels=out_channels, kernel_size=k_size,
-                                  stride=stride, padding=padding)
         self.use_batch_norm = use_batch_norm
-        if use_batch_norm:
-            self.batch_norm = nn.BatchNorm3d(num_features=out_channels)
+        self.module_dict = nn.ModuleDict()
+        for i in range(num_convs):
+            conv_block = nn.Conv3d(in_channels=in_channels if i == 0 else out_channels,
+                                   out_channels=out_channels,
+                                   kernel_size=k_size,
+                                   stride=stride,
+                                   padding=padding)
+            self.module_dict[f"conv_{i}"] = conv_block
+            if use_batch_norm:
+                self.module_dict[f"bn_{i}"] = nn.BatchNorm3d(num_features=out_channels)
+            self.module_dict[f"prelu_{i}"] = nn.PReLU()
 
     def forward(self, x):
-        x = self.conv3d_a(x)
-        if self.use_batch_norm:
-            x = self.batch_norm(x)
-        x = self.conv3d_b(x)
-        x = F.elu(x)
+        for k, op in self.module_dict.items():
+            # print(k, x.shape)
+            x = op(x)
+            # print(k, x.shape)
         return x
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, in_channels, model_depth=4, pool_size=2, num_feat_maps=16):
+    def __init__(self, in_channels, model_depth=4, pool_size=2, num_feat_maps=16, num_convs=2):
         """
         Model depth correspond to the number of convolution block, which is one more than the max pool
         x_0 -> conv_0 -> maxpool_0 -> x_1
         x_1 -> conv_1 -> maxpool_1 -> x_2
         ...
         x_d-1 -> conv_d -> x_d
+
+        Therefore, we have 5xi, 4 convs and 3MP
         """
         super(EncoderBlock, self).__init__()
         self.num_feat_maps = num_feat_maps
-        self.num_conv_blocks = 2
+        self.num_conv_blocks = num_convs
         self.module_dict = nn.ModuleDict()
         for depth in range(model_depth):
-            feat_map_channels = 2 ** (depth + 1) * self.num_feat_maps
-            for i in range(self.num_conv_blocks):
-                # print("depth {}, conv {}".format(depth, i))
-                # print(in_channels, feat_map_channels)
-                self.conv_block = ConvBlock(in_channels=in_channels,
-                                            out_channels=feat_map_channels,
-                                            # stride=2,
-                                            use_batch_norm=depth < 2)
-                self.module_dict["conv_{}_{}".format(depth, i)] = self.conv_block
-                in_channels, feat_map_channels = feat_map_channels, feat_map_channels * 2
+            # Compute output size
+            feat_map_channels = self.num_feat_maps * 2 ** depth
+            self.module_dict[f"block_{depth}"] = ConvBlock(in_channels=in_channels,
+                                                           out_channels=feat_map_channels,
+                                                           num_convs=num_convs)
+            in_channels = feat_map_channels
             if depth < model_depth - 1:
                 self.pooling = nn.MaxPool3d(kernel_size=pool_size, stride=2, padding=0)
                 self.module_dict["max_pooling_{}".format(depth)] = self.pooling
@@ -56,14 +59,15 @@ class EncoderBlock(nn.Module):
     def forward(self, x):
         downsampling_features = []
         for k, op in self.module_dict.items():
-            if k.startswith("conv"):
+            # print(k, x.shape)
+            if k.startswith("block"):
                 x = op(x)
+                downsampling_features.append(x)
                 # print([x.shape for x in downsampling_features])
-                if k.endswith("1"):
-                    downsampling_features.append(x)
             elif k.startswith("max_pooling"):
                 x = op(x)
             # print(k, x.shape)
+            # print()
         return x, downsampling_features
 
 
@@ -85,36 +89,29 @@ class ConvTranspose(nn.Module):
 class DecoderBlock(nn.Module):
     """
     Constructs back the input like grids from the condensed representation and the intermediate values.
-    Similarly, model depth correspond to the number of transposed convolution block, which is one more than the max pool
-    x_0 -> conv_0 -> maxpool_0 -> x_1
-    x_1 -> conv_1 -> maxpool_1 -> x_2
-    ...
-    x_d-1 -> conv_d -> x_d
 
-    Therefore, there are only d-2 maxpooling ops
+    Since : x_0 -> conv_0 -> maxpool_0 -> x_1
+    We define CT_i as the one which has output at depth i.
     """
 
-    def __init__(self, out_channels, model_depth=4, num_feat_maps=16, max_decode=0):
+    def __init__(self, out_channels, model_depth=4, num_feat_maps=16, max_decode=0, num_convs=2):
         super(DecoderBlock, self).__init__()
-        self.num_conv_blocks = 2
         self.num_feat_maps = num_feat_maps
-        # user nn.ModuleDict() to store ops and the fact that the order is kept
         self.module_dict = nn.ModuleDict()
 
-        # Only decode until a certain depth
+        # Only decode until a certain depth of max_decode
         for depth in range(model_depth - 2, max_decode - 1, - 1):
-            feat_map_channels = 2 ** (depth + 1) * self.num_feat_maps
-            self.deconv = ConvTranspose(in_channels=feat_map_channels * 4, out_channels=feat_map_channels * 4)
-            self.module_dict["deconv_{}".format(depth)] = self.deconv
-            for i in range(self.num_conv_blocks):
-                if i == 0:
-                    self.conv = ConvBlock(in_channels=feat_map_channels * 6, out_channels=feat_map_channels * 2)
-                    self.module_dict["conv_{}_{}".format(depth, i)] = self.conv
-                else:
-                    self.conv = ConvBlock(in_channels=feat_map_channels * 2, out_channels=feat_map_channels * 2)
-                    self.module_dict["conv_{}_{}".format(depth, i)] = self.conv
+            # This is the size expected at this depth.
+            # The input and output for deconv will be twice that, so after concat we get three times that
+            feat_map_channels = self.num_feat_maps * 2 ** depth
+            self.deconv = ConvTranspose(in_channels=feat_map_channels * 2, out_channels=feat_map_channels * 2)
+            self.module_dict[f"deconv_{depth}"] = self.deconv
+            self.conv = ConvBlock(in_channels=feat_map_channels * 3,
+                                  out_channels=feat_map_channels,
+                                  num_convs=num_convs)
+            self.module_dict[f"block_{depth}"] = self.conv
             if depth == max_decode:
-                self.final_conv = ConvBlock(in_channels=feat_map_channels * 2, out_channels=out_channels)
+                self.final_conv = ConvBlock(in_channels=feat_map_channels, out_channels=out_channels)
                 self.module_dict["final_conv"] = self.final_conv
 
     def forward(self, x, downsampling_features):
@@ -125,7 +122,7 @@ class DecoderBlock(nn.Module):
         """
 
         for k, op in self.module_dict.items():
-
+            # print(k, x.shape)
             if k.startswith("deconv"):
                 x = op(x)
                 # If the input has a shape that is not a power of 2, we need to pad when deconvoluting
@@ -133,10 +130,9 @@ class DecoderBlock(nn.Module):
                 pad_size = [0, dz, 0, dy, 0, dx]
                 x = torch.nn.functional.pad(x, pad=pad_size, mode='constant', value=0)
                 x = torch.cat((downsampling_features[int(k[-1])], x), dim=1)
-            elif k.startswith("conv"):
-                x = op(x)
             else:
                 x = op(x)
+            # print(k, x.shape)
         return x
 
 
@@ -185,7 +181,7 @@ class UnetModel(nn.Module):
         return out
 
 
-class HalfUnetModel(nn.Module):
+class SimpleHalfUnetModel(nn.Module):
     def __init__(self,
                  in_channels=1,
                  out_channels_decoder=128,
@@ -193,16 +189,19 @@ class HalfUnetModel(nn.Module):
                  model_depth=4,
                  num_feature_map=16,
                  max_decode=2,
+                 num_convs=2
                  ):
-        super(HalfUnetModel, self).__init__()
+        super(SimpleHalfUnetModel, self).__init__()
         self.num_feat_maps = num_feature_map
         self.encoder = EncoderBlock(in_channels=in_channels,
                                     model_depth=model_depth,
-                                    num_feat_maps=self.num_feat_maps)
+                                    num_feat_maps=self.num_feat_maps,
+                                    num_convs=num_convs)
         self.decoder = DecoderBlock(out_channels=out_channels_decoder,
                                     model_depth=model_depth,
                                     num_feat_maps=self.num_feat_maps,
-                                    max_decode=max_decode)
+                                    max_decode=max_decode,
+                                    num_convs=num_convs)
 
         self.final_conv = nn.Conv3d(in_channels=out_channels_decoder, out_channels=out_channels, kernel_size=1)
 
@@ -223,9 +222,13 @@ if __name__ == '__main__':
     # out = model(grid_em)
     # print(out.shape)
 
-    model = HalfUnetModel(out_channels_decoder=128,
-                          num_feature_map=24, )
+    model = SimpleHalfUnetModel(in_channels=1,
+                                model_depth=4,
+                                num_convs=3,
+                                max_decode=2,
+                                num_feature_map=32)
     a = sum(dict((p.data_ptr(), p.numel()) for p in model.parameters()).values())
     print(a)
     # out = model(grid_em)
     # print(out.shape)
+    # print(model.encoder.module_dict)

@@ -17,6 +17,7 @@ if __name__ == '__main__':
 
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
+from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.learning_utils import get_split_dataloaders, rotation_to_supervision, weighted_bce
 from learning.train_functions import setup_learning
 
@@ -195,8 +196,13 @@ if __name__ == '__main__':
     # Learning hyperparameters
     n_epochs = 700
     accumulated_batch = 5
-    model = HalfUnetModel(out_channels_decoder=128,
-                          num_feature_map=24, )
+    # model = HalfUnetModel(out_channels_decoder=128,
+    #                       num_feature_map=24, )
+    model = SimpleHalfUnetModel(in_channels=1,
+                                model_depth=4,
+                                num_convs=3,
+                                max_decode=2,
+                                num_feature_map=32)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters())
 

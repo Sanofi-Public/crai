@@ -28,6 +28,9 @@ def align_output(out_grid, mrc):
     i, j, k = np.unravel_index(amax, pred_shape)
     predicted_vector = out_grid[1:, i, j, k]
 
+    # vector for 6NQD resampled : [ 4.79253     3.6755624   4.74799    -0.19534855 -0.30114865  0.90417624,  1.0845873   0.00650528]
+    # vector for 6NQD full :      [ 2.836878    3.7410862   4.217003    0.15308517 -0.24319988 -0.35431457,  0.87055814 -0.14068878]
+
     # First let's find out the position of the antibody in our prediction
     offset_x, offset_y, offset_z = predicted_vector[:3]
     origin = mrc.origin
@@ -38,6 +41,10 @@ def align_output(out_grid, mrc):
     x = bin_x[i] + offset_x
     y = bin_y[j] + offset_y
     z = bin_z[k] + offset_z
+
+    voxel_size = (top - origin) / pred_shape
+    mrc_pred = mrc_utils.MRCGrid(data=pred_loc, voxel_size=voxel_size, origin=origin)
+    mrc_pred.save(outname=dump_name.replace(".pdb", "pred.mrc"))
 
     # Then cast the angles by normalizing them and inverting the angle->R2 transform
     predicted_rz = predicted_vector[3:6] / np.linalg.norm(predicted_vector[3:6])
@@ -76,15 +83,16 @@ if __name__ == '__main__':
     # dirname = '7LO8_23464'  # this is test set
     dirname = '6NQD_0485'
     pdb_name, mrc_name = dirname.split("_")
-    mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
+    # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
+    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
     # align_output(fake_out, mrc)
 
-    model_name = 'object_best'
+    # model_name = 'object_best'
+    model_name = 'object_2_best'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     model = HalfUnetModel(out_channels_decoder=128,
                           num_feature_map=24,
