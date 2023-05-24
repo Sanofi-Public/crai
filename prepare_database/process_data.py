@@ -84,6 +84,53 @@ def str_resolution_to_float(str_res, default_value=20):
             return default_value
 
 
+def extract_resolution_from_pdb(pdb_path):
+    # This successfully extracts the resolution for all systems but 3 :3JCB, 3JCC and 7RAL
+    # that don't have a resolution in the mmcif
+    word = '_em_3d_reconstruction.resolution '
+    with open(pdb_path, 'r') as fp:
+        # read all lines in a list
+        lines = fp.readlines()
+        for line in lines:
+            # check if string present on a current line
+            if line.find(word) != -1:
+                _, resolution = line.split()
+                return float(resolution)
+
+
+def clean_resolution(datadir_name='../data/pdb_em',
+                     csv_in="../data/cleaned.csv",
+                     csv_out='../data/cleaned_res.csv'):
+    """
+    Sabdab fails to parse certain resolutions
+    """
+    files_list = os.listdir(datadir_name)
+    pdb_to_file = {file_name.split('_')[0]: file_name for file_name in files_list}
+
+    df = pd.read_csv(csv_in, index_col=0)
+    new_df = pd.DataFrame(columns=df.columns)
+
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+
+        # Try to read the resolution with a placeholder default value
+        # If we hit this, open the mmcif and get a corrected value
+        default_value = 25
+        resolution = str_resolution_to_float(resolution, default_value=default_value)
+        if resolution == default_value:
+            pdb = pdb.upper()
+            if not pdb in pdb_to_file:
+                continue
+            pdb_path = os.path.join(datadir_name, pdb_to_file[pdb], f"{pdb}.cif")
+            try:
+                resolution = extract_resolution_from_pdb(pdb_path)
+            except:
+                print('Failed to fix resolution for :', pdb)
+                resolution = default_value
+        new_df.loc[len(new_df)] = pdb, heavy_chain, light_chain, antigen, resolution
+    new_df.to_csv(csv_out)
+
+
 def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     """
     This goes through the SabDab reduced output and filters it :
@@ -95,7 +142,7 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     :param csv_file:
     :return:
     """
-    df = pd.read_csv(csv_file)[['pdb', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']]
+    df = pd.read_csv(csv_file, index_col=0)
 
     # # Get subset
     # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
@@ -169,6 +216,7 @@ def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='pol
 def filter_copies(pdb_path, pdb_selections):
     # At least one should be kept
     list_to_keep = [pdb_selections.pop()]
+
     # Now let's try to add some more in this list
     for other in pdb_selections:
         found = False
@@ -213,7 +261,7 @@ def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
             resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
             angstrom_expand = 10
             expanded_selection = f"(({antibody_selection}) expand {angstrom_expand}) or {antigen_selection}"
-            carved = mrc.carve(pdb_path=pdb_path, pymol_sel=expanded_selection, margin=6)
+            carved = mrc.carve(pdb_path=pdb_path, pymol_sel=expanded_selection, margin=8)
             carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
             row = [pdb_name, mrc_name, dirname, local_ab_id, heavy_chain, light_chain, antigen,
                    resolution, antibody_selection, antigen_selection]
@@ -312,7 +360,10 @@ if __name__ == '__main__':
     # parallel_do()
     # 3J3O_5291
 
-    pdb_selections = process_csv()
+    raw = '../data/cleaned.csv'
+    clean_res = '../data/cleaned_res.csv'
+    clean_resolution(csv_in=raw, csv_out=clean_res)
+    pdb_selections = process_csv(csv_file=clean_res)
 
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]
@@ -346,7 +397,7 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
-    process_database(overwrite=True)
+    # process_database(overwrite=True)
     # correct_db()
     # Succeeded on 1113 systems, 249 skipped, 0 failed
     # Skipped = ['3JCC_6543', '7DK5_30703', '7WWJ_32867', '3IY4_5109', '3J8Z_5990', '3IYW_5190', '7Z3A_14474',
