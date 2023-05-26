@@ -34,7 +34,7 @@ def weighted_dice_loss(output, target, weight=None):
 
 
 def weighted_bce(output, target, weights=None):
-    output = torch.clamp(output, min=1e-8, max=1 - 1e-8)
+    output = torch.clamp(output, min=1e-5, max=1 - 1e-5)
     if weights is not None:
         assert len(weights) == 2
 

@@ -197,8 +197,8 @@ if __name__ == '__main__':
     # coords_loss(fake_out, ab_dataset[0][1])
 
     # Learning hyperparameters
-    n_epochs = 700
-    accumulated_batch = 5
+    n_epochs = 1000
+    accumulated_batch = 20
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24, )
     model = SimpleHalfUnetModel(in_channels=1,
