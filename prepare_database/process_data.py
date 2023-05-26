@@ -147,9 +147,12 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     # # Get subset
     # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
     # df_sub = df[df.pdb.isin(reduced_pdblist)]
+
     # df_sub.to_csv('../data/reduced_clean.csv')
 
     # # Get resolution histogram
+    # import matplotlib.pyplot as plt
+    # import numpy as np
     # grouped = df.groupby('pdb').nth(0)
     # all_res = grouped[['resolution']].values.squeeze()
     # float_res = [str_resolution_to_float(str_res) for str_res in all_res]
@@ -197,6 +200,7 @@ def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='pol
     :return: 1 if they are copies 0 otherwise
     """
     with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(pdb_path, 'toto')
         sel1 = f'toto  and ({sel1})'
 
@@ -233,7 +237,6 @@ def filter_copies(pdb_path, pdb_selections):
         if not found:
             list_to_keep.append(other)
 
-    print(list_to_keep)
     return list_to_keep
 
 
@@ -362,7 +365,7 @@ if __name__ == '__main__':
 
     raw = '../data/cleaned.csv'
     clean_res = '../data/cleaned_res.csv'
-    clean_resolution(csv_in=raw, csv_out=clean_res)
+    # clean_resolution(csv_in=raw, csv_out=clean_res)
     pdb_selections = process_csv(csv_file=clean_res)
 
     # # Get ones from my local database
@@ -397,7 +400,7 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
-    # process_database(overwrite=True)
+    process_database(overwrite=True, csv_in=clean_res, csv_dump='../data/cleaned_final.csv')
     # correct_db()
     # Succeeded on 1113 systems, 249 skipped, 0 failed
     # Skipped = ['3JCC_6543', '7DK5_30703', '7WWJ_32867', '3IY4_5109', '3J8Z_5990', '3IYW_5190', '7Z3A_14474',
