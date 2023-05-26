@@ -77,7 +77,7 @@ class CoordComplex:
       because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc_path, pdb_path, antibody_selection=None, rotate=True):
+    def __init__(self, mrc_path, pdb_path, antibody_selection=None, rotate=True, crop=0):
         # First get the MRC data
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
         self.initial_mrc_origin = self.mrc.origin
@@ -101,6 +101,8 @@ class CoordComplex:
         # Careful we need to rotate the mrc after since it changes the origin field
         self.mrc = self.mrc.rotate(rotate_around_z=self.rotor.rotate_around_z,
                                    rotate_in_plane=self.rotor.rotate_in_plane)
+
+        self.mrc = self.mrc.random_crop(crop)
         self.input_tensor = self.mrc.data[None, ...]
 
 
@@ -122,7 +124,8 @@ if __name__ == '__main__':
     # dirname = '6PZY_20540'
     # antibody_selection = 'chain C or chain D'
 
-    dirname = '6JHS_9829'
+    dirname = '6JHS_9829'  # offset between pdb and mrc
+    # /home/vmallet/projects/crIA-EM/data/pdb_em/6JHS_9829/emd_9829.map
     antibody_selection = 'chain E or chain D'
 
     pdb_name, mrc_name = dirname.split("_")
@@ -140,10 +143,11 @@ if __name__ == '__main__':
     comp_coords = CoordComplex(mrc_path=resampled_path,
                                pdb_path=pdb_path,
                                antibody_selection=antibody_selection,
-                               rotate=False)
-
+                               rotate=False,
+                               crop=3)
     # To plot: get a rotated version of the mrc and compare it to the rotated template
     comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
+
     transform_template(rotation=comp_coords.rotation,
                        translation=comp_coords.translation,
                        out_name="rotated.pdb")

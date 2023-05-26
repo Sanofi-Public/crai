@@ -245,6 +245,21 @@ class MRCGrid:
                               voxel_size=self.voxel_size)
         return rotated_mrc
 
+    def random_crop(self, margin=4):
+        """
+        Rotate the MRC data around
+        :param rotate_around_z:
+        :param rotate_in_plane:
+        :return:
+        """
+        dx1, dx2, dy1, dy2, dz1, dz2 = np.random.randint(0, margin + 1, size=6)
+        new_data = self.data[dx1:-dx2 - 1, dy1:-dy2 - 1, dz1:-dz2 - 1]
+        new_origin = self.origin + self.voxel_size * np.array([dx1, dy1, dz1])
+        cropped_mrc = MRCGrid(data=new_data,
+                              origin=new_origin,
+                              voxel_size=self.voxel_size)
+        return cropped_mrc
+
     def save(self, outname, data=None, overwrite=False):
         data = self.data if data is None else data
         save_canonical_mrc(outname=outname,

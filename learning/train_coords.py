@@ -98,7 +98,7 @@ def train(model, device, optimizer, loader,
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
-            loss = position_loss + offset_loss + rz_loss + angle_loss
+            loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
             loss.backward()
 
             # Accumulated gradients
@@ -139,6 +139,7 @@ def train(model, device, optimizer, loader,
                 model.to(device)
 
 
+
 def validate(model, device, loader):
     time_init = time.time()
     losses = list()
@@ -175,8 +176,8 @@ if __name__ == '__main__':
 
     # Setup data
     rotate = True
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    num_workers = 0
+    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
     csv_to_read = "../data/final.csv"
@@ -203,8 +204,10 @@ if __name__ == '__main__':
                                 num_convs=3,
                                 max_decode=2,
                                 num_feature_map=32)
+    model_path = "../saved_models/object_4_last.pth"
+    model.load_state_dict(torch.load(model_path))
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     # Train
     train(model=model, device=device, loader=train_loader,

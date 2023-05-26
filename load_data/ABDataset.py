@@ -19,12 +19,14 @@ class ABDataset(Dataset):
                  csv_to_read="../data/final.csv",
                  return_grid=True,
                  return_sdf=False,
-                 rotate=True):
+                 rotate=True,
+                 crop=0):
         self.data_root = data_root
         self.df = pd.read_csv(csv_to_read)[["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
         self.rotate = rotate
         self.return_sdf = return_sdf
         self.return_grid = return_grid
+        self.crop = crop
 
     def __len__(self):
         return len(self.df)
@@ -47,7 +49,8 @@ class ABDataset(Dataset):
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selection=antibody_selection,
-                                rotate=self.rotate)
+                                rotate=self.rotate,
+                                crop=self.crop)
         return dirname, comp
 
     def __getitem__(self, item):
@@ -67,7 +70,8 @@ if __name__ == '__main__':
     dataset = ABDataset(data_root='../data/pdb_em',
                         csv_to_read='../data/reduced_final.csv',
                         return_grid=False,
-                        rotate=True
+                        rotate=True,
+                        crop=2
                         )
     res = dataset[3]
     print(res[0])

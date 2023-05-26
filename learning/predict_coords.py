@@ -10,6 +10,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from learning.Unet import HalfUnetModel
+from learning.SimpleUnet import SimpleHalfUnetModel
 from load_data.CoordComplex import transform_template
 from utils import mrc_utils
 from utils.learning_utils import vector_to_rotation
@@ -80,11 +81,11 @@ if __name__ == '__main__':
     datadir_name = "../data/pdb_em"
     # datadir_name = ".."
     # dirname = '7V3L_31683' # present in train set
-    # dirname = '7LO8_23464'  # this is test set
-    dirname = '6NQD_0485'
+    dirname = '7LO8_23464'  # this is test set
+    # dirname = '6NQD_0485'
     pdb_name, mrc_name = dirname.split("_")
-    # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
+    mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
+    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -92,11 +93,17 @@ if __name__ == '__main__':
     # align_output(fake_out, mrc)
 
     # model_name = 'object_best'
-    model_name = 'object_2_best'
+    # model_name = 'object_2_best'
+    model_name = 'object_3_best'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
-    model = HalfUnetModel(out_channels_decoder=128,
-                          num_feature_map=24,
-                          )
+    # model = HalfUnetModel(out_channels_decoder=128,
+    #                       num_feature_map=24,
+    #                       )
+    model = SimpleHalfUnetModel(in_channels=1,
+                                model_depth=4,
+                                num_convs=3,
+                                max_decode=2,
+                                num_feature_map=32)
     model.load_state_dict(torch.load(model_path))
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
 
