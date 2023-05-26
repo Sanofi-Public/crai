@@ -89,7 +89,6 @@ def train(model, device, optimizer, loader,
           writer=None, n_epochs=10, val_loader=None, accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
     last_model_path = f'{save_path}_last.pth'
-    best_model_path = f'{save_path}_best.pth'
     time_init = time.time()
     for epoch in range(n_epochs):
         for step, (name, complex) in enumerate(loader):
@@ -99,6 +98,7 @@ def train(model, device, optimizer, loader,
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
             loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
+            # loss = position_loss +  offset_loss + rz_loss + angle_loss
             loss.backward()
 
             # Accumulated gradients
@@ -134,10 +134,10 @@ def train(model, device, optimizer, loader,
             # Model checkpointing
             if val_loss < best_mean_val_loss:
                 best_mean_val_loss = val_loss
+                best_model_path = f'{save_path}_{epoch}.pth'
                 model.cpu()
                 torch.save(model.state_dict(), best_model_path)
                 model.to(device)
-
 
 
 def validate(model, device, loader):
@@ -176,14 +176,16 @@ if __name__ == '__main__':
 
     # Setup data
     rotate = True
-    num_workers = 0
-    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    crop = 3
+    # num_workers = 0
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
-    csv_to_read = "../data/final.csv"
+    csv_to_read = "../data/cleaned_final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
+                           crop=crop,
                            return_grid=False)
     train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
                                                         shuffle=True,
@@ -204,8 +206,8 @@ if __name__ == '__main__':
                                 num_convs=3,
                                 max_decode=2,
                                 num_feature_map=32)
-    model_path = "../saved_models/object_4_last.pth"
-    model.load_state_dict(torch.load(model_path))
+    # model_path = "../saved_models/object_4_last.pth"
+    # model.load_state_dict(torch.load(model_path))
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
