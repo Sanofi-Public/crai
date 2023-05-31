@@ -7,12 +7,18 @@ Then we need to resample the experimental maps to get a fixed voxel_size value o
 
 import os
 import sys
+import time
 
 from collections import defaultdict
 import multiprocessing
 import pandas as pd
 import pymol2
 from tqdm import tqdm
+import subprocess
+
+# phenix = os.environ['PHENIX']
+# PHENIX_VALIDATE = os.path.join(phenix, 'build/bin/phenix.validation_cryoem')
+PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -34,14 +40,15 @@ def do_one(dirname, datadir_name):
     :param datadir_name:
     :return:
     """
-    pdb_name, mrc = dirname.split("_")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
-    carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
-    resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
-    # mrc = MRCGrid.from_mrc(mrcgz_path)
     try:
+        pdb_name, mrc = dirname.split("_")
+        # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+        mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
+        carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
+        resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
+        # mrc = MRCGrid.from_mrc(mrcgz_path)
+
         mrc = load_mrc(mrcgz_path)
         boo = mrc.header.mx.item() != mrc.data.shape[0] or \
               mrc.header.my.item() != mrc.data.shape[1] or \
@@ -49,12 +56,13 @@ def do_one(dirname, datadir_name):
         if boo:
             print(f'{dirname} : {mrc.header.mx.item()}')
     except Exception as e:
-        print(f"Failed for system : {dirname}")
+        # print(f"Failed for system : {dirname}")
+        return 1, f"Failed for system : {dirname} with error {e}"
 
 
 def parallel_do(datadir_name="../data/pdb_em", ):
     """
-    Run just do in parallel
+    Run do one in parallel
     :param datadir_name:
     :return:
     """
@@ -62,8 +70,9 @@ def parallel_do(datadir_name="../data/pdb_em", ):
     l = multiprocessing.Lock()
     pool = multiprocessing.Pool(initializer=init, initargs=(l,))
     njobs = len(files_list)
-    pool.starmap(do_one,
-                 tqdm(zip(files_list, [datadir_name, ] * njobs), total=njobs))
+    results = pool.starmap(do_one,
+                           tqdm(zip(files_list, [datadir_name, ] * njobs), total=njobs))
+    print(results)
 
 
 def str_resolution_to_float(str_res, default_value=20):
@@ -129,6 +138,88 @@ def clean_resolution(datadir_name='../data/pdb_em',
                 resolution = default_value
         new_df.loc[len(new_df)] = pdb, heavy_chain, light_chain, antigen, resolution
     new_df.to_csv(csv_out)
+
+
+def validate_one(mrc, pdb, sel=None, resolution=4):
+    if mrc is None:
+        return 2, f"Failed on file loading for {pdb}"
+    try:
+        if sel is not None:
+            with pymol2.PyMOL() as p:
+                p.cmd.feedback("disable", "all", "everything")
+                p.cmd.load(pdb, 'toto')
+                outname = os.path.join(os.path.dirname(pdb), 'temp.pdb')
+                p.cmd.save(outname, f'toto and ({sel})')
+        pdb_to_score = pdb if sel is None else outname
+
+        cmd = f'{PHENIX_VALIDATE} {pdb_to_score} {mrc} run="*model_vs_data" resolution={resolution}'
+        res = subprocess.run(cmd.split(), capture_output=True)
+
+        if sel is not None:
+            os.remove(pdb_to_score)
+
+        returncode = res.returncode
+        if returncode > 0:
+            return returncode, res.stderr.decode()
+        stdout = res.stdout.decode()
+        stdout_aslist = list(stdout.splitlines())
+        relevant_lines_start = stdout_aslist.index('Map-model CC (overall)')
+        relevant_lines = stdout_aslist[relevant_lines_start + 2:relevant_lines_start + 6]
+        # We now have 4 values : CC_mask, CC_peaks, CC_box. For now let us just us CC_mask
+        cc_mask = float(relevant_lines[0].split()[-1])
+        return res.returncode, cc_mask
+    except Exception as e:
+        return 1, e
+
+
+def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
+    # Prepare input list
+    df = pd.read_csv(csv_in, index_col=0)
+    files_list = os.listdir(datadir_name)
+    em_mapping = {pdb_em.split('_')[0]: pdb_em.split('_')[1] for pdb_em in files_list}
+    to_process = []
+    for i, row in df.iterrows():
+        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+        pdb = pdb.upper()
+        if pdb in em_mapping:
+            em = em_mapping[pdb]
+            system_dir = os.path.join(datadir_name, f"{pdb}_{em}")
+            pdb_path = os.path.join(system_dir, f"{pdb}.cif")
+            mrc_path = os.path.join(system_dir, f"emd_{em}.map.gz")
+            selection = f'chain {heavy_chain} or chain {light_chain}'
+            to_process.append((mrc_path, pdb_path, selection, resolution))
+        else:
+            to_process.append((None, pdb, None, None))
+
+    # # For reduced computation
+    # max_systems = 10
+    # to_process = to_process[:max_systems]
+    # df = df[:max_systems]
+
+    # Parallel computation
+    l = multiprocessing.Lock()
+    pool = multiprocessing.Pool(processes=4, initializer=init, initargs=(l,), )
+    results = pool.starmap(validate_one, tqdm(to_process, total=len(to_process)))
+    # print(results)
+
+    # # For sequential computation
+    # results = []
+    # for i, x in enumerate(to_process):
+    #     print(i)
+    #     results.append(validate_one(*x))
+
+    all_results = []
+    all_errors = []
+    for i, (return_code, result) in enumerate(results):
+        if return_code == 0:
+            all_results.append(result)
+        else:
+            all_results.append(-1)
+            all_errors.append((return_code, result))
+    df['validation_score'] = all_results
+    df.to_csv(csv_out)
+    for x in all_errors:
+        print(x)
 
 
 def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
@@ -365,8 +456,16 @@ if __name__ == '__main__':
 
     raw = '../data/cleaned.csv'
     clean_res = '../data/cleaned_res.csv'
+    validated = '../data/validated.csv'
     # clean_resolution(csv_in=raw, csv_out=clean_res)
-    pdb_selections = process_csv(csv_file=clean_res)
+
+    # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
+    # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
+    # sel = "chain H or chain L"
+    # validate_one(pdb=pdb, mrc=mrc, sel=sel)
+    add_validation_score(csv_in=clean_res, csv_out=validated)
+
+    # pdb_selections = process_csv(csv_file=validated)
 
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]
@@ -400,42 +499,7 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
-    process_database(overwrite=True, csv_in=clean_res, csv_dump='../data/cleaned_final.csv')
+    # process_database(overwrite=True, csv_in=clean_res, csv_dump='../data/cleaned_final.csv')
     # correct_db()
-    # Succeeded on 1113 systems, 249 skipped, 0 failed
-    # Skipped = ['3JCC_6543', '7DK5_30703', '7WWJ_32867', '3IY4_5109', '3J8Z_5990', '3IYW_5190', '7Z3A_14474',
-    #            '8E7M_27939', '3J2X_5576', '3JAB_6258', '7YR0_34041', '7VGR_31977', '7C2S_30278', '3J7E_5994',
-    #            '7U9P_26404', '7T17_25606', '7XDK_33150', '8DL8_27499', '7WCP_32427', '7ZLK_14783', '7UPL_26669',
-    #            '6AVR_7012', '8EMA_27848', '7V23_31635', '5Y0A_6793', '8AE2_15379', '7ZLI_14781', '3J8W_6184',
-    #            '7WO7_32641', '8DAD_27270', '7UZ7_26881', '7QTJ_14142', '3JCB_6542', '7T0W_25583', '6JFH_9811',
-    #            '3IY7_5112', '4CKD_2548', '7WOB_32647', '8HC5_34652', '7WWI_32866', '7WP0_32665', '7UZB_26885',
-    #            '8HC9_34656', '8HHX_34806', '7SJN_25162', '7DWT_30883', '3IY6_5111', '3IY2_5107', '3J3O_5291',
-    #            '5ANY_3144', '7RU5_24697', '7ZYI_15024', '4UOK_2655', '8DKX_27493', '7XXL_33506', '7U8G_26383',
-    #            '7WRO_32734', '7NRH_12544', '7XW7_33493', '8F6H_28883', '8HIK_34819', '8HIJ_34818', '8HC3_34650',
-    #            '7U9O_26402', '5A7X_3086', '6AVU_7013', '7URF_26711', '7WRY_32737', '3J30_5580', '7T0Z_25585',
-    #            '7SJO_25163', '7RU3_24695', '7SJ0_25149', '7SK7_25175', '7WRZ_32738', '7WR8_32718', '7U0Q_26263',
-    #            '7TJQ_25929', '8F6I_28884', '7WO5_32639', '8DW3_27750', '3JBQ_6258', '7SK5_25173', '7WOC_32648',
-    #            '7XCZ_33130', '7SK4_25172', '7UZ6_26880', '7UZ8_26882', '7WTG_32785', '7L6M_23145', '7WCD_32421',
-    #            '7UZA_26884', '7SWW_25487', '7X92_33064', '7URD_26709', '7X1M_32944', '7T5O_25699', '7XCK_33123',
-    #            '7T3M_25663', '3J70_5020', '8DM4_27526', '7WCU_32429', '7X8Z_33061', '8DZH_27798', '8HC4_34651',
-    #            '7UMM_26605', '4UOM_2645', '7XDA_33140', '8GSE_34233', '7UPX_26677', '7QTI_14141', '6IDK_9650',
-    #            '7X90_33062', '7Z12_14438', '7YAR_33718', '8GSF_34234', '8HC8_34655', '7WH8_32497', '7ZLG_14779',
-    #            '8GSC_34231', '8DL7_27498', '3J8V_6121', '7TL0_25982', '8HC6_34653', '6JFI_9812', '7WRJ_32728',
-    #            '7DWU_30884', '6IDI_9649', '3J42_5674', '7WTH_32786', '3J2Y_5578', '7WHB_32498', '7WTF_32784',
-    #            '8AE0_15377', '5H32_9574', '8DKW_27492', '8HSC_34993', '7URE_26710', '7UOT_26653', '7V27_31638',
-    #            '7WK0_32554', '8HS2_34983', '3IY0_5105', '8ADZ_15376', '4UIH_2968', '7WUR_32839', '7SK9_25177',
-    #            '8DL6_27497', '5A8H_3096', '3IY5_5110', '7RU4_24696', '7SWX_25488', '2R6P_1418', '8DLS_27514',
-    #            '8DLW_27518', '7WCK_32423', '7RAL_24365', '6XDG_22137', '7ZLH_14780', '7X6A_33019', '8HCA_34657',
-    #            '7B09_11964', '8HII_34817', '7U0X_26267', '3IXX_5103', '6XJA_22204', '3JBA_6424', '6IDL_9651',
-    #            '8GSD_34232', '8DM3_27525', '3IY3_5108', '7SIX_25148', '7WWK_32868', '7TN9_26005', '7X91_33063',
-    #            '7URA_26707', '7WTI_32787', '7WR9_32719', '8DIU_27443', '8F6J_28885', '7SK8_25176', '8DZI_27799',
-    #            '8HHZ_34808', '7ZBU_14591', '7WOG_32651', '7WRL_32732', '8EPA_28523', '3IXY_5102', '8DT3_27690',
-    #            '7YKJ_33892', '8DUA_27718', '8A1E_15073', '7T9N_25763', '7XDB_33142', '3IY1_5106', '7UOV_26655',
-    #            '8DVD_27735', '7UZ4_26878', '7URX_26720', '8DIM_27440', '7QTK_14143', '7V24_31636', '6AVQ_7011',
-    #            '7UZ9_26883', '7WTJ_32788', '8F6F_28882', '7ZLJ_14782', '8C7H_16460', '7U0P_26262', '8CW9_27024',
-    #            '7XCP_33125', '7RU8_24699', '7UVL_26813', '7WTK_32789', '7L3N_23156', '8D48_27177', '7X8W_33059',
-    #            '7SK3_25171', '7X8Y_33060', '7WHD_32499', '8DW2_27749', '8HC7_34654', '8DE6_27385', '7URC_26708',
-    #            '7YR1_34042', '7USL_26738', '3J3Z_5673', '7WBH_32398', '3J2Z_5579', '7X7T_33047', '8HC2_34649',
-    #            '5VJ6_8695', '7VGS_31978', '8HCB_34658', '7WJY_32552', '7WO4_32638', '8DKE_27488', '8ADY_15375',
-    #            '7WOA_32646', '7WSC_32753', '7UZ5_26879', '3J93_6200', '8HHY_34807', '7WJZ_32553', '5GZR_9542',
-    #            '8F6E_28881', '7XQ8_33390', '8AE3_15380', '8DLR_27512']
+
+
