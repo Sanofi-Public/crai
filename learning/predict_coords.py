@@ -45,7 +45,7 @@ def align_output(out_grid, mrc):
 
     voxel_size = (top - origin) / pred_shape
     mrc_pred = mrc_utils.MRCGrid(data=pred_loc, voxel_size=voxel_size, origin=origin)
-    mrc_pred.save(outname=dump_name.replace(".pdb", "pred.mrc"))
+    mrc_pred.save(outname=dump_path.replace(".pdb", "pred.mrc"))
 
     # Then cast the angles by normalizing them and inverting the angle->R2 transform
     predicted_rz = predicted_vector[3:6] / np.linalg.norm(predicted_vector[3:6])
@@ -81,11 +81,11 @@ if __name__ == '__main__':
     datadir_name = "../data/pdb_em"
     # datadir_name = ".."
     # dirname = '7V3L_31683' # present in train set
-    dirname = '7LO8_23464'  # this is test set
-    # dirname = '6NQD_0485'
+    # dirname = '7LO8_23464'  # this is test set
+    dirname = '6NQD_0485'
     pdb_name, mrc_name = dirname.split("_")
-    mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
+    # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
+    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -94,7 +94,9 @@ if __name__ == '__main__':
 
     # model_name = 'object_best'
     # model_name = 'object_2_best'
-    model_name = 'object_3_best'
+    # model_name = 'object_3_best'
+    model_name = 'crop_95'
+    # model_name = 'crop_256'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,
@@ -106,5 +108,6 @@ if __name__ == '__main__':
                                 num_feature_map=32)
     model.load_state_dict(torch.load(model_path))
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
+    dump_path = os.path.join(datadir_name, dirname, dump_name)
 
-    predict_grid(mrc_path=mrc_path, model=model, out_name=os.path.join(datadir_name, dirname, dump_name))
+    predict_grid(mrc_path=mrc_path, model=model, out_name=dump_path)
