@@ -96,7 +96,11 @@ def train(model, device, optimizer, loader,
                 continue
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            try:
+                position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            except IndexError:
+                print("skipped one")
+                continue
             loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
             # loss = position_loss +  offset_loss + rz_loss + angle_loss
             loss.backward()
@@ -149,7 +153,11 @@ def validate(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            try:
+                position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+            except IndexError:
+                print("skipped one")
+                continue
             loss = position_loss + offset_loss + rz_loss + angle_loss
             losses.append([loss.item(),
                            position_loss.item(),
@@ -181,7 +189,8 @@ if __name__ == '__main__':
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
-    csv_to_read = "../data/cleaned_final.csv"
+    # csv_to_read = "../data/cleaned_final.csv"
+    csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
