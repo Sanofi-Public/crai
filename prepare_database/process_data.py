@@ -198,7 +198,7 @@ def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
 
     # Parallel computation
     l = multiprocessing.Lock()
-    pool = multiprocessing.Pool(processes=4, initializer=init, initargs=(l,), )
+    pool = multiprocessing.Pool(processes=24, initializer=init, initargs=(l,), )
     results = pool.starmap(validate_one, tqdm(to_process, total=len(to_process)))
     # print(results)
 

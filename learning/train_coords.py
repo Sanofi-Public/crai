@@ -18,9 +18,20 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_dataloaders, rotation_to_supervision, weighted_bce
+from utils.learning_utils import get_split_dataloaders, rotation_to_supervision, weighted_bce, weighted_dice_loss
 from learning.train_functions import setup_learning
 
+def weighted_focal_loss(output, target, weights=None):
+    output = torch.clamp(output, min=1e-5, max=1 - 1e-5)
+    if weights is not None:
+        assert len(weights) == 2
+
+        loss = weights[1] * (target * output * torch.log(output)) + \
+               weights[0] * ((1 - target) * (1 - output) * torch.log(1 - output))
+    else:
+        loss = target * output * torch.log(output) + (1 - target) * (1 - output) * torch.log(1 - output)
+
+    return torch.neg(torch.mean(loss))
 
 def coords_loss(prediction, complex):
     """
@@ -54,7 +65,7 @@ def coords_loss(prediction, complex):
     # Now let's add finding this spot as a loss term
     BCE_target = torch.zeros(size=pred_shape, device=device)
     BCE_target[position_x, position_y, position_z] = 1
-    position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
+    position_loss = weighted_focal_loss(prediction[0, 0, ...], BCE_target, weights=[1, 30])
 
     # Extract the predicted vector at this location
     vector_pose = prediction[0, 1:, position_x, position_y, position_z]
@@ -177,6 +188,8 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--agg_grads", type=int, default=20)
     args = parser.parse_args()
 
     writer, save_path, device = setup_learning(model_name=args.model_name,
@@ -189,8 +202,8 @@ if __name__ == '__main__':
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
-    # csv_to_read = "../data/cleaned_final.csv"
-    csv_to_read = "../data/final.csv"
+    csv_to_read = "../data/cleaned_final.csv"
+    # csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
@@ -207,7 +220,7 @@ if __name__ == '__main__':
 
     # Learning hyperparameters
     n_epochs = 1000
-    accumulated_batch = 20
+    accumulated_batch = args.agg_grads
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24, )
     model = SimpleHalfUnetModel(in_channels=1,
@@ -218,7 +231,7 @@ if __name__ == '__main__':
     # model_path = "../saved_models/object_4_last.pth"
     # model.load_state_dict(torch.load(model_path))
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
     train(model=model, device=device, loader=train_loader,
