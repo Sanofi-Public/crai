@@ -46,6 +46,19 @@ def weighted_bce(output, target, weights=None):
     return torch.neg(torch.mean(loss))
 
 
+def weighted_focal_loss(output, target, weights=None):
+    output = torch.clamp(output, min=1e-5, max=1 - 1e-5)
+    if weights is not None:
+        assert len(weights) == 2
+
+        loss = weights[1] * (target * output * torch.log(output)) + \
+               weights[0] * ((1 - target) * (1 - output) * torch.log(1 - output))
+    else:
+        loss = target * output * torch.log(output) + (1 - target) * (1 - output) * torch.log(1 - output)
+
+    return torch.neg(torch.mean(loss))
+
+
 def get_split_dataloaders(dataset,
                           split_train=0.7,
                           split_valid=0.85,

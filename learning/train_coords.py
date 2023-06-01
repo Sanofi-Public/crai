@@ -18,20 +18,10 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_dataloaders, rotation_to_supervision, weighted_bce, weighted_dice_loss
+from utils.learning_utils import get_split_dataloaders, rotation_to_supervision
+from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
 from learning.train_functions import setup_learning
 
-def weighted_focal_loss(output, target, weights=None):
-    output = torch.clamp(output, min=1e-5, max=1 - 1e-5)
-    if weights is not None:
-        assert len(weights) == 2
-
-        loss = weights[1] * (target * output * torch.log(output)) + \
-               weights[0] * ((1 - target) * (1 - output) * torch.log(1 - output))
-    else:
-        loss = target * output * torch.log(output) + (1 - target) * (1 - output) * torch.log(1 - output)
-
-    return torch.neg(torch.mean(loss))
 
 def coords_loss(prediction, complex):
     """
@@ -65,7 +55,14 @@ def coords_loss(prediction, complex):
     # Now let's add finding this spot as a loss term
     BCE_target = torch.zeros(size=pred_shape, device=device)
     BCE_target[position_x, position_y, position_z] = 1
+    # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
     position_loss = weighted_focal_loss(prediction[0, 0, ...], BCE_target, weights=[1, 30])
+
+    # And as a metric, keep track of the bin distance
+    amax = torch.argmax(prediction[0, 0, ...]).cpu().detach().numpy()
+    pred_x, pred_y, pred_z = np.unravel_index(amax, pred_shape)
+    position_dist = np.linalg.norm(np.array([pred_x, pred_y, pred_z]) - np.array([position_x, position_y, position_z]))
+    position_dist = float(position_dist)
 
     # Extract the predicted vector at this location
     vector_pose = prediction[0, 1:, position_x, position_y, position_z]
@@ -93,7 +90,7 @@ def coords_loss(prediction, complex):
     angle_norm = torch.norm(predicted_angle)
     angle_loss = 1 - torch.dot(predicted_angle / angle_norm, vec_angle) + (angle_norm - 1) ** 2
 
-    return position_loss, offset_loss, rz_loss, angle_loss
+    return position_loss, offset_loss, rz_loss, angle_loss, position_dist
 
 
 def train(model, device, optimizer, loader,
@@ -108,7 +105,7 @@ def train(model, device, optimizer, loader,
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             try:
-                position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, complex)
             except IndexError:
                 print("skipped one")
                 continue
@@ -127,6 +124,7 @@ def train(model, device, optimizer, loader,
                 print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
                 writer.add_scalar('train_loss', loss.item(), step_total)
                 writer.add_scalar('train_position_loss', position_loss.item(), step_total)
+                writer.add_scalar('train_position_distance', position_dist, step_total)
                 writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
                 writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
                 writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
@@ -139,10 +137,11 @@ def train(model, device, optimizer, loader,
             print("validation")
             losses = validate(model=model, device=device, loader=val_loader)
             losses = np.array(losses)
-            val_loss, position_loss, offset_loss, rz_loss, angle_loss = np.mean(losses, axis=0)
+            val_loss, position_loss, offset_loss, rz_loss, angle_loss, position_dist = np.mean(losses, axis=0)
             print(f'Validation loss ={val_loss}')
             writer.add_scalar('val_loss', val_loss, epoch)
             writer.add_scalar('val_position_loss', position_loss, epoch)
+            writer.add_scalar('val_position_distance', position_dist, epoch)
             writer.add_scalar('val_offset_loss', offset_loss, epoch)
             writer.add_scalar('val_rz_loss', rz_loss, epoch)
             writer.add_scalar('val_angle_loss', angle_loss, epoch)
@@ -165,7 +164,7 @@ def validate(model, device, loader):
             input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             try:
-                position_loss, offset_loss, rz_loss, angle_loss = coords_loss(prediction, complex)
+                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, complex)
             except IndexError:
                 print("skipped one")
                 continue
@@ -174,7 +173,8 @@ def validate(model, device, loader):
                            position_loss.item(),
                            offset_loss.item(),
                            rz_loss.item(),
-                           angle_loss.item()
+                           angle_loss.item(),
+                           position_dist
                            ])
             if not step % 20:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
