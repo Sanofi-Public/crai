@@ -56,7 +56,9 @@ def coords_loss(prediction, complex):
     BCE_target = torch.zeros(size=pred_shape, device=device)
     BCE_target[position_x, position_y, position_z] = 1
     # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
-    position_loss = weighted_focal_loss(prediction[0, 0, ...], BCE_target, weights=[1, 30])
+    position_loss = weighted_focal_loss(prediction[0, 0, ...],
+                                        BCE_target,
+                                        weights=[1, 30])
 
     # And as a metric, keep track of the bin distance
     amax = torch.argmax(prediction[0, 0, ...]).cpu().detach().numpy()

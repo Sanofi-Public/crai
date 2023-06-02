@@ -68,6 +68,18 @@ def predict_grid(mrc_path, model, process=True, out_name=None, overwrite=True):
         mrc = mrc.resample().normalize()
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     with torch.no_grad():
+        # out = model(mrc_grid)
+        # from train_coords import coords_loss
+        # from load_data import CoordComplex
+        # pdb_path = '../data/pdb_em/6NQD_0485/6NQD.cif'
+        # antibody_selection = 'chain C or chain D'
+        # comp_coords = CoordComplex.CoordComplex(mrc_path=mrc_path,
+        #                                         pdb_path=pdb_path,
+        #                                         antibody_selection=antibody_selection,
+        #                                         rotate=False,
+        #                                         crop=0)
+        # comp_coords.mrc.save('../data/pdb_em/6NQD_0485/test_test.mrc')
+        # coords_loss(out, comp_coords)
         out = model(mrc_grid)[0].numpy()
     translation, rotation = align_output(out, mrc)
     if out_name is not None:
@@ -84,8 +96,8 @@ if __name__ == '__main__':
     # dirname = '7LO8_23464'  # this is test set
     dirname = '6NQD_0485'
     pdb_name, mrc_name = dirname.split("_")
-    # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
+    mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
+    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -95,8 +107,9 @@ if __name__ == '__main__':
     # model_name = 'object_best'
     # model_name = 'object_2_best'
     # model_name = 'object_3_best'
-    model_name = 'crop_95'
+    # model_name = 'crop_95'
     # model_name = 'crop_256'
+    model_name = 'focal_459'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,

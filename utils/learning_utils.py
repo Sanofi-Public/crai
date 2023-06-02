@@ -46,13 +46,14 @@ def weighted_bce(output, target, weights=None):
     return torch.neg(torch.mean(loss))
 
 
-def weighted_focal_loss(output, target, weights=None):
+def weighted_focal_loss(output, target, weights=None, gamma=2):
     output = torch.clamp(output, min=1e-5, max=1 - 1e-5)
     if weights is not None:
         assert len(weights) == 2
 
-        loss = weights[1] * (target * output * torch.log(output)) + \
-               weights[0] * ((1 - target) * (1 - output) * torch.log(1 - output))
+        loss1 = weights[1] * (target * (1 - output) ** gamma * torch.log(output))
+        loss0 = weights[0] * ((1 - target) * output ** gamma * torch.log(1 - output))
+        loss = loss0 + loss1
     else:
         loss = target * output * torch.log(output) + (1 - target) * (1 - output) * torch.log(1 - output)
 
