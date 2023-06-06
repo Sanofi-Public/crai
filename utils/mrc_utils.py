@@ -179,7 +179,7 @@ class MRCGrid:
 
         carved_mrc = MRCGrid(data=data,
                              origin=shifted_origin,
-                             voxel_size=self.voxel_size)
+                             voxel_size=self.voxel_size.copy())
         if out_name is not None:
             carved_mrc.save(outname=out_name, overwrite=overwrite)
         return carved_mrc
@@ -242,22 +242,23 @@ class MRCGrid:
                                                           voxel_size=self.voxel_size)
         rotated_mrc = MRCGrid(data=new_data,
                               origin=new_origin,
-                              voxel_size=self.voxel_size)
+                              voxel_size=self.voxel_size.copy())
         return rotated_mrc
 
     def random_crop(self, margin=4):
         """
-        Rotate the MRC data around
-        :param rotate_around_z:
-        :param rotate_in_plane:
-        :return:
+        Cut the box with random left and right cuts, up to a margin
+        :param margin: integer
+        :return: a new MRC object
         """
         dx1, dx2, dy1, dy2, dz1, dz2 = np.random.randint(0, margin + 1, size=6)
-        new_data = self.data[dx1:-dx2 - 1, dy1:-dy2 - 1, dz1:-dz2 - 1]
+        new_data = self.data.copy()
+        new_data = new_data[dx1:-dx2 - 1, dy1:-dy2 - 1, dz1:-dz2 - 1]
         new_origin = self.origin + self.voxel_size * np.array([dx1, dy1, dz1])
+        new_voxel_size = self.voxel_size.copy()
         cropped_mrc = MRCGrid(data=new_data,
                               origin=new_origin,
-                              voxel_size=self.voxel_size)
+                              voxel_size=new_voxel_size)
         return cropped_mrc
 
     def save(self, outname, data=None, overwrite=False):
