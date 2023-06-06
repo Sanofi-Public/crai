@@ -30,8 +30,8 @@ def load_mrc(mrc, mode='r'):
             mrc = mrcfile.open(uncompressed_name, mode=mode)
             os.remove(uncompressed_name)
             return mrc
-        mrc = mrcfile.open_async(mrc, mode=mode)
-        return mrc.result()
+        mrc = mrcfile.open(mrc, mode=mode)
+        return mrc
     elif isinstance(mrc, mrcfile.mrcfile.MrcFile):
         return mrc
     else:
@@ -290,7 +290,7 @@ if __name__ == '__main__':
     # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "3J3O_5291"  # large offset between pdb and cryoem
-    dirname = "6PZY_20540"
+    dirname = "6NQD_0485"
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
