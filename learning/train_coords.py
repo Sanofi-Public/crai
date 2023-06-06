@@ -101,13 +101,13 @@ def train(model, device, optimizer, loader,
     last_model_path = f'{save_path}_last.pth'
     time_init = time.time()
     for epoch in range(n_epochs):
-        for step, (name, complex) in enumerate(loader):
-            if complex is None:
+        for step, (name, comp) in enumerate(loader):
+            if comp is None:
                 continue
-            input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
+            input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             try:
-                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, complex)
+                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
             except IndexError:
                 print("skipped one")
                 continue
@@ -131,9 +131,10 @@ def train(model, device, optimizer, loader,
                 writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
                 writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
 
-        model.cpu()
-        torch.save(model.state_dict(), last_model_path)
-        model.to(device)
+        if epoch == n_epochs - 1:
+            model.cpu()
+            torch.save(model.state_dict(), last_model_path)
+            model.to(device)
 
         if val_loader is not None:
             print("validation")
@@ -160,13 +161,13 @@ def validate(model, device, loader):
     time_init = time.time()
     losses = list()
     with torch.no_grad():
-        for step, (name, complex) in enumerate(loader):
-            if complex is None:
+        for step, (name, comp) in enumerate(loader):
+            if comp is None:
                 continue
-            input_tensor = torch.from_numpy(complex.input_tensor[None, ...]).to(device)
+            input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             try:
-                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, complex)
+                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
             except IndexError:
                 print("skipped one")
                 continue
