@@ -3,6 +3,7 @@ import sys
 import time
 
 import numpy as np
+import pickle
 import pymol2
 from scipy.spatial.transform import Rotation
 
@@ -77,16 +78,26 @@ class CoordComplex:
       because we need those to align with the input mrc
     """
 
-    def __init__(self, mrc_path, pdb_path, antibody_selection=None, rotate=True, crop=0):
+    def __init__(self, mrc_path, pdb_path, antibody_selection, rotate=True, crop=0, cache=True):
         # First get the MRC data
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
         self.initial_mrc_origin = self.mrc.origin
 
-        self.rotor = Rotor() if rotate else Rotor(0, 0)
 
-        # Compute ground truth alignment i.e. the matrix to transform uz in p
-        rmsd, translation, rotation = template_align(pdb_path=pdb_path,
-                                                     sel=antibody_selection)
+        if cache:
+            first_chain = antibody_selection.split()[1]
+            dump_align_name = os.path.join(os.path.dirname(pdb_path), f"pymol_chain{first_chain}.p")
+            if os.path.exists(dump_align_name):
+                rmsd, translation, rotation = pickle.load(open(dump_align_name, 'rb'))
+            else:
+                # Compute ground truth alignment i.e. the matrix to transform uz in p
+                rmsd, translation, rotation = template_align(pdb_path=pdb_path,
+                                                             sel=antibody_selection)
+                pickle.dump((rmsd, translation, rotation), open(dump_align_name, 'wb'))
+        else:
+            # Compute ground truth alignment i.e. the matrix to transform uz in p
+            rmsd, translation, rotation = template_align(pdb_path=pdb_path,
+                                                         sel=antibody_selection)
 
         if rmsd > 5:
             raise ValueError("The RMSD between template and query is suspiciously high")
@@ -96,6 +107,7 @@ class CoordComplex:
         # With the extra r_tot (a rotation of pi/4 of the voxels around the mrc origin) it becomes :
         #  r_tot * (X'- origin) + origin =
         #  (r_tot * rotation) * X + (r_tot (com - origin) + origin)
+        self.rotor = Rotor() if rotate else Rotor(0, 0)
         self.rotation = self.rotor.r_tot * rotation
         self.translation = self.rotor.r_tot.apply(translation - self.initial_mrc_origin) + self.initial_mrc_origin
 
