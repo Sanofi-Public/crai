@@ -87,6 +87,7 @@ class CoordComplex:
         # Compute ground truth alignment i.e. the matrix to transform uz in p
         rmsd, translation, rotation = template_align(pdb_path=pdb_path,
                                                      sel=antibody_selection)
+
         if rmsd > 5:
             raise ValueError("The RMSD between template and query is suspiciously high")
 

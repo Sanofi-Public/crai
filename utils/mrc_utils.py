@@ -81,34 +81,33 @@ class MRCGrid:
 
     @staticmethod
     def from_mrc(mrc_file, normalize=False):
-        original_mrc = load_mrc(mrc_file)
+        with mrcfile.open(mrc_file, mode='r') as original_mrc:
+            # The mx,my,mz are almost always equal to the data shape, except for 3J30.
+            # This does not make a difference.
+            # We ignore the nx fields too and copy voxel size that is already in xyz space.
+            voxel_size = np.array(original_mrc.voxel_size[..., None].view(dtype=np.float32))
 
-        # The mx,my,mz are almost always equal to the data shape, except for 3J30.
-        # This does not make a difference.
-        # We ignore the nx fields too and copy voxel size that is already in xyz space.
-        voxel_size = np.array(original_mrc.voxel_size[..., None].view(dtype=np.float32))
+            # The data and the 'x,y,z' annotation might not match.
+            # axis_mapping tells us which axis of the data matches which 'xyz' dimension :
+            # Convention is : x:0,y:1,z:2   numpy indexing order s:0,r:1,c:2
+            # {first_axis (s) : X, Y or Z, second axis (r): x/y/z, third axis (c) : x/y/z}
+            # reverse axis mapping tells us which x,y,z is where in the data array
+            axis_mapping = (int(original_mrc.header.maps) - 1,
+                            int(original_mrc.header.mapr) - 1,
+                            int(original_mrc.header.mapc) - 1)
+            reverse_axis_mapping = tuple(axis_mapping.index(i) for i in range(3))
+            data = original_mrc.data.copy()
+            data = np.transpose(data, axes=reverse_axis_mapping)
 
-        # The data and the 'x,y,z' annotation might not match.
-        # axis_mapping tells us which axis of the data matches which 'xyz' dimension :
-        # Convention is : x:0,y:1,z:2   numpy indexing order s:0,r:1,c:2
-        # {first_axis (s) : X, Y or Z, second axis (r): x/y/z, third axis (c) : x/y/z}
-        # reverse axis mapping tells us which x,y,z is where in the data array
-        axis_mapping = (int(original_mrc.header.maps) - 1,
-                        int(original_mrc.header.mapr) - 1,
-                        int(original_mrc.header.mapc) - 1)
-        reverse_axis_mapping = tuple(axis_mapping.index(i) for i in range(3))
-        data = original_mrc.data.copy()
-        data = np.transpose(data, axes=reverse_axis_mapping)
-
-        # Origin tells you where the lower corner lies in the map.
-        # In addition, nxstart gives you an offset for the map : We choose to also normalise that.
-        # The shift array convention is as crappy as the s,r,c order:
-        original_origin = np.array(original_mrc.header.origin[..., None].view(dtype=np.float32))
-        shift_array = np.array((original_mrc.header.nzstart,  # nzstart always correspond to 's'
-                                original_mrc.header.nystart,  # nystart always correspond to 'r'
-                                original_mrc.header.nxstart))  # nxstart always correspond to 'c'
-        shift_array_xyz = np.array([shift_array[reverse_axis_mapping[i]] for i in range(3)])
-        origin = original_origin + shift_array_xyz * voxel_size
+            # Origin tells you where the lower corner lies in the map.
+            # In addition, nxstart gives you an offset for the map : We choose to also normalise that.
+            # The shift array convention is as crappy as the s,r,c order:
+            original_origin = np.array(original_mrc.header.origin[..., None].view(dtype=np.float32))
+            shift_array = np.array((original_mrc.header.nzstart,  # nzstart always correspond to 's'
+                                    original_mrc.header.nystart,  # nystart always correspond to 'r'
+                                    original_mrc.header.nxstart))  # nxstart always correspond to 'c'
+            shift_array_xyz = np.array([shift_array[reverse_axis_mapping[i]] for i in range(3)])
+            origin = original_origin + shift_array_xyz * voxel_size
         return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize=normalize)
 
     def normalize(self):
@@ -237,9 +236,9 @@ class MRCGrid:
         """
         rotor = Rotor(rotate_around_z=rotate_around_z, rotate_in_plane=rotate_in_plane)
 
-        new_data, new_origin = rotor.rotate_around_origin(tensor=self.data,
-                                                          origin=self.origin,
-                                                          voxel_size=self.voxel_size)
+        new_data, new_origin = rotor.rotate_around_origin(tensor=self.data.copy(),
+                                                          origin=self.origin.copy(),
+                                                          voxel_size=self.voxel_size.copy())
         rotated_mrc = MRCGrid(data=new_data,
                               origin=new_origin,
                               voxel_size=self.voxel_size.copy())
@@ -269,10 +268,27 @@ class MRCGrid:
                            voxel_size=self.voxel_size,
                            overwrite=overwrite)
 
+    def save_npz(self, outname, overwrite=False, compressed=True):
+        if os.path.exists(outname) and not overwrite:
+            print(".npz file already exists")
+        else:
+            if compressed:
+                np.savez_compressed(file=outname, data=self.data, voxel_size=self.voxel_size, origin=self.origin)
+            else:
+                np.savez(file=outname, data=self.data, voxel_size=self.voxel_size, origin=self.origin)
+
+    @staticmethod
+    def from_npz(npz_file, normalize=False):
+        npz_archive = np.load(npz_file)
+        return MRCGrid(data=npz_archive["data"],
+                       voxel_size=npz_archive["voxel_size"],
+                       origin=npz_archive["origin"],
+                       normalize=normalize)
+
 
 if __name__ == '__main__':
     pass
-    # import time
+    import time
 
     # List of weird files : different shift_arrays
     # 7WLC_32581
@@ -299,7 +315,19 @@ if __name__ == '__main__':
     carved_name = os.path.join(datadir_name, dirname, f"carved.mrc")
     resampled_name = os.path.join(datadir_name, dirname, f"resampled_0_2.mrc")
     rotated_name = os.path.join(datadir_name, dirname, f"rotated.mrc")
+    # t0 = time.perf_counter()
     mrc = MRCGrid.from_mrc(mrc_file=map_path)
+    # print(f'mrc : {time.perf_counter() - t0}')
+    # mrc.save_npz('toto.npz', compressed=False)
+    # mrc.save_npz('toto_compressed.npz')
+    # t0 = time.perf_counter()
+    # mrc = MRCGrid.from_npz(npz_file='toto.npz')
+    # print(f'nzp : {time.perf_counter() - t0}')
+    # t0 = time.perf_counter()
+    # mrc = MRCGrid.from_npz(npz_file='toto_compressed.npz')
+    # print(f'compressed : {time.perf_counter() - t0}')
+    # CONCLUSION : memory is the same, but loading time for mrc << npz~compressed
+
     mrc.save(outname=aligned_name, overwrite=True)
     carved_mrc = mrc.carve(pdb_path=pdb_path, out_name=carved_name, pymol_sel='chain C or chain D',
                            overwrite=True, padding=4, filter_cutoff=2)

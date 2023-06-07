@@ -23,7 +23,7 @@ from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_foca
 from learning.train_functions import setup_learning
 
 
-def coords_loss(prediction, complex):
+def coords_loss(prediction, comp):
     """
     Object detection loss that accounts for finding the right voxel and the right rotation at this voxel.
     It is a sum of several components :
@@ -36,21 +36,21 @@ def coords_loss(prediction, complex):
     angle_loss = 1 - <predicted_angle, point(gt_angle)> - MSE(predicted_angle, 1)
         find the right rotation around the main axis, with AF2 trick to predict angles
     :param prediction:
-    :param complex:
+    :param comp:
     :return:
     """
     pred_shape = prediction.shape[-3:]
     device = prediction.device
 
     # First let's find out the position of the antibody in our prediction
-    origin = complex.mrc.origin
-    top = origin + complex.mrc.voxel_size * complex.mrc.data.shape
+    origin = comp.mrc.origin
+    top = origin + comp.mrc.voxel_size * comp.mrc.data.shape
     bin_x = np.linspace(origin[0], top[0], num=pred_shape[0] + 1)
     bin_y = np.linspace(origin[1], top[1], num=pred_shape[1] + 1)
     bin_z = np.linspace(origin[2], top[2], num=pred_shape[2] + 1)
-    position_x = np.digitize(complex.translation[0], bin_x) - 1
-    position_y = np.digitize(complex.translation[1], bin_y) - 1
-    position_z = np.digitize(complex.translation[2], bin_z) - 1
+    position_x = np.digitize(comp.translation[0], bin_x) - 1
+    position_y = np.digitize(comp.translation[1], bin_y) - 1
+    position_z = np.digitize(comp.translation[2], bin_z) - 1
 
     # Now let's add finding this spot as a loss term
     BCE_target = torch.zeros(size=pred_shape, device=device)
@@ -70,15 +70,15 @@ def coords_loss(prediction, complex):
     vector_pose = prediction[0, 1:, position_x, position_y, position_z]
 
     # Get the offset from the corner prediction loss
-    offset_x = complex.translation[0] - bin_x[position_x]
-    offset_y = complex.translation[1] - bin_y[position_y]
-    offset_z = complex.translation[2] - bin_z[position_z]
+    offset_x = comp.translation[0] - bin_x[position_x]
+    offset_y = comp.translation[1] - bin_y[position_y]
+    offset_z = comp.translation[2] - bin_z[position_z]
     gt_offset = torch.tensor([offset_x, offset_y, offset_z], device=device, dtype=torch.float)
     offset_loss = torch.nn.MSELoss()(vector_pose[:3], gt_offset)
 
     # Get the right pose. For that get the rotation supervision as a R3 vector and an angle.
     # We will penalise the R3 with its norm and it's dot product to ground truth
-    rz, angle = rotation_to_supervision(complex.rotation)
+    rz, angle = rotation_to_supervision(comp.rotation)
     rz = torch.tensor(rz, device=device, dtype=torch.float)
     predicted_rz = vector_pose[3:6]
     rz_norm = torch.norm(predicted_rz)
