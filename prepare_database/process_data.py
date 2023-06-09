@@ -11,6 +11,8 @@ import time
 
 from collections import defaultdict
 import multiprocessing
+
+import numpy as np
 import pandas as pd
 import pymol2
 from tqdm import tqdm
@@ -19,6 +21,7 @@ import subprocess
 # phenix = os.environ['PHENIX']
 # PHENIX_VALIDATE = os.path.join(phenix, 'build/bin/phenix.validation_cryoem')
 PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
+PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -140,7 +143,7 @@ def clean_resolution(datadir_name='../data/pdb_em',
     new_df.to_csv(csv_out)
 
 
-def validate_one(mrc, pdb, sel=None, resolution=4):
+def validate_one(mrc, pdb, sel=None, resolution=4.):
     if mrc is None:
         return 2, f"Failed on file loading for {pdb}"
     try:
@@ -217,6 +220,110 @@ def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
             all_results.append(-1)
             all_errors.append((return_code, result))
     df['validation_score'] = all_results
+    df.to_csv(csv_out)
+    for x in all_errors:
+        print(x)
+
+
+def dock_one(mrc, pdb, sel=None, resolution=4.):
+    # nproc 1 try 1 : 100.1s
+    # nproc 1 : 96.4 s
+    # nproc 4 try 1 : 112.16 s
+    # nproc 4 : 109.10 s
+    if mrc is None:
+        return 2, f"Failed on file loading for {pdb}"
+    try:
+        # with pymol2.PyMOL() as p:
+        #     p.cmd.feedback("disable", "all", "everything")
+        #     p.cmd.load(pdb, 'toto')
+        #     coords = p.cmd.get_coords('toto')
+        #     import numpy as np
+        #     from scipy.spatial.transform import Rotation as R
+        #     rotated = R.random().apply(coords)
+        #     translated = rotated + np.array([10, 20, 30])[None, :]
+        #     p.cmd.load_coords(translated, "toto", state=1)
+        #     outname = os.path.join(os.path.dirname(pdb), 'rotated.pdb')
+        #     p.cmd.save(outname, 'toto')
+        pdb_out = os.path.join(os.path.dirname(pdb), 'default.pdb')
+
+        if sel is not None:
+            with pymol2.PyMOL() as p:
+                p.cmd.feedback("disable", "all", "everything")
+                p.cmd.load(pdb, 'toto')
+                outname = os.path.join(os.path.dirname(pdb), 'temp.pdb')
+                p.cmd.save(outname, f'toto and ({sel})')
+                hchain, lchain = sel.split()[1], sel.split()[4]
+            pdb_out = os.path.join(os.path.dirname(pdb), f'docked_{hchain}_{lchain}.pdb')
+        pdb_to_score = pdb if sel is None else outname
+
+        cmd = f'{PHENIX_DOCK_IN_MAP} {pdb_to_score} {mrc} pdb_out={pdb_out} resolution={resolution}'
+        res = subprocess.run(cmd.split(), capture_output=True)
+
+        if sel is not None:
+            os.remove(pdb_to_score)
+
+        returncode = res.returncode
+        if returncode > 0:
+            return returncode, res.stderr.decode()
+        stdout = res.stdout.decode()
+        stdout_aslist = list(stdout.splitlines())
+        end_of_list = stdout_aslist[-20:]
+        translation_line = next(line for line in end_of_list if line.startswith('TRANS'))
+        translation_norm = np.linalg.norm(np.array(translation_line.split()[1:]))
+        if translation_norm > 8:
+            return 3, -2
+        score_line = next(line for line in end_of_list if line.startswith('Wrote placed'))
+        score = float(score_line.split()[8])
+        return res.returncode, score
+    except IndentationError as e:
+        return 1, e
+
+
+def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
+    # Prepare input list
+    df = pd.read_csv(csv_in, index_col=0)
+    files_list = os.listdir(datadir_name)
+    em_mapping = {pdb_em.split('_')[0]: pdb_em.split('_')[1] for pdb_em in files_list}
+    to_process = []
+    for i, row in df.iterrows():
+        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+        pdb = pdb.upper()
+        if pdb in em_mapping:
+            em = em_mapping[pdb]
+            system_dir = os.path.join(datadir_name, f"{pdb}_{em}")
+            pdb_path = os.path.join(system_dir, f"{pdb}.cif")
+            mrc_path = os.path.join(system_dir, f"emd_{em}.map.gz")
+            selection = f'chain {heavy_chain} or chain {light_chain}'
+            to_process.append((mrc_path, pdb_path, selection, resolution))
+        else:
+            to_process.append((None, pdb, None, None))
+
+    # # For reduced computation
+    # max_systems = 10
+    # to_process = to_process[:max_systems]
+    # df = df[:max_systems]
+
+    # Parallel computation
+    l = multiprocessing.Lock()
+    pool = multiprocessing.Pool(processes=24, initializer=init, initargs=(l,), )
+    results = pool.starmap(dock_one, tqdm(to_process, total=len(to_process)))
+    # print(results)
+
+    # # For sequential computation
+    # results = []
+    # for i, x in enumerate(to_process):
+    #     print(i)
+    #     results.append(validate_one(*x))
+
+    all_results = []
+    all_errors = []
+    for i, (return_code, result) in enumerate(results):
+        if return_code == 0:
+            all_results.append(result)
+        else:
+            all_results.append(-return_code)
+            all_errors.append((return_code, result))
+    df['docked_validation_score'] = all_results
     df.to_csv(csv_out)
     for x in all_errors:
         print(x)
@@ -457,13 +564,22 @@ if __name__ == '__main__':
     raw = '../data/cleaned.csv'
     clean_res = '../data/cleaned_res.csv'
     validated = '../data/validated.csv'
+    docked = '../data/docked.csv'
     # clean_resolution(csv_in=raw, csv_out=clean_res)
 
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
-    # sel = "chain H or chain L"
+    # sel = 'chain H or chain L'
+    # pdb = '../data/pdb_em/7PC2_13316/7PC2.cif'
+    # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
+    # sel = "chain H or chain G"
     # validate_one(pdb=pdb, mrc=mrc, sel=sel)
-    add_validation_score(csv_in=clean_res, csv_out=validated)
+    # add_validation_score(csv_in=clean_res, csv_out=validated)
+    # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
+    # print(res)
+    t0 = time.time()
+    add_docking_score(csv_in=validated, csv_out=docked)
+    print("done in ", time.time() - t0)
 
     # pdb_selections = process_csv(csv_file=validated)
 
@@ -501,5 +617,3 @@ if __name__ == '__main__':
 
     # process_database(overwrite=True, csv_in=clean_res, csv_dump='../data/cleaned_final.csv')
     # correct_db()
-
-
