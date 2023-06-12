@@ -4,6 +4,7 @@ import sys
 import time
 
 import numpy as np
+import scipy.spatial.distance
 import torch
 import pymol
 import pymol2
@@ -20,6 +21,7 @@ from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.learning_utils import get_split_dataloaders
 from utils.rotation import rotation_to_supervision
+from utils.object_detection import nms
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
 from learning.train_functions import setup_learning
 
@@ -41,61 +43,79 @@ def coords_loss(prediction, comp):
     :param comp:
     :return:
     """
-    rmsd, translation, rotation = comp.transforms[0]
 
     pred_shape = prediction.shape[-3:]
     device = prediction.device
 
-    # First let's find out the position of the antibody in our prediction
+    # First let's find out the position of our antibodies in our prediction
     origin = comp.mrc.origin
     top = origin + comp.mrc.voxel_size * comp.mrc.data.shape
     bin_x = np.linspace(origin[0], top[0], num=pred_shape[0] + 1)
     bin_y = np.linspace(origin[1], top[1], num=pred_shape[1] + 1)
     bin_z = np.linspace(origin[2], top[2], num=pred_shape[2] + 1)
-    position_x = np.digitize(translation[0], bin_x) - 1
-    position_y = np.digitize(translation[1], bin_y) - 1
-    position_z = np.digitize(translation[2], bin_z) - 1
 
-    # Now let's add finding this spot as a loss term
+    # Compute the grid cell for each supervision
+    # Some might fall out of the considered density : filter them out
     BCE_target = torch.zeros(size=pred_shape, device=device)
-    BCE_target[position_x, position_y, position_z] = 1
+    filtered_transforms = []
+    for rmsd, translation, rotation in comp.transforms:
+        position_i = np.digitize(translation[0], bin_x) - 1
+        position_j = np.digitize(translation[1], bin_y) - 1
+        position_k = np.digitize(translation[2], bin_z) - 1
+        pos_tuple = (position_i, position_j, position_k)
+        if (0, 0, 0) <= pos_tuple < pred_shape:
+            BCE_target[position_i, position_j, position_k] = 1
+            filtered_transforms.append((pos_tuple, translation, rotation))
     # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
                                         weights=[1, 30])
 
-    # And as a metric, keep track of the bin distance
-    amax = torch.argmax(prediction[0, 0, ...]).cpu().detach().numpy()
-    pred_x, pred_y, pred_z = np.unravel_index(amax, pred_shape)
-    position_dist = np.linalg.norm(np.array([pred_x, pred_y, pred_z]) - np.array([position_x, position_y, position_z]))
+    # And as a metric, keep track of the bin distance using linear assignment
+    prediction_np = prediction[0, 0, ...].clone().cpu().detach().numpy()
+    predicted_ijks = nms(pred_loc=prediction_np, n_objects=len(filtered_transforms))
+    predicted_ijks = np.asarray(predicted_ijks)
+    actual_ijks = np.asarray([x[0] for x in filtered_transforms])
+    dist_matrix = scipy.spatial.distance.cdist(predicted_ijks, actual_ijks)
+    row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
+    position_dist = dist_matrix[row_ind, col_ind].mean()
     position_dist = float(position_dist)
 
-    # Extract the predicted vector at this location
-    vector_pose = prediction[0, 1:, position_x, position_y, position_z]
+    offset_losses, rz_losses, angle_losses = [], [], []
+    for pos_tuple, translation, rotation in filtered_transforms:
+        # Extract the predicted vector at this location
+        position_i, position_j, position_k = pos_tuple
+        vector_pose = prediction[0, 1:, position_i, position_j, position_k]
 
-    # Get the offset from the corner prediction loss
-    offset_x = translation[0] - bin_x[position_x]
-    offset_y = translation[1] - bin_y[position_y]
-    offset_z = translation[2] - bin_z[position_z]
-    gt_offset = torch.tensor([offset_x, offset_y, offset_z], device=device, dtype=torch.float)
-    offset_loss = torch.nn.MSELoss()(vector_pose[:3], gt_offset)
+        # Get the offset from the corner prediction loss
+        offset_x = translation[0] - bin_x[position_i]
+        offset_y = translation[1] - bin_y[position_j]
+        offset_z = translation[2] - bin_z[position_k]
+        gt_offset = torch.tensor([offset_x, offset_y, offset_z], device=device, dtype=torch.float)
+        offset_loss = torch.nn.MSELoss()(vector_pose[:3], gt_offset)
 
-    # Get the right pose. For that get the rotation supervision as a R3 vector and an angle.
-    # We will penalise the R3 with its norm and it's dot product to ground truth
-    rz, angle = rotation_to_supervision(rotation)
-    rz = torch.tensor(rz, device=device, dtype=torch.float)
-    predicted_rz = vector_pose[3:6]
-    rz_norm = torch.norm(predicted_rz)
-    rz_loss = 1 - torch.dot(predicted_rz / rz_norm, rz) + (rz_norm - 1) ** 2
+        # Get the right pose. For that get the rotation supervision as a R3 vector and an angle.
+        # We will penalise the R3 with its norm and it's dot product to ground truth
+        rz, angle = rotation_to_supervision(rotation)
+        rz = torch.tensor(rz, device=device, dtype=torch.float)
+        predicted_rz = vector_pose[3:6]
+        rz_norm = torch.norm(predicted_rz)
+        rz_loss = 1 - torch.dot(predicted_rz / rz_norm, rz) + (rz_norm - 1) ** 2
 
-    # Following AF2 and to avoid singularities, we frame the prediction of an angle as a regression task in the plane.
-    # We turn our angle into a unit vector of R2, push predicted norm to and penalize dot product to ground truth
-    vec_angle = [np.cos(angle), np.sin(angle)]
-    vec_angle = torch.tensor(vec_angle, device=device, dtype=torch.float)
-    predicted_angle = vector_pose[6:]
-    angle_norm = torch.norm(predicted_angle)
-    angle_loss = 1 - torch.dot(predicted_angle / angle_norm, vec_angle) + (angle_norm - 1) ** 2
+        # Following AF2 and to avoid singularities, we frame the prediction of an angle as a regression task in the plane.
+        # We turn our angle into a unit vector of R2, push predicted norm to and penalize dot product to ground truth
+        vec_angle = [np.cos(angle), np.sin(angle)]
+        vec_angle = torch.tensor(vec_angle, device=device, dtype=torch.float)
+        predicted_angle = vector_pose[6:]
+        angle_norm = torch.norm(predicted_angle)
+        angle_loss = 1 - torch.dot(predicted_angle / angle_norm, vec_angle) + (angle_norm - 1) ** 2
+        offset_losses.append(offset_loss)
+        rz_losses.append(rz_loss)
+        angle_losses.append(angle_loss)
 
+    offset_loss = torch.mean(torch.stack(offset_losses))
+    rz_loss = torch.mean(torch.stack(rz_losses))
+    angle_loss = torch.mean(torch.stack(angle_losses))
     return position_loss, offset_loss, rz_loss, angle_loss, position_dist
 
 
@@ -224,6 +244,7 @@ if __name__ == '__main__':
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
     # coords_loss(fake_out, ab_dataset[0][1])
+    # sys.exit()
 
     # Learning hyperparameters
     n_epochs = 1000
