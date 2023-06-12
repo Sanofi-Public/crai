@@ -12,11 +12,11 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
-from utils import mrc_utils
+from utils import mrc_utils, pymol_utils
 from utils.learning_utils import Rotor
 
 
-def transform_template(rotation, translation, out_name=None):
+def transform_template(translations, rotations, out_name=None):
     """
     Take our template and apply the learnt rotation to it.
     """
@@ -24,11 +24,16 @@ def transform_template(rotation, translation, out_name=None):
         p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH_FV, 'ref')
         coords_ref = p.cmd.get_coords("ref")
-        rotated = rotation.apply(coords_ref)
-        new_coords = rotated + translation[None, :]
-        p.cmd.load_coords(new_coords, "ref", state=1)
+        for i, (translation, rotation) in enumerate(zip(translations, rotations)):
+            hit = f"result_{i}"
+            p.cmd.copy(hit, "ref")
+            p.cmd.alter(hit, f"chain='{i}'")
+            rotated = rotation.apply(coords_ref)
+            new_coords = rotated + translation[None, :]
+            p.cmd.load_coords(new_coords, hit, state=1)
         if out_name is not None:
-            p.cmd.save(out_name, "ref")
+            to_save = ' or '.join([f"result_{i}" for i in range(len(translations))])
+            p.cmd.save(out_name, to_save)
     return new_coords
 
 
@@ -82,7 +87,6 @@ class CoordComplex:
         # First get the MRC data
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
         self.initial_mrc_origin = self.mrc.origin
-
 
         if cache:
             first_chain = antibody_selection.split()[1]
@@ -161,8 +165,8 @@ if __name__ == '__main__':
     # To plot: get a rotated version of the mrc and compare it to the rotated template
     comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
 
-    transform_template(rotation=comp_coords.rotation,
-                       translation=comp_coords.translation,
+    transform_template(translations=[comp_coords.translation],
+                       rotations=[comp_coords.rotation],
                        out_name="rotated.pdb")
 
     # Chimerax command to put colored pseudo atom
