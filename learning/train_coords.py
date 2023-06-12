@@ -18,14 +18,16 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_dataloaders, rotation_to_supervision
+from utils.learning_utils import get_split_dataloaders
+from utils.rotation import rotation_to_supervision
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
 from learning.train_functions import setup_learning
 
 
 def coords_loss(prediction, comp):
     """
-    Object detection loss that accounts for finding the right voxel and the right rotation at this voxel.
+    Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
+       at this voxel.
     It is a sum of several components :
     position_loss = BCE(predicted_objectness, gt_presence)
         find the right voxel
@@ -39,6 +41,8 @@ def coords_loss(prediction, comp):
     :param comp:
     :return:
     """
+    rmsd, translation, rotation = comp.transforms[0]
+
     pred_shape = prediction.shape[-3:]
     device = prediction.device
 
@@ -48,9 +52,9 @@ def coords_loss(prediction, comp):
     bin_x = np.linspace(origin[0], top[0], num=pred_shape[0] + 1)
     bin_y = np.linspace(origin[1], top[1], num=pred_shape[1] + 1)
     bin_z = np.linspace(origin[2], top[2], num=pred_shape[2] + 1)
-    position_x = np.digitize(comp.translation[0], bin_x) - 1
-    position_y = np.digitize(comp.translation[1], bin_y) - 1
-    position_z = np.digitize(comp.translation[2], bin_z) - 1
+    position_x = np.digitize(translation[0], bin_x) - 1
+    position_y = np.digitize(translation[1], bin_y) - 1
+    position_z = np.digitize(translation[2], bin_z) - 1
 
     # Now let's add finding this spot as a loss term
     BCE_target = torch.zeros(size=pred_shape, device=device)
@@ -70,15 +74,15 @@ def coords_loss(prediction, comp):
     vector_pose = prediction[0, 1:, position_x, position_y, position_z]
 
     # Get the offset from the corner prediction loss
-    offset_x = comp.translation[0] - bin_x[position_x]
-    offset_y = comp.translation[1] - bin_y[position_y]
-    offset_z = comp.translation[2] - bin_z[position_z]
+    offset_x = translation[0] - bin_x[position_x]
+    offset_y = translation[1] - bin_y[position_y]
+    offset_z = translation[2] - bin_z[position_z]
     gt_offset = torch.tensor([offset_x, offset_y, offset_z], device=device, dtype=torch.float)
     offset_loss = torch.nn.MSELoss()(vector_pose[:3], gt_offset)
 
     # Get the right pose. For that get the rotation supervision as a R3 vector and an angle.
     # We will penalise the R3 with its norm and it's dot product to ground truth
-    rz, angle = rotation_to_supervision(comp.rotation)
+    rz, angle = rotation_to_supervision(rotation)
     rz = torch.tensor(rz, device=device, dtype=torch.float)
     predicted_rz = vector_pose[3:6]
     rz_norm = torch.norm(predicted_rz)

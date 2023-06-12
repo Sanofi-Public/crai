@@ -16,7 +16,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from utils import mrc_utils, pymol_utils
-from utils.learning_utils import Rotor
+from utils.rotation import Rotor
 
 
 def just_one(coord, xi, yi, zi, sigma, feature, total_grid, use_multiprocessing=False):

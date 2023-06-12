@@ -11,7 +11,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from utils.pymol_utils import get_protein_coords
-from utils.learning_utils import Rotor
+from utils.rotation import Rotor
 
 
 def load_mrc(mrc, mode='r'):

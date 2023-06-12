@@ -55,7 +55,7 @@ class ABDataset(Dataset):
         else:
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
-                                antibody_selection=antibody_selection,
+                                antibody_selections=antibody_selection,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp
