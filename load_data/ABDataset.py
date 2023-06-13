@@ -18,6 +18,7 @@ class ABDataset(Dataset):
     def __init__(self,
                  data_root="../data/pdb_em",
                  csv_to_read="../data/final.csv",
+                 all_systems="../data/validated.csv",
                  return_grid=True,
                  return_sdf=False,
                  rotate=True,
@@ -33,7 +34,7 @@ class ABDataset(Dataset):
         self.return_sdf = return_sdf
         self.return_grid = return_grid
         self.crop = crop
-        self.pdb_selections = process_csv(csv_file='../data/cleaned.csv')
+        self.pdb_selections = process_csv(csv_file=all_systems)
         self.full = False
 
     def __len__(self):
@@ -59,7 +60,7 @@ class ABDataset(Dataset):
         if self.return_grid:
             comp = GridComplex(mrc_path=mrc_path,
                                pdb_path=pdb_path,
-                               antibody_selection=antibody_selection,
+                               antibody_selection=antibody_selections,
                                rotate=self.rotate,
                                return_sdf=self.return_sdf)
         else:

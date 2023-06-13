@@ -74,8 +74,11 @@ if __name__ == '__main__':
     # dirname = '5H37_9575'
     # antibody_selection = 'chain I or chain M'
 
-    dirname = "7V3L_31683"
-    antibody_selection = 'chain D or chain E'
+    # dirname = "7V3L_31683"
+    # antibody_selection = 'chain D or chain E'
+
+    dirname = "8DIM_27440"
+    antibody_selection = 'chain E or chain F'
 
     # dirname = '6PZY_20540'
     # antibody_selection = 'chain C or chain D'

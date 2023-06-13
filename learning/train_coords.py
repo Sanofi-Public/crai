@@ -70,9 +70,7 @@ def coords_loss(prediction, comp):
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
                                         weights=[1, 30])
-
     if len(filtered_transforms) == 0:
-        print('one is faulty')
         return position_loss, None, None, None, None
 
     # And as a metric, keep track of the bin distance using linear assignment
@@ -231,6 +229,7 @@ if __name__ == '__main__':
     data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
     csv_to_read = "../data/cleaned_final.csv"
+    # csv_to_read = "../data/debug.csv"
     # csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,

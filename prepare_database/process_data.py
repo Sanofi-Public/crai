@@ -361,7 +361,7 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     # plt.show()
     # filtered_res = [res for res in float_res if res < 10]
     # print(f" Retained {len(filtered_res)} / {len(all_res)} systems based on resolution")
-
+    df = df[["pdb", "Hchain", "Lchain", "antigen_chain", "resolution"]]
     pdb_selections = defaultdict(list)
     for i, row in df.iterrows():
         pdb, heavy_chain, light_chain, antigen, resolution = row.values
