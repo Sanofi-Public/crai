@@ -63,13 +63,17 @@ def coords_loss(prediction, comp):
         position_j = np.digitize(translation[1], bin_y) - 1
         position_k = np.digitize(translation[2], bin_z) - 1
         pos_tuple = (position_i, position_j, position_k)
-        if (0, 0, 0) <= pos_tuple < pred_shape:
+        if all((0 <= pos_tuple[i] < pred_shape[i] for i in range(3))):
             BCE_target[position_i, position_j, position_k] = 1
             filtered_transforms.append((pos_tuple, translation, rotation))
     # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
                                         weights=[1, 30])
+
+    if len(filtered_transforms) == 0:
+        print('one is faulty')
+        return position_loss, None, None, None, None
 
     # And as a metric, keep track of the bin distance using linear assignment
     prediction_np = prediction[0, 0, ...].clone().cpu().detach().numpy()
@@ -130,13 +134,12 @@ def train(model, device, optimizer, loader,
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            try:
-                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
-            except IndexError:
-                print("skipped one")
-                continue
-            loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
-            # loss = position_loss +  offset_loss + rz_loss + angle_loss
+            position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
+
+            if offset_loss is None:
+                loss = position_loss
+            else:
+                loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
             loss.backward()
 
             # Accumulated gradients
@@ -144,16 +147,17 @@ def train(model, device, optimizer, loader,
                 optimizer.step()
                 model.zero_grad()
 
-            if not step % 20:
+            if not step % 100:
                 step_total = len(loader) * epoch + step
                 eluded_time = time.time() - time_init
                 print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
-                writer.add_scalar('train_loss', loss.item(), step_total)
-                writer.add_scalar('train_position_loss', position_loss.item(), step_total)
-                writer.add_scalar('train_position_distance', position_dist, step_total)
-                writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
-                writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
-                writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
+                if offset_loss is not None:
+                    writer.add_scalar('train_position_loss', position_loss.item(), step_total)
+                    writer.add_scalar('train_loss', loss.item(), step_total)
+                    writer.add_scalar('train_position_distance', position_dist, step_total)
+                    writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
+                    writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
+                    writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
 
         if epoch == n_epochs - 1:
             model.cpu()
@@ -190,20 +194,17 @@ def validate(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            try:
-                position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
-            except IndexError:
-                print("skipped one")
-                continue
-            loss = position_loss + offset_loss + rz_loss + angle_loss
-            losses.append([loss.item(),
-                           position_loss.item(),
-                           offset_loss.item(),
-                           rz_loss.item(),
-                           angle_loss.item(),
-                           position_dist
-                           ])
-            if not step % 20:
+            position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
+            if offset_loss is not None:
+                loss = position_loss + offset_loss + rz_loss + angle_loss
+                losses.append([loss.item(),
+                               position_loss.item(),
+                               offset_loss.item(),
+                               rz_loss.item(),
+                               angle_loss.item(),
+                               position_dist
+                               ])
+            if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
     return losses
 
