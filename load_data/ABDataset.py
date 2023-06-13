@@ -10,6 +10,7 @@ if __name__ == '__main__':
 
 from load_data.GridComplex import GridComplex
 from load_data.CoordComplex import CoordComplex
+from prepare_database.process_data import process_csv
 
 
 class ABDataset(Dataset):
@@ -27,10 +28,13 @@ class ABDataset(Dataset):
             ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
         self.length = len(df)
         self.df = None
+
         self.rotate = rotate
         self.return_sdf = return_sdf
         self.return_grid = return_grid
         self.crop = crop
+        self.pdb_selections = process_csv(csv_file='../data/cleaned.csv')
+        self.full = False
 
     def __len__(self):
         return self.length
@@ -44,8 +48,14 @@ class ABDataset(Dataset):
                 ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
         row = self.df.loc[item].values
         pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
+
+        antibody_selections = [res[0] for res in self.pdb_selections[pdb_id]]
         pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
-        mrc_path = os.path.join(self.data_root, dirname, f'resampled_{local_ab_id}_2.mrc')
+        if self.full:
+            mrc_name = f'emd_{mrc_id}.map'
+        else:
+            mrc_name = f'resampled_{local_ab_id}_2.mrc'
+        mrc_path = os.path.join(self.data_root, dirname, mrc_name)
         if self.return_grid:
             comp = GridComplex(mrc_path=mrc_path,
                                pdb_path=pdb_path,
@@ -55,7 +65,7 @@ class ABDataset(Dataset):
         else:
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
-                                antibody_selections=antibody_selection,
+                                antibody_selections=antibody_selections,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp

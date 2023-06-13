@@ -257,7 +257,7 @@ def dock_one(mrc, pdb, sel=None, resolution=4.):
         pdb_to_score = pdb if sel is None else outname
 
         cmd = f'{PHENIX_DOCK_IN_MAP} {pdb_to_score} {mrc} pdb_out={pdb_out} resolution={resolution}'
-        res = subprocess.run(cmd.split(), capture_output=True)
+        res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
 
         if sel is not None:
             os.remove(pdb_to_score)
@@ -275,8 +275,10 @@ def dock_one(mrc, pdb, sel=None, resolution=4.):
         score_line = next(line for line in end_of_list if line.startswith('Wrote placed'))
         score = float(score_line.split()[8])
         return res.returncode, score
-    except IndentationError as e:
+    except TimeoutError as e:
         return 1, e
+    except Exception as e:
+        return 4, e
 
 
 def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
@@ -286,7 +288,7 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     em_mapping = {pdb_em.split('_')[0]: pdb_em.split('_')[1] for pdb_em in files_list}
     to_process = []
     for i, row in df.iterrows():
-        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+        pdb, heavy_chain, light_chain, antigen, resolution, validated = row.values
         pdb = pdb.upper()
         if pdb in em_mapping:
             em = em_mapping[pdb]

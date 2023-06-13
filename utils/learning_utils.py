@@ -58,12 +58,39 @@ def weighted_focal_loss(output, target, weights=None, gamma=2):
     return torch.neg(torch.mean(loss))
 
 
+def get_split_datasets(dataset,
+                       split_train=0.7,
+                       split_valid=0.85,
+                       ):
+    n = len(dataset)
+    np.random.seed(0)
+    torch.manual_seed(0)
+
+    train_index, valid_index = int(split_train * n), int(split_valid * n)
+    indices = list(range(n))
+
+    train_indices = indices[:train_index]
+    valid_indices = indices[train_index:valid_index]
+    test_indices = indices[valid_index:]
+
+    train_set = Subset(dataset, train_indices)
+    valid_set = Subset(dataset, valid_indices)
+    test_set = Subset(dataset, test_indices)
+    return train_set, valid_set, test_set
+
+
+def get_dataloaders(datasets, **kwargs):
+    loaders = []
+    for dataset in datasets:
+        loaders.append(DataLoader(dataset=dataset, worker_init_fn=np.random.seed, **kwargs))
+    return loaders
+
+
 def get_split_dataloaders(dataset,
                           split_train=0.7,
                           split_valid=0.85,
                           **kwargs):
     n = len(dataset)
-
     np.random.seed(0)
     torch.manual_seed(0)
 
@@ -82,5 +109,3 @@ def get_split_dataloaders(dataset,
     valid_loader = DataLoader(dataset=valid_set, **kwargs)
     test_loader = DataLoader(dataset=test_set, **kwargs)
     return train_loader, valid_loader, test_loader
-
-

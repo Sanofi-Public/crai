@@ -18,9 +18,9 @@ class CoordComplex:
        parametrized as translations and rotations
     """
 
-    def __init__(self, mrc_path, pdb_path, antibody_selections, rotate=True, crop=0, cache=True):
+    def __init__(self, mrc_path, pdb_path, antibody_selections, rotate=True, crop=0, cache=True, normalize=False):
         # First get the MRC data, and store the original origin for rotations around it
-        self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+        self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path, normalize=normalize)
         self.initial_mrc_origin = self.mrc.origin
 
         transforms = pdbsel_to_transform(pdb_path, antibody_selections, cache=cache)
@@ -74,11 +74,11 @@ if __name__ == '__main__':
     # dirname = '5H37_9575'
     # antibody_selection = 'chain I or chain M'
 
-    # dirname = "7V3L_31683"
-    # antibody_selection = 'chain D or chain E'
+    dirname = "7V3L_31683"
+    antibody_selection = 'chain D or chain E'
 
-    dirname = '6PZY_20540'
-    antibody_selection = 'chain C or chain D'
+    # dirname = '6PZY_20540'
+    # antibody_selection = 'chain C or chain D'
 
     # /home/vmallet/projects/crIA-EM/data/pdb_em/6JHS_9829/emd_9829.map
     # dirname = '6JHS_9829'  # offset between pdb and mrc

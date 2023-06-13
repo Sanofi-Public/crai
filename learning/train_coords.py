@@ -19,7 +19,7 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_dataloaders
+from utils.learning_utils import get_split_datasets, get_dataloaders, get_split_dataloaders
 from utils.rotation import rotation_to_supervision
 from utils.object_detection import nms
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
@@ -236,10 +236,19 @@ if __name__ == '__main__':
                            rotate=rotate,
                            crop=crop,
                            return_grid=False)
+    # train_set, val_set, _ = get_split_datasets(dataset=ab_dataset)
+    # print(train_set.dataset.full)
+    # val_set.dataset.full = True
+    # print(train_set.dataset.full)
+    # train_loader, val_loader = get_dataloaders(datasets=(train_set, val_set),
+    #                                            shuffle=True,
+    #                                            collate_fn=lambda x: x[0],
+    #                                            num_workers=num_workers)
     train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
                                                         shuffle=True,
                                                         collate_fn=lambda x: x[0],
                                                         num_workers=num_workers)
+
     # # Test loss
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
