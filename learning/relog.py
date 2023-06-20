@@ -73,7 +73,14 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
     hits = glob.glob(f"../saved_models/{args.model_name}*")
     weights = [(hit.split('_')[-1].split('.')[0], hit) for hit in hits]
-    weights = sorted(weights, key=lambda x: int(x[0]))
+    # Necessary to remove 'last' and 'best' models. Could be done with fancier regex
+    filtered_weights = []
+    for epoch, weight in weights:
+        try:
+            filtered_weights.append((int(epoch), weight))
+        except ValueError:
+            pass
+    weights = sorted(filtered_weights, key=lambda x: x[0])
 
     # Setup data
     data_root = "../data/pdb_em"
