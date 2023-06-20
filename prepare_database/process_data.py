@@ -254,30 +254,49 @@ def correct_db(csv='../data/final.csv', new_csv='../data/final_corrected.csv', d
 
 
 def crop_one_dirname(dirname, datadir_name, overwrite):
-    pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map")
-    resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
-    if not os.path.exists(resampled_name) or overwrite:
-        mrc = MRCGrid.from_mrc(mrc_path)
-        carved = mrc.carve(pdb_path=pdb_path, margin=8)
-        carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+    try:
+        pdb_name, mrc_name = dirname.split("_")
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+        mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map")
+        resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
+        if not os.path.exists(resampled_name) or overwrite:
+            mrc = MRCGrid.from_mrc(mrc_path)
+            carved = mrc.carve(pdb_path=pdb_path, margin=8)
+            carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+            return 0, None
+    except Exception as e:
+        print(e)
+        return 1, e
 
 
 def crop_maps(datadir_name="../data/pdb_em",
+              parallel=True,
               overwrite=False):
     files_list = os.listdir(datadir_name)
     skip_list, fail_list = [], []
-    for i, dirname in enumerate(files_list):
-        if not i % 10:
-            print("Done {}/{} files".format(i, len(files_list)))
-        try:
-            crop_one_dirname(dirname=dirname,
-                             datadir_name=datadir_name,
-                             overwrite=overwrite)
-        except Exception as e:
-            print(e)
-            fail_list.append(dirname)
+    if not parallel:
+        for i, dirname in enumerate(files_list):
+            if not i % 10:
+                print("Done {}/{} files".format(i, len(files_list)))
+            rescode, msg = crop_one_dirname(dirname=dirname,
+                                            datadir_name=datadir_name,
+                                            overwrite=overwrite)
+            if rescode != 0:
+                fail_list.append((dirname, msg))
+    else:
+        files_list = os.listdir(datadir_name)
+        l = multiprocessing.Lock()
+        nprocs = max(4, os.cpu_count() - 15)
+        pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=nprocs)
+        njobs = len(files_list)
+        inputs = zip(files_list,
+                     [datadir_name, ] * njobs,
+                     [overwrite, ] * njobs,
+                     )
+        results = pool.starmap(do_one_dirname, tqdm(inputs, total=njobs))
+        for dirname, (rescode, msg) in zip(files_list, results):
+            if rescode == 1:
+                skip_list.append((dirname, msg))
     print("Failed : ", fail_list)
 
 
