@@ -222,28 +222,23 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
+    data_root = "../data/pdb_em"
     rotate = True
     crop = 3
     # num_workers = 0
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    data_root = "../data/pdb_em"
     # csv_to_read = "../data/reduced_final.csv"
     csv_to_read = "../data/cleaned_final.csv"
-    # csv_to_read = "../data/debug.csv"
-    # csv_to_read = "../data/final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
                            crop=crop,
                            return_grid=False)
-    # train_set, val_set, _ = get_split_datasets(dataset=ab_dataset)
-    # print(train_set.dataset.full)
-    # val_set.dataset.full = True
-    # print(train_set.dataset.full)
-    # train_loader, val_loader = get_dataloaders(datasets=(train_set, val_set),
-    #                                            shuffle=True,
-    #                                            collate_fn=lambda x: x[0],
-    #                                            num_workers=num_workers)
+    # # Test loss
+    # fake_out = torch.randn((1, 9, 23, 28, 19))
+    # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
+    # coords_loss(fake_out, ab_dataset[0][1])
+    # sys.exit()
     train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
                                                         shuffle=True,
                                                         collate_fn=lambda x: x[0],
@@ -257,12 +252,6 @@ if __name__ == '__main__':
                              return_grid=False)
     _, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
                                                   collate_fn=lambda x: x[0])
-
-    # # Test loss
-    # fake_out = torch.randn((1, 9, 23, 28, 19))
-    # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
-    # coords_loss(fake_out, ab_dataset[0][1])
-    # sys.exit()
 
     # Learning hyperparameters
     n_epochs = 1000
@@ -278,8 +267,6 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load(model_path))
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-    # validate(model, device, loader=val_loader_full)
 
     # Train
     train(model=model, device=device, loader=train_loader,

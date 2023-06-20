@@ -261,9 +261,9 @@ def crop_one_dirname(dirname, datadir_name, overwrite):
         resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
         if not os.path.exists(resampled_name) or overwrite:
             mrc = MRCGrid.from_mrc(mrc_path)
-            carved = mrc.carve(pdb_path=pdb_path, margin=8)
+            carved = mrc.carve(pdb_path=pdb_path, margin=25)
             carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
-            return 0, None
+        return 0, None
     except Exception as e:
         print(e)
         return 1, e
@@ -271,7 +271,7 @@ def crop_one_dirname(dirname, datadir_name, overwrite):
 
 def crop_maps(datadir_name="../data/pdb_em",
               parallel=True,
-              overwrite=False):
+              overwrite=True):
     files_list = os.listdir(datadir_name)
     skip_list, fail_list = [], []
     if not parallel:

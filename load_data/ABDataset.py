@@ -23,6 +23,7 @@ class ABDataset(Dataset):
                  return_sdf=False,
                  rotate=True,
                  full=False,
+                 normalize=False,
                  crop=0):
         self.data_root = data_root
         self.csv_to_read = csv_to_read
@@ -32,9 +33,12 @@ class ABDataset(Dataset):
         self.df = None
 
         self.rotate = rotate
+        self.crop = crop
+        self.normalize = normalize
+
         self.return_sdf = return_sdf
         self.return_grid = return_grid
-        self.crop = crop
+
         self.pdb_selections = process_csv(csv_file=all_systems)
         self.full = full
 
@@ -54,7 +58,7 @@ class ABDataset(Dataset):
         antibody_selections = [res[0] for res in self.pdb_selections[pdb_id]]
         pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
         if self.full:
-            mrc_name = f'emd_{mrc_id}.map'
+            mrc_name = f'full_crop_resampled_2.mrc'
         else:
             mrc_name = f'resampled_{local_ab_id}_2.mrc'
         mrc_path = os.path.join(self.data_root, dirname, mrc_name)
@@ -68,6 +72,7 @@ class ABDataset(Dataset):
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selections=antibody_selections,
+                                # normalize=self.normalize or self.full,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp
