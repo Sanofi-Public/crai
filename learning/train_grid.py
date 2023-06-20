@@ -16,7 +16,7 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import UnetModel
 from utils.learning_utils import weighted_dice_loss, weighted_ce_loss, get_split_dataloaders
-from learning.train_functions import train, setup_learning
+from learning.train_functions import train, setup_learning, validate
 
 
 def local_loss_fn(x, y):
@@ -42,6 +42,7 @@ def loop_fn(model, device, complex):
     prediction = model(input_tensor)
     loss = loss_fn(prediction, target_tensor)
     return loss
+
 
 if __name__ == '__main__':
     import argparse
@@ -71,7 +72,6 @@ if __name__ == '__main__':
                                                         shuffle=True,
                                                         num_workers=num_workers,
                                                         collate_fn=lambda x: x[0])
-
     # Learning hyperparameters
     n_epochs = 700
     loss_fn = local_loss_fn

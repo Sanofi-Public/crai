@@ -249,6 +249,15 @@ if __name__ == '__main__':
                                                         collate_fn=lambda x: x[0],
                                                         num_workers=num_workers)
 
+    ab_dataset_2 = ABDataset(data_root=data_root,
+                             csv_to_read=csv_to_read,
+                             rotate=rotate,
+                             crop=crop,
+                             full=True,
+                             return_grid=False)
+    _, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
+                                                  collate_fn=lambda x: x[0])
+
     # # Test loss
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
@@ -269,6 +278,8 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load(model_path))
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    # validate(model, device, loader=val_loader_full)
 
     # Train
     train(model=model, device=device, loader=train_loader,

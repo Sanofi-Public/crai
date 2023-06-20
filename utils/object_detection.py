@@ -10,7 +10,7 @@ from utils.mrc_utils import MRCGrid
 
 
 # Array to predictions as rotation/translation
-def predict_one_ijk(pred_array):
+def predict_one_ijk(pred_array, margin=4):
     """
     Zero around a point while respecting border effects
     """
@@ -19,9 +19,9 @@ def predict_one_ijk(pred_array):
     i, j, k = np.unravel_index(amax, pred_shape)
 
     # Zero out corresponding region
-    imin, imax = max(0, i - 1), min(i + 2, pred_shape[0])
-    jmin, jmax = max(0, j - 1), min(j + 2, pred_shape[1])
-    kmin, kmax = max(0, k - 1), min(k + 2, pred_shape[2])
+    imin, imax = max(0, i - margin), min(i + 1 + margin, pred_shape[0])
+    jmin, jmax = max(0, j - margin), min(j + 1 + margin, pred_shape[1])
+    kmin, kmax = max(0, k - margin), min(k + 1 + margin, pred_shape[2])
     pred_array[imin:imax, jmin:jmax, kmin:kmax] = 0
     return i, j, k
 
@@ -62,7 +62,7 @@ def output_to_transform(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None):
     if outmrc is not None:
         voxel_size = (top - origin) / pred_shape
         mrc_pred = MRCGrid(data=pred_loc, voxel_size=voxel_size, origin=origin)
-        mrc_pred.save(outname=outmrc)
+        mrc_pred.save(outname=outmrc, overwrite=True)
 
     # First let's find out the position of the antibody in our prediction
     ijk_s = nms(pred_loc, n_objects=n_objects, thresh=thresh)
@@ -154,11 +154,11 @@ def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=Fal
                 else:
                     p.cmd.load(REF_PATH_FAB, 'ref')
                 coords_ref = p.cmd.get_coords("ref")
-    
+
                 # Now perform the alignment. The com of the aligned template is the object detection objective
                 test = p.cmd.align(mobile="ref", target="to_align")
                 rmsd = test[0]
-    
+
                 # We retrieve the parameters of the transformation, notably the rotation
                 transformation_matrix = p.cmd.get_object_matrix('ref')
                 transformation_matrix = np.asarray(transformation_matrix).reshape((4, 4))

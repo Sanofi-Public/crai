@@ -22,6 +22,7 @@ class ABDataset(Dataset):
                  return_grid=True,
                  return_sdf=False,
                  rotate=True,
+                 full=False,
                  crop=0):
         self.data_root = data_root
         self.csv_to_read = csv_to_read
@@ -35,7 +36,7 @@ class ABDataset(Dataset):
         self.return_grid = return_grid
         self.crop = crop
         self.pdb_selections = process_csv(csv_file=all_systems)
-        self.full = False
+        self.full = full
 
     def __len__(self):
         return self.length

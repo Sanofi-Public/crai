@@ -3,14 +3,13 @@ import sys
 
 import torch
 
-from utils.object_detection import output_to_transform, transform_to_pdb
-
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils import mrc_utils
+from utils.object_detection import output_to_transform, transform_to_pdb
 
 
 def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_objects=None, thresh=0.5,
@@ -61,7 +60,10 @@ if __name__ == '__main__':
     # model_name = 'object_3_best'
     # model_name = 'crop_95'
     # model_name = 'crop_256'
-    model_name = 'focal_332'
+    # model_name = 'focal_332'
+    # model_name = 'less_agg_432'
+    # model_name = 'multi_train_339'
+    model_name = 'multi_train_861'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,
@@ -74,9 +76,8 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(model_path))
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
     dump_path = os.path.join(datadir_name, dirname, dump_name)
-    dump_mrc = dump_path.replace(".pdb", "pred.mrc")
-
+    out_mrc = dump_path.replace(".pdb", "pred.mrc")
     n_objects = 3
     thresh = 0.5
-    predict_coords(mrc_path=mrc_path, model=model, outname=dump_path,
+    predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
                    n_objects=n_objects, thresh=thresh)

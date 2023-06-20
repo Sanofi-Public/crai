@@ -271,7 +271,7 @@ def dock_one(mrc, pdb, sel=None, resolution=4.):
         translation_line = next(line for line in end_of_list if line.startswith('TRANS'))
         translation_norm = np.linalg.norm(np.array(translation_line.split()[1:]))
         if translation_norm > 8:
-            return 3, -2
+            return 3, "too big translation"
         score_line = next(line for line in end_of_list if line.startswith('Wrote placed'))
         score = float(score_line.split()[8])
         return res.returncode, score
@@ -329,6 +329,12 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     df.to_csv(csv_out)
     for x in all_errors:
         print(x)
+    # 1 Timeout + error from dock in map, 2 mrc loading buggy, 3 big norm, 4 something else
+    # Analysis of errors :
+    # 1 (78)  : Collide but a few timeout and a lot just say they fail to find a good solution
+    # 2 (3)   : Some don't exist anymore in PDB (obsolete) : 7n01, 6mf7
+    # 3 (671) : Very frequent, I count those as a failure for dock in map
+    # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
 def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
