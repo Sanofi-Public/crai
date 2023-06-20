@@ -293,7 +293,7 @@ def crop_maps(datadir_name="../data/pdb_em",
                      [datadir_name, ] * njobs,
                      [overwrite, ] * njobs,
                      )
-        results = pool.starmap(do_one_dirname, tqdm(inputs, total=njobs))
+        results = pool.starmap(crop_one_dirname, tqdm(inputs, total=njobs))
         for dirname, (rescode, msg) in zip(files_list, results):
             if rescode == 1:
                 skip_list.append((dirname, msg))
