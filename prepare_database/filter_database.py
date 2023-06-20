@@ -1,39 +1,22 @@
-import multiprocessing
 import os
-import subprocess
+import sys
 
+import multiprocessing
 import numpy as np
 import pandas as pd
 import pymol2
+import subprocess
+import time
 from tqdm import tqdm
 
-from prepare_database.process_data import PHENIX_VALIDATE, PHENIX_DOCK_IN_MAP
-from utils.mrc_utils import load_mrc
+PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
+PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 
 if __name__ == '__main__':
-    pass
-    # parallel_do()
-    # 3J3O_5291
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    sys.path.append(os.path.join(script_dir, '..'))
 
-    raw = '../data/cleaned.csv'
-    clean_res = '../data/cleaned_res.csv'
-    validated = '../data/validated.csv'
-    docked = '../data/docked.csv'
-    # clean_resolution(csv_in=raw, csv_out=clean_res)
-
-    # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
-    # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
-    # sel = 'chain H or chain L'
-    # pdb = '../data/pdb_em/7PC2_13316/7PC2.cif'
-    # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
-    # sel = "chain H or chain G"
-    # validate_one(pdb=pdb, mrc=mrc, sel=sel)
-    # add_validation_score(csv_in=clean_res, csv_out=validated)
-    # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
-    # print(res)
-    t0 = time.time()
-    add_docking_score(csv_in=validated, csv_out=docked)
-    print("done in ", time.time() - t0)
+from utils.mrc_utils import load_mrc
 
 
 def init(l):
@@ -340,3 +323,29 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 2 (3)   : Some don't exist anymore in PDB (obsolete) : 7n01, 6mf7
     # 3 (671) : Very frequent, I count those as a failure for dock in map
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
+
+
+if __name__ == '__main__':
+    pass
+    # parallel_do()
+    # 3J3O_5291
+
+    raw = '../data/cleaned.csv'
+    clean_res = '../data/cleaned_res.csv'
+    validated = '../data/validated.csv'
+    docked = '../data/docked.csv'
+    # clean_resolution(csv_in=raw, csv_out=clean_res)
+
+    # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
+    # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
+    # sel = 'chain H or chain L'
+    # pdb = '../data/pdb_em/7PC2_13316/7PC2.cif'
+    # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
+    # sel = "chain H or chain G"
+    # validate_one(pdb=pdb, mrc=mrc, sel=sel)
+    # add_validation_score(csv_in=clean_res, csv_out=validated)
+    # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
+    # print(res)
+    t0 = time.time()
+    add_docking_score(csv_in=validated, csv_out=docked)
+    print("done in ", time.time() - t0)

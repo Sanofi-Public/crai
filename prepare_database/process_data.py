@@ -16,17 +16,11 @@ import pandas as pd
 import pymol2
 from tqdm import tqdm
 
-from prepare_database.filter_database import init, str_resolution_to_float
-
-# phenix = os.environ['PHENIX']
-# PHENIX_VALIDATE = os.path.join(phenix, 'build/bin/phenix.validation_cryoem')
-PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
-PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
-
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
+from prepare_database.filter_database import init, str_resolution_to_float
 from utils.mrc_utils import MRCGrid
 from utils.pymol_utils import list_id_to_pymol_sel
 
