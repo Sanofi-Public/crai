@@ -122,7 +122,8 @@ def coords_loss(prediction, comp):
 
 
 def train(model, device, optimizer, loader,
-          writer=None, n_epochs=10, val_loader=None, accumulated_batch=1, save_path=''):
+          writer=None, n_epochs=10, val_loader=None, val_loader_full=None,
+          accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
     last_model_path = f'{save_path}_last.pth'
     time_init = time.time()
@@ -182,6 +183,19 @@ def train(model, device, optimizer, loader,
                 torch.save(model.state_dict(), best_model_path)
                 model.to(device)
 
+        if val_loader_full is not None:
+            print("validation full")
+            losses = validate(model=model, device=device, loader=val_loader_full)
+            losses = np.array(losses)
+            val_loss, position_loss, offset_loss, rz_loss, angle_loss, position_dist = np.mean(losses, axis=0)
+            print(f'Validation loss ={val_loss}')
+            writer.add_scalar('full_val_loss', val_loss, epoch)
+            writer.add_scalar('full_val_position_loss', position_loss, epoch)
+            writer.add_scalar('full_val_position_distance', position_dist, epoch)
+            writer.add_scalar('full_val_offset_loss', offset_loss, epoch)
+            writer.add_scalar('full_val_rz_loss', rz_loss, epoch)
+            writer.add_scalar('full_val_angle_loss', angle_loss, epoch)
+
 
 def validate(model, device, loader):
     time_init = time.time()
@@ -216,6 +230,7 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--agg_grads", type=int, default=20)
+    parser.add_argument("--crop", type=int, default=3)
     args = parser.parse_args()
 
     writer, save_path, device = setup_learning(model_name=args.model_name,
@@ -224,7 +239,6 @@ if __name__ == '__main__':
     # Setup data
     data_root = "../data/pdb_em"
     rotate = True
-    crop = 3
     # num_workers = 0
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     # csv_to_read = "../data/reduced_final.csv"
@@ -232,7 +246,7 @@ if __name__ == '__main__':
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
-                           crop=crop,
+                           crop=args.crop,
                            return_grid=False)
     # # Test loss
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -246,8 +260,8 @@ if __name__ == '__main__':
 
     ab_dataset_2 = ABDataset(data_root=data_root,
                              csv_to_read=csv_to_read,
-                             rotate=rotate,
-                             crop=crop,
+                             rotate=False,
+                             crop=0,
                              full=True,
                              return_grid=False)
     _, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
@@ -269,8 +283,8 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
-    train(model=model, device=device, loader=train_loader,
-          optimizer=optimizer, writer=writer, n_epochs=n_epochs, val_loader=val_loader,
+    train(model=model, device=device, loader=train_loader, optimizer=optimizer,
+          writer=writer, n_epochs=n_epochs, val_loader=val_loader, val_loader_full=val_loader_full,
           accumulated_batch=accumulated_batch, save_path=save_path)
 
     # ######################################
