@@ -176,7 +176,7 @@ def train(model, device, optimizer, loader,
             writer.add_scalar('val_rz_loss', rz_loss, epoch)
             writer.add_scalar('val_angle_loss', angle_loss, epoch)
             # Model checkpointing
-            if val_loss < best_mean_val_loss:
+            if val_loader_full is None and val_loss < best_mean_val_loss:
                 best_mean_val_loss = val_loss
                 best_model_path = f'{save_path}_{epoch}.pth'
                 model.cpu()
@@ -195,6 +195,13 @@ def train(model, device, optimizer, loader,
             writer.add_scalar('full_val_offset_loss', offset_loss, epoch)
             writer.add_scalar('full_val_rz_loss', rz_loss, epoch)
             writer.add_scalar('full_val_angle_loss', angle_loss, epoch)
+            # Model checkpointing
+            if val_loss < best_mean_val_loss:
+                best_mean_val_loss = val_loss
+                best_model_path = f'{save_path}_{epoch}.pth'
+                model.cpu()
+                torch.save(model.state_dict(), best_model_path)
+                model.to(device)
 
 
 def validate(model, device, loader):
