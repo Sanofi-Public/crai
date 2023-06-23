@@ -29,7 +29,10 @@ class ABDataset(Dataset):
         self.csv_to_read = csv_to_read
         df = pd.read_csv(self.csv_to_read)[
             ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
-        self.length = len(df)
+        if full:
+            self.length = len(df["pdb_id"].unique())
+        else:
+            self.length = len(df)
         self.df = None
 
         self.rotate = rotate
@@ -52,6 +55,8 @@ class ABDataset(Dataset):
         if self.df is None:
             self.df = pd.read_csv(self.csv_to_read)[
                 ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
+            if self.full:
+                self.df = self.df.groupby("pdb_id", as_index=False).nth(0).reset_index(drop=True)
         row = self.df.loc[item].values
         pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
 
@@ -93,11 +98,10 @@ if __name__ == '__main__':
                         csv_to_read='../data/reduced_final.csv',
                         return_grid=False,
                         rotate=True,
-                        crop=2
+                        crop=2,
+                        full=True
                         )
     res = dataset[3]
     print(res[0])
-    print(res[1].shape)
-    print(res[2])
     a = 1
     # print(res)

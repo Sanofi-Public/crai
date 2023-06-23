@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils import mrc_utils
-from utils.object_detection import output_to_transform, transform_to_pdb
+from utils.object_detection import output_to_transforms, transform_to_pdb
 
 
 def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_objects=None, thresh=0.5,
@@ -32,7 +32,7 @@ def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_o
         # comp_coords.mrc.save('../data/pdb_em/6NQD_0485/test_test.mrc')
         # coords_loss(out, comp_coords)
         out = model(mrc_grid)[0].numpy()
-    translations, rotations = output_to_transform(out, mrc, n_objects=n_objects, thresh=thresh, outmrc=outmrc)
+    translations, rotations = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh, outmrc=outmrc)
     if outname is not None:
         transform_to_pdb(translations=translations, rotations=rotations, out_name=outname)
     return translations, rotations
@@ -45,7 +45,10 @@ if __name__ == '__main__':
     # datadir_name = ".."
     # dirname = '7V3L_31683' # present in train set
     # dirname = '7LO8_23464'  # this is test set
-    dirname = '6NQD_0485'
+    # dirname = '6BF9_7093'  # this is test set
+    dirname = '8DG9_27419'  # this is test set
+    # dirname = '7DCC_30635'  # this is test set
+    # dirname = '6NQD_0485'  # this is test set
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
@@ -63,7 +66,8 @@ if __name__ == '__main__':
     # model_name = 'focal_332'
     # model_name = 'less_agg_432'
     # model_name = 'multi_train_339'
-    model_name = 'multi_train_861'
+    # model_name = 'multi_train_861'
+    model_name = 'big_train_gamma_last'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,

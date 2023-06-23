@@ -10,7 +10,7 @@ from utils.mrc_utils import MRCGrid
 
 
 # Array to predictions as rotation/translation
-def predict_one_ijk(pred_array, margin=4):
+def predict_one_ijk(pred_array, margin=6):
     """
     Zero around a point while respecting border effects
     """
@@ -46,7 +46,7 @@ def nms(pred_loc, n_objects=None, thresh=0.5):
     return ijk_s
 
 
-def output_to_transform(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None):
+def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None):
     """
     First we need to go from grid, complex -> rotation, translation
     Then we call the second one
