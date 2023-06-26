@@ -235,6 +235,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-m", "--model_name", default='default')
+    parser.add_argument("--train_full", action='store_false', default=True)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -262,7 +263,7 @@ if __name__ == '__main__':
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
     # coords_loss(fake_out, ab_dataset[0][1])
     # sys.exit()
-    train_loader, val_loader, _ = get_split_dataloaders(dataset=ab_dataset,
+    train_loader_small, val_loader_small, _ = get_split_dataloaders(dataset=ab_dataset,
                                                         shuffle=True,
                                                         collate_fn=lambda x: x[0],
                                                         num_workers=num_workers)
@@ -273,7 +274,7 @@ if __name__ == '__main__':
                              crop=0,
                              full=True,
                              return_grid=False)
-    _, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
+    train_loader_full, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
                                                   collate_fn=lambda x: x[0])
 
     # Learning hyperparameters
@@ -292,8 +293,9 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
+    train_loader = train_loader_full if args.train_full else train_loader_small
     train(model=model, device=device, loader=train_loader, optimizer=optimizer,
-          writer=writer, n_epochs=n_epochs, val_loader=val_loader, val_loader_full=val_loader_full,
+          writer=writer, n_epochs=n_epochs, val_loader=val_loader_small, val_loader_full=val_loader_full,
           accumulated_batch=accumulated_batch, save_path=save_path)
 
     # ######################################
