@@ -25,7 +25,7 @@ from utils.object_detection import nms
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
 
 
-def coords_loss(prediction, comp):
+def coords_loss(prediction, comp, return_dists=False):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -81,7 +81,8 @@ def coords_loss(prediction, comp):
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
     position_dist = dist_matrix[row_ind, col_ind].mean()
     position_dist = float(position_dist)
-
+    if return_dists:
+        all_dists = dist_matrix.T[col_ind, row_ind]
     offset_losses, rz_losses, angle_losses = [], [], []
     for pos_tuple, translation, rotation in filtered_transforms:
         # Extract the predicted vector at this location
@@ -117,6 +118,8 @@ def coords_loss(prediction, comp):
     offset_loss = torch.mean(torch.stack(offset_losses))
     rz_loss = torch.mean(torch.stack(rz_losses))
     angle_loss = torch.mean(torch.stack(angle_losses))
+    if return_dists:
+        return position_loss, offset_loss, rz_loss, angle_loss, position_dist, all_dists
     return position_loss, offset_loss, rz_loss, angle_loss, position_dist
 
 

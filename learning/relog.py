@@ -3,6 +3,7 @@ import sys
 
 import time
 import glob
+import pickle
 import numpy as np
 import torch
 
@@ -13,7 +14,21 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.learning_utils import get_split_dataloaders, setup_learning
-from learning.train_coords import coords_loss
+from learning.train_coords import coords_loss, validate
+
+
+def weights_from_name(name):
+    hits = glob.glob(f"../saved_models/{name}*")
+    weights = [(hit.split('_')[-1].split('.')[0], hit) for hit in hits]
+    # Necessary to remove 'last' and 'best' models. Could be done with fancier regex
+    filtered_weights = []
+    for epoch, weight in weights:
+        try:
+            filtered_weights.append((int(epoch), weight))
+        except ValueError:
+            pass
+    weights = sorted(filtered_weights, key=lambda x: x[0])
+    return weights
 
 
 def relog(model, device, weights, val_loader, writer):
@@ -35,16 +50,19 @@ def relog(model, device, weights, val_loader, writer):
         writer.flush()
 
 
-def validate(model, device, loader):
+def validate_detailed(model, device, loader):
     time_init = time.time()
     losses = list()
+    dict_res = {}
     with torch.no_grad():
         for step, (name, comp) in enumerate(loader):
             if comp is None:
+                dict_res[name] = None
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, position_dist, all_dists = coords_loss(prediction, comp,
+                                                                                                    return_dists=True)
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss
                 losses.append([loss.item(),
@@ -54,8 +72,13 @@ def validate(model, device, loader):
                                angle_loss.item(),
                                position_dist
                                ])
+
+                dict_res[name] = all_dists
+            else:
+                dict_res[name] = None
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
+        pickle.dump(dict_res, open('toto.p', 'wb'))
     return losses
 
 
@@ -70,25 +93,15 @@ if __name__ == '__main__':
 
     writer, save_path, device = setup_learning(model_name=args.model_name,
                                                gpu_number=args.gpu)
-    hits = glob.glob(f"../saved_models/{args.model_name}*")
-    weights = [(hit.split('_')[-1].split('.')[0], hit) for hit in hits]
-    # Necessary to remove 'last' and 'best' models. Could be done with fancier regex
-    filtered_weights = []
-    for epoch, weight in weights:
-        try:
-            filtered_weights.append((int(epoch), weight))
-        except ValueError:
-            pass
-    weights = sorted(filtered_weights, key=lambda x: x[0])
 
     # Setup data
     data_root = "../data/pdb_em"
     rotate = False
     crop = 0
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_to_read = "../data/reduced_final.csv"
-    csv_to_read = "../data/cleaned_final.csv"
+    num_workers = 0
+    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    csv_to_read = "../data/reduced_final.csv"
+    # csv_to_read = "../data/cleaned_final.csv"
     ab_dataset = ABDataset(data_root=data_root,
                            csv_to_read=csv_to_read,
                            rotate=rotate,
@@ -105,4 +118,11 @@ if __name__ == '__main__':
                                 max_decode=2,
                                 num_feature_map=32)
 
-    relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader_full)
+    # weights = weights_from_name(args.model_name)
+    # relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader_full)
+
+    weights_path = f"../saved_models/big_train_gamma_last.pth"
+    # weights_path = f"../saved_models/{args.model_name}.pth"
+    model.load_state_dict(torch.load(weights_path))
+    model = model.to(device)
+    validate_detailed(model=model, device=device, loader=val_loader_full)
