@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 import torch
 from torch.utils.data import Subset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 
 def weighted_ce_loss(output, target, weight=None):
@@ -109,3 +112,13 @@ def get_split_dataloaders(dataset,
     valid_loader = DataLoader(dataset=valid_set, **kwargs)
     test_loader = DataLoader(dataset=test_set, **kwargs)
     return train_loader, valid_loader, test_loader
+
+
+def setup_learning(model_name, gpu_number):
+    # Setup learning
+    os.makedirs("../saved_models", exist_ok=True)
+    os.makedirs("../logs", exist_ok=True)
+    writer = SummaryWriter(log_dir=f"../logs/{model_name}")
+    save_path = os.path.join("../saved_models", model_name)
+    device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
+    return writer, save_path, device

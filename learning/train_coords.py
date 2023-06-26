@@ -19,11 +19,10 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.Unet import HalfUnetModel
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_datasets, get_dataloaders, get_split_dataloaders
+from utils.learning_utils import get_split_datasets, get_dataloaders, get_split_dataloaders, setup_learning
 from utils.rotation import rotation_to_supervision
 from utils.object_detection import nms
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
-from learning.train_functions import setup_learning
 
 
 def coords_loss(prediction, comp):
