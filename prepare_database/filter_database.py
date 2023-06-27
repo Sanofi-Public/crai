@@ -308,8 +308,8 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
-def process_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
-                out_csv='../data/csvs/filtered.csv'):
+def filter_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
+               out_csv='../data/csvs/filtered.csv'):
     """
     This goes through a csv of systems, filters it :
     - removes systems with empty antigen chain
@@ -349,7 +349,7 @@ def process_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
 
         # Check for nans : if no antigen, just ignore
         if isinstance(antigen, str):
-            list_chain_antigen = antigen.split('|')
+            list_chain_antigen = [chain.strip() for chain in antigen.split('|')]
             antigen_selection = list_id_to_pymol_sel(list_chain_antigen)
 
             list_chain_antibody = list()
@@ -396,7 +396,7 @@ if __name__ == '__main__':
     docked = '../data/csvs/docked.csv'
     filtered = '../data/csvs/filtered.csv'
 
-    clean_resolution(csv_in=mapped, csv_out=resolution)
+    # clean_resolution(csv_in=mapped, csv_out=resolution)
 
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
@@ -413,5 +413,5 @@ if __name__ == '__main__':
     # add_docking_score(csv_in=validated, csv_out=docked)
     # print("done in ", time.time() - t0)
 
-    # res = process_csv(in_csv=docked, out_csv=filtered)
-    # split_csv(csv_file=filtered)
+    res = filter_csv(in_csv=docked, out_csv=filtered)
+    split_csv(csv_file=filtered)

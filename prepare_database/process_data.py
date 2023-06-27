@@ -127,6 +127,17 @@ def filter_copies(pdb_path, pdb_selections):
     return list_to_keep
 
 
+def group_pdb(df, columns):
+    """"""
+    from collections import defaultdict
+    pdb_selections = defaultdict(list)
+    df = df[['pdb'] + columns]
+    for i, row in df.iterrows():
+        pdb, content = row[0], row[1:]
+        pdb_selections[pdb.upper()].append(content)
+    return pdb_selections
+
+
 def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
     pdb_name, mrc_name = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
@@ -178,11 +189,14 @@ def chunk_around(datadir_name="../data/pdb_em",
     :param overwrite:
     :return:
     """
-    df = pd.read_csv(csv_in, index_col=0)
-    grouped_df = df.groupby("pdb")
-    pdb_mrc = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)[['pdb', 'mrc']]
+    df_load = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
+    pdb_mrc = df_load.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)[['pdb', 'mrc']]
     files_list = [f"{pdb.upper()}_{em}" for pdb, em in pdb_mrc.values]
-    pdb_selections = {str(name).upper(): list(group) for name, group in grouped_df['antibody_selection']}
+    # grouped_df = df_load.groupby("pdb")['antigen_selection', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']
+    # grouped_df = df_load.groupby("pdb")['antigen_selection']
+    # pdb_selections = {str(name).upper(): list(group) for name, group in grouped_df}
+    pdb_selections = group_pdb(df_load, columns=['antibody_selection', 'antigen_selection',
+                                                 'Hchain', 'Lchain', 'antigen_chain', 'resolution'])
 
     skip_list, fail_list = [], []
     columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
@@ -190,14 +204,14 @@ def chunk_around(datadir_name="../data/pdb_em",
     df = pd.DataFrame(columns=columns)
     if not parallel:
         for i, dirname in enumerate(files_list):
-            if not i % 10:
+            if not i % 30:
                 print("Done {}/{} files".format(i, len(files_list)))
             try:
-                success, rows = do_one_chunking(dirname=dirname,
-                                                datadir_name=datadir_name,
-                                                pdb_selections=pdb_selections,
-                                                overwrite=overwrite)
-                if success:
+                error, rows = do_one_chunking(dirname=dirname,
+                                              datadir_name=datadir_name,
+                                              pdb_selections=pdb_selections,
+                                              overwrite=overwrite)
+                if not error:
                     for row in rows:
                         df.loc[len(df)] = row
                 else:
