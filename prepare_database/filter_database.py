@@ -107,7 +107,7 @@ def clean_resolution(datadir_name='../data/pdb_em',
     """
     Sabdab fails to parse certain resolutions
     """
-    df = pd.read_csv(csv_in, index_col=0)
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     new_df = pd.DataFrame(columns=df.columns)
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
@@ -162,7 +162,7 @@ def validate_one(mrc, pdb, sel=None, resolution=4.):
 
 def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # Prepare input list
-    df = pd.read_csv(csv_in, index_col=0)
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     to_process = []
     for i, row in df.iterrows():
         pdb, heavy_chain, light_chain, antigen, resolution, mrc = row.values
@@ -261,7 +261,7 @@ def dock_one(mrc, pdb, sel=None, resolution=4.):
 
 def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # Prepare input list
-    df = pd.read_csv(csv_in, index_col=0)
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     to_process = []
     for i, row in df.iterrows():
         pdb, heavy_chain, light_chain, antigen, resolution, mrc, validated = row.values
@@ -308,7 +308,8 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
-def process_csv(in_csv="../data/csvs/docked.csv", max_resolution=10., out_csv='../data/csvs/filtered.csv'):
+def process_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
+                out_csv='../data/csvs/filtered.csv'):
     """
     This goes through a csv of systems, filters it :
     - removes systems with empty antigen chain
@@ -318,7 +319,7 @@ def process_csv(in_csv="../data/csvs/docked.csv", max_resolution=10., out_csv='.
     :param in_csv:
     :return:
     """
-    df = pd.read_csv(in_csv, index_col=0)
+    df = pd.read_csv(in_csv, index_col=0, dtype={'mrc': 'str'})
     df_new = pd.DataFrame(columns=df.columns.tolist() + ['antibody_selection', 'antigen_selection'])
 
     # # Get subset
@@ -370,7 +371,7 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
     :param csv_file:
     :return:
     """
-    df = pd.read_csv(csv_file, index_col=0)
+    df = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
     unique_pdb = df["pdb"].unique()
     train = unique_pdb[:int(0.7 * len(unique_pdb))]
     val = unique_pdb[int(0.7 * len(unique_pdb)):int(0.85 * len(unique_pdb))]
@@ -390,13 +391,12 @@ if __name__ == '__main__':
     # 3J3O_5291
 
     mapped = '../data/csvs/mapped.csv'
-    clean_res = '../data/csvs/resolution.csv'
+    resolution = '../data/csvs/resolution.csv'
     validated = '../data/csvs/validated.csv'
     docked = '../data/csvs/docked.csv'
     filtered = '../data/csvs/filtered.csv'
 
-
-    # clean_resolution(csv_in=mapped, csv_out=clean_res)
+    clean_resolution(csv_in=mapped, csv_out=resolution)
 
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
@@ -413,5 +413,5 @@ if __name__ == '__main__':
     # add_docking_score(csv_in=validated, csv_out=docked)
     # print("done in ", time.time() - t0)
 
-    # res = process_csv(docked)
-    split_csv()
+    # res = process_csv(in_csv=docked, out_csv=filtered)
+    # split_csv(csv_file=filtered)

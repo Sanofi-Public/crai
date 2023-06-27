@@ -157,7 +157,8 @@ def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
                    resolution, antibody_selection, antigen_selection]
             local_ab_id += 1
             local_rows.append(row)
-    except:
+    except Exception as e:
+        print(e)
         return 2, dirname
     return 0, local_rows
 
@@ -180,8 +181,8 @@ def chunk_around(datadir_name="../data/pdb_em",
     df = pd.read_csv(csv_in, index_col=0)
     grouped_df = df.groupby("pdb")
     pdb_mrc = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)[['pdb', 'mrc']]
-    files_list = [f"{pdb}_{em}" for pdb, em in pdb_mrc.values]
-    pdb_selections = {name: list(group) for name, group in grouped_df['antibody_selection']}
+    files_list = [f"{pdb.upper()}_{em}" for pdb, em in pdb_mrc.values]
+    pdb_selections = {str(name).upper(): list(group) for name, group in grouped_df['antibody_selection']}
 
     skip_list, fail_list = [], []
     columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
