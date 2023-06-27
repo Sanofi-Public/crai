@@ -42,7 +42,7 @@ class ABDataset(Dataset):
         self.return_sdf = return_sdf
         self.return_grid = return_grid
 
-        self.pdb_selections = process_csv(csv_file=all_systems)
+        self.pdb_selections = process_csv(in_csv=all_systems)
         self.full = full
 
     def __len__(self):

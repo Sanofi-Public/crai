@@ -19,8 +19,62 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_database.filter_database import init, process_csv
+from prepare_database.filter_database import init
 from utils.mrc_utils import MRCGrid
+
+
+def crop_one_dirname(dirname, datadir_name, overwrite):
+    try:
+        pdb_name, mrc_name = dirname.split("_")
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+        mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map")
+        resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
+        if not os.path.exists(resampled_name) or overwrite:
+            mrc = MRCGrid.from_mrc(mrc_path)
+            carved = mrc.carve(pdb_path=pdb_path, margin=25)
+            carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+        return 0, None
+    except Exception as e:
+        print(e)
+        return 1, e
+
+
+def crop_maps(datadir_name="../data/pdb_em",
+              parallel=True,
+              overwrite=True):
+    """
+    The first thing we might want to do is to crop and resample our maps, to get lighter files
+    :param datadir_name:
+    :param parallel:
+    :param overwrite:
+    :return:
+    """
+    files_list = os.listdir(datadir_name)
+    skip_list, fail_list = [], []
+    if not parallel:
+        for i, dirname in enumerate(files_list):
+            if not i % 10:
+                print("Done {}/{} files".format(i, len(files_list)))
+            rescode, msg = crop_one_dirname(dirname=dirname,
+                                            datadir_name=datadir_name,
+                                            overwrite=overwrite)
+            if rescode != 0:
+                fail_list.append((dirname, msg))
+    else:
+        files_list = os.listdir(datadir_name)
+        l = multiprocessing.Lock()
+        nprocs = max(4, os.cpu_count() - 15)
+        pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=nprocs)
+        njobs = len(files_list)
+        inputs = zip(files_list,
+                     [datadir_name, ] * njobs,
+                     [overwrite, ] * njobs,
+                     )
+        results = pool.starmap(crop_one_dirname, tqdm(inputs, total=njobs))
+        for dirname, (rescode, msg) in zip(files_list, results):
+            if rescode == 1:
+                skip_list.append((dirname, msg))
+    print("Failed : ", fail_list)
 
 
 def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='polymer.protein'):
@@ -73,15 +127,15 @@ def filter_copies(pdb_path, pdb_selections):
     return list_to_keep
 
 
-def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
+def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
     pdb_name, mrc_name = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz")
 
     try:
-        # Don't compute for systems that got discarded (for instance on resolution)
         sels = pdb_selections[pdb_name]
+        # Don't compute for systems that got discarded (for instance on resolution)
         if len(sels) == 0:
             return 1, dirname
         filtered = filter_copies(pdb_path, sels)
@@ -108,17 +162,26 @@ def do_one_dirname(dirname, datadir_name, pdb_selections, overwrite):
     return 0, local_rows
 
 
-def process_database(datadir_name="../data/pdb_em",
-                     csv_in="../data/cleaned.csv",
-                     csv_dump='../data/final.csv',
-                     parallel=True,
-                     overwrite=False):
-    files_list = os.listdir(datadir_name)
-    pdb_selections = process_csv(csv_file=csv_in)
-
-    # do_one_dirname(dirname='7V3L_31683', datadir_name='..', pdb_selections=pdb_selections, overwrite=True)
-    # do_one_dirname(dirname='5H37_9575', datadir_name='..', pdb_selections=pdb_selections, overwrite=True)
-    # return
+def chunk_around(datadir_name="../data/pdb_em",
+                 csv_in="../data/csvs/filtered.csv",
+                 csv_dump='../data/chunked.csv',
+                 parallel=True,
+                 overwrite=False):
+    """
+    This processing goes through a csv and for each system it scans redundant copies of antibodies and keep crops
+    around the others
+    :param datadir_name:
+    :param csv_in:
+    :param csv_dump:
+    :param parallel:
+    :param overwrite:
+    :return:
+    """
+    df = pd.read_csv(csv_in, index_col=0)
+    grouped_df = df.groupby("pdb")
+    pdb_mrc = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)[['pdb', 'mrc']]
+    files_list = [f"{pdb}_{em}" for pdb, em in pdb_mrc.values]
+    pdb_selections = {name: list(group) for name, group in grouped_df['antibody_selection']}
 
     skip_list, fail_list = [], []
     columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
@@ -129,10 +192,10 @@ def process_database(datadir_name="../data/pdb_em",
             if not i % 10:
                 print("Done {}/{} files".format(i, len(files_list)))
             try:
-                success, rows = do_one_dirname(dirname=dirname,
-                                               datadir_name=datadir_name,
-                                               pdb_selections=pdb_selections,
-                                               overwrite=overwrite)
+                success, rows = do_one_chunking(dirname=dirname,
+                                                datadir_name=datadir_name,
+                                                pdb_selections=pdb_selections,
+                                                overwrite=overwrite)
                 if success:
                     for row in rows:
                         df.loc[len(df)] = row
@@ -142,7 +205,6 @@ def process_database(datadir_name="../data/pdb_em",
                 print(e)
                 fail_list.append(dirname)
     else:
-        files_list = os.listdir(datadir_name)
         l = multiprocessing.Lock()
         nprocs = max(4, os.cpu_count() - 15)
         pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=nprocs)
@@ -152,7 +214,7 @@ def process_database(datadir_name="../data/pdb_em",
                      [pdb_selections, ] * njobs,
                      [overwrite, ] * njobs,
                      )
-        results = pool.starmap(do_one_dirname, tqdm(inputs, total=njobs))
+        results = pool.starmap(do_one_chunking, tqdm(inputs, total=njobs))
         for fail_code, result in results:
             if fail_code == 0:
                 for row in result:
@@ -167,87 +229,9 @@ def process_database(datadir_name="../data/pdb_em",
     print("Failed : ", fail_list)
 
 
-def correct_db(csv='../data/final.csv', new_csv='../data/final_corrected.csv', dirpath="../data/pdb_em"):
-    new_columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
-                  " antibody_selection, antigen_selection".split(', ')
-    new_df = pd.DataFrame(columns=new_columns)
-    old_df = pd.read_csv(csv)
-    files_list = os.listdir(dirpath)
-    mapping = {}
-    # Get pdb : mrc, dirname
-    for i, dirname in enumerate(files_list):
-        pdb_name, mrc = dirname.split("_")
-        mapping[pdb_name] = dirname, mrc
-    # Fill the new one with missing values
-    for i, row in old_df.iterrows():
-        row_values = row.values
-        index, pdb_name, local_ab_id, heavy_chain, light_chain, antigen, resolution, \
-            antibody_selection, antigen_selection = row_values
-        mrc, dirname = mapping[pdb_name]
-        new_row = [pdb_name, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen,
-                   resolution, antibody_selection, antigen_selection]
-        new_df.loc[len(new_df)] = new_row
-    # Dump it
-    new_df.to_csv(new_csv)
-
-
-def crop_one_dirname(dirname, datadir_name, overwrite):
-    try:
-        pdb_name, mrc_name = dirname.split("_")
-        pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-        mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map")
-        resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
-        if not os.path.exists(resampled_name) or overwrite:
-            mrc = MRCGrid.from_mrc(mrc_path)
-            carved = mrc.carve(pdb_path=pdb_path, margin=25)
-            carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
-        return 0, None
-    except Exception as e:
-        print(e)
-        return 1, e
-
-
-def crop_maps(datadir_name="../data/pdb_em",
-              parallel=True,
-              overwrite=True):
-    files_list = os.listdir(datadir_name)
-    skip_list, fail_list = [], []
-    if not parallel:
-        for i, dirname in enumerate(files_list):
-            if not i % 10:
-                print("Done {}/{} files".format(i, len(files_list)))
-            rescode, msg = crop_one_dirname(dirname=dirname,
-                                            datadir_name=datadir_name,
-                                            overwrite=overwrite)
-            if rescode != 0:
-                fail_list.append((dirname, msg))
-    else:
-        files_list = os.listdir(datadir_name)
-        l = multiprocessing.Lock()
-        nprocs = max(4, os.cpu_count() - 15)
-        pool = multiprocessing.Pool(initializer=init, initargs=(l,), processes=nprocs)
-        njobs = len(files_list)
-        inputs = zip(files_list,
-                     [datadir_name, ] * njobs,
-                     [overwrite, ] * njobs,
-                     )
-        results = pool.starmap(crop_one_dirname, tqdm(inputs, total=njobs))
-        for dirname, (rescode, msg) in zip(files_list, results):
-            if rescode == 1:
-                skip_list.append((dirname, msg))
-    print("Failed : ", fail_list)
-
-
 if __name__ == '__main__':
     pass
-    crop_maps()
-
-    # parallel_do()
-    raw = '../data/cleaned.csv'
-    clean_res = '../data/cleaned_res.csv'
-    validated = '../data/validated.csv'
-    docked = '../data/docked.csv'
-    # pdb_selections = process_csv(csv_file=validated)
+    # crop_maps()
 
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]
@@ -281,5 +265,6 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
-    # process_database(overwrite=True, csv_in=clean_res, csv_dump='../data/cleaned_final.csv')
-    # correct_db()
+    chunk_around(csv_in='../data/csvs/filtered_train.csv', csv_dump='../data/csvs/chunked_train.csv', overwrite=True)
+    chunk_around(csv_in='../data/csvs/filtered_val.csv', csv_dump='../data/csvs/chunked_val.csv', overwrite=True)
+    chunk_around(csv_in='../data/csvs/filtered_test.csv', csv_dump='../data/csvs/chunked_test.csv', overwrite=True)
