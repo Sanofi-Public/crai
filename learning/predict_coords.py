@@ -52,6 +52,7 @@ if __name__ == '__main__':
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
+    mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -65,9 +66,9 @@ if __name__ == '__main__':
     # model_name = 'crop_256'
     # model_name = 'focal_332'
     # model_name = 'less_agg_432'
-    # model_name = 'multi_train_339'
+    model_name = 'multi_train_339'
     # model_name = 'multi_train_861'
-    model_name = 'big_train_gamma_last'
+    # model_name = 'big_train_gamma_last'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,

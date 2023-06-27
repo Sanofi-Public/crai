@@ -9,7 +9,6 @@ Starting from the downloaded raw data and a curated csv :
 import os
 import sys
 
-from collections import defaultdict
 import multiprocessing
 
 import pandas as pd
@@ -20,69 +19,8 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from prepare_database.filter_database import init, str_resolution_to_float
+from prepare_database.filter_database import init, process_csv
 from utils.mrc_utils import MRCGrid
-from utils.pymol_utils import list_id_to_pymol_sel
-
-
-def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
-    """
-    This goes through a csv of systems, filters it :
-    - removes systems with empty antigen chain
-    - removes systems with no-antibody chain
-    - filters on resolution : <10 A
-
-    Then it groups systems that have several chains
-
-    :param csv_file:
-    :return:
-    """
-    df = pd.read_csv(csv_file, index_col=0)
-
-    # # Get subset
-    # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
-    # df_sub = df[df.pdb.isin(reduced_pdblist)]
-
-    # df_sub.to_csv('../data/reduced_clean.csv')
-
-    # # Get resolution histogram
-    # import matplotlib.pyplot as plt
-    # import numpy as np
-    # grouped = df.groupby('pdb').nth(0)
-    # all_res = grouped[['resolution']].values.squeeze()
-    # float_res = [str_resolution_to_float(str_res) for str_res in all_res]
-    # plot_res = [res if res < 20 else 20. for res in float_res]
-    # plt.hist(plot_res, bins=np.arange(21))
-    # plt.show()
-    # filtered_res = [res for res in float_res if res < 10]
-    # print(f" Retained {len(filtered_res)} / {len(all_res)} systems based on resolution")
-    df = df[["pdb", "Hchain", "Lchain", "antigen_chain", "resolution"]]
-    pdb_selections = defaultdict(list)
-    for i, row in df.iterrows():
-        pdb, heavy_chain, light_chain, antigen, resolution = row.values
-
-        # Resolution cutoff
-        resolution = str_resolution_to_float(resolution)
-        if resolution > max_resolution:
-            continue
-
-        # Check for nans : if no antigen, just ignore
-        if isinstance(antigen, str):
-            list_chain_antigen = antigen.split('|')
-            antigen_selection = list_id_to_pymol_sel(list_chain_antigen)
-
-            list_chain_antibody = list()
-            if isinstance(heavy_chain, str):
-                list_chain_antibody.append(heavy_chain)
-            if isinstance(light_chain, str):
-                list_chain_antibody.append(light_chain)
-
-            # If only one chain, we still accept it (?)
-            if len(list_chain_antibody) > 0:
-                antibody_selection = list_id_to_pymol_sel(list_chain_antibody)
-                pdb_selections[pdb.upper()].append(
-                    (antibody_selection, antigen_selection, heavy_chain, light_chain, antigen, resolution))
-    return pdb_selections
 
 
 def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='polymer.protein'):
@@ -302,17 +240,15 @@ def crop_maps(datadir_name="../data/pdb_em",
 
 if __name__ == '__main__':
     pass
-    pass
-    # parallel_do()
-    # 3J3O_5291
+    crop_maps()
 
+    # parallel_do()
     raw = '../data/cleaned.csv'
     clean_res = '../data/cleaned_res.csv'
     validated = '../data/validated.csv'
     docked = '../data/docked.csv'
     # pdb_selections = process_csv(csv_file=validated)
 
-    crop_maps()
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]
     # my_pdbs = os.listdir('../data/pdb_em_large')

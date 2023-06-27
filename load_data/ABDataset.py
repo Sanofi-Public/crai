@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
 from load_data.GridComplex import GridComplex
 from load_data.CoordComplex import CoordComplex
-from prepare_database.process_data import process_csv
+from prepare_database.filter_database import process_csv
 
 
 class ABDataset(Dataset):
@@ -48,18 +48,11 @@ class ABDataset(Dataset):
     def __len__(self):
         return self.length
 
-    def unwrapped_get_item(self, item):
+    def unwrapped_get_item(self, row):
         """
         Just useful to desactivate the try/except for debugging
         """
-        if self.df is None:
-            self.df = pd.read_csv(self.csv_to_read)[
-                ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
-            if self.full:
-                self.df = self.df.groupby("pdb_id", as_index=False).nth(0).reset_index(drop=True)
-        row = self.df.loc[item].values
         pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
-
         antibody_selections = [res[0] for res in self.pdb_selections[pdb_id]]
         pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
         if self.full:
@@ -77,19 +70,26 @@ class ABDataset(Dataset):
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selections=antibody_selections,
-                                # normalize=self.normalize or self.full,
+                                normalize=self.normalize or self.full,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp
 
     def __getitem__(self, item):
-        # return self.unwrapped_get_item(item)
+        if self.df is None:
+            self.df = pd.read_csv(self.csv_to_read)[
+                ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
+            if self.full:
+                self.df = self.df.groupby("pdb_id", as_index=False).nth(0).reset_index(drop=True)
+        row = self.df.loc[item].values
+        pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
+        # return self.unwrapped_get_item(row)
         try:
-            return self.unwrapped_get_item(item)
+            return self.unwrapped_get_item(row)
         except Exception as e:
             # print(f"Buggy data loading for system : {dirname}, local : {local_ab_id},"
             #      f" selection :  {antibody_selection}, {e}")
-            return "failed", None
+            return dirname, None
 
 
 if __name__ == '__main__':

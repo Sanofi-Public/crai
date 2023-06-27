@@ -78,7 +78,7 @@ def validate_detailed(model, device, loader):
                 dict_res[name] = None
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
-        pickle.dump(dict_res, open('toto.p', 'wb'))
+        pickle.dump(dict_res, open('toto_test.p', 'wb'))
     return losses
 
 
@@ -121,6 +121,8 @@ if __name__ == '__main__':
     # weights = weights_from_name(args.model_name)
     # relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader_full)
 
+    # weights_path = f"../saved_models/multi_train_339.pth"
+    # weights_path = f"../saved_models/multi_train_861.pth"
     weights_path = f"../saved_models/big_train_gamma_last.pth"
     # weights_path = f"../saved_models/{args.model_name}.pth"
     model.load_state_dict(torch.load(weights_path))

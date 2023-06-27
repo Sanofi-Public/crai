@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+import pickle
 import requests
 from tqdm import tqdm
 
@@ -13,7 +14,7 @@ if __name__ == '__main__':
 from utils.python_utils import download_with_overwrite
 
 
-def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv'):
+def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv', out_csv='../data/cleaned.csv'):
     """
     Parse SabDab tsv file to get pdbs and infos
     :return:
@@ -24,11 +25,9 @@ def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv'):
     # models = df[['model']]
     # un = np.unique(models, return_counts=True)
     df = df.loc[df['model'] == 0]
-
     df = df[['pdb', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']]
-    df.to_csv('../data/cleaned.csv')
-    relevant_ids = np.unique(df['pdb'])
-    return relevant_ids
+    df.to_csv(out_csv)
+    return df
 
 
 def get_mapping_ids(list_of_ids=("6GH5", "3JAU")):
@@ -56,11 +55,20 @@ def get_mapping_ids(list_of_ids=("6GH5", "3JAU")):
     #     except:
     #         counts.append(0)
     # un = np.unique(counts, return_counts=True)
-    # pickle.dump(mapping_ids, open('result_mapping.p', 'wb'))
+    pickle.dump(mapping_ids, open('result_mapping.p', 'wb'))
     return mapping_ids
 
 
-def download_one_mrc(emd_id='0001', outdir='.', overwrite=False):
+def add_mrc(csv_pdb, pdb_em_mapping, out_csv):
+    pdb_df = pd.read_csv(csv_pdb)
+    pdb_df['mrc'] = pdb_df.apply(lambda x: pdb_em_mapping.get(x['pdb'].upper(), '0000missing')[4:], axis=1)
+    # for manual inspection : pdb_df.loc[pdb_df['mrc'] == 'missing']
+    # We see about 5 obsolete PDBs, that can be fixed in the original tsv by changing the numbers
+    pdb_df = pdb_df.loc[pdb_df['mrc'] != 'missing']
+    pdb_df.to_csv(out_csv)
+
+
+def download_one_mrc(emd_id, outdir, overwrite=False):
     header_ftp = f'https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{emd_id}/header/emd-{emd_id}.xml'
     map_ftp = f'https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{emd_id}/map/emd_{emd_id}.map.gz'
     header_outname = os.path.join(outdir, f'emd-{emd_id}.xml')
@@ -70,13 +78,13 @@ def download_one_mrc(emd_id='0001', outdir='.', overwrite=False):
     download_with_overwrite(url=map_ftp, outname=map_outname, overwrite=overwrite)
 
 
-def download_one_mmtf(pdb_id='1ycr', outdir='.', overwrite=False):
+def download_one_mmtf(pdb_id, outdir, overwrite=False):
     mmtf_url = f"https://mmtf.rcsb.org/v1.0/full/{pdb_id}.mmtf.gz"
     mmtf_outname = os.path.join(outdir, f'{pdb_id}.mmtf.gz')
     download_with_overwrite(url=mmtf_url, outname=mmtf_outname, overwrite=overwrite)
 
 
-def download_one_cif(pdb_id='1ycr', outdir='.', overwrite=False):
+def download_one_cif(pdb_id, outdir, overwrite=False):
     cif_url = f'http://www.pdb.org/pdb/download/downloadFile.do?fileFormat=cif&structureId={pdb_id}'
     cif_outname = os.path.join(outdir, f'{pdb_id}.cif')
     download_with_overwrite(url=cif_url, outname=cif_outname, overwrite=overwrite)
@@ -91,23 +99,28 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
     :return:
     """
     for pdb, em in tqdm(sorted(mapping.items())):
-        # 1YCR + EMD-bla -> 1YCR_bla
+        # 1YCR + EMD-123 -> 1YCR_123
         em_id = em[4:]
         dir_to_build = os.path.join(root, f'{pdb}_{em_id}')
         os.makedirs(dir_to_build, exist_ok=True)
         # download_one_mmtf(pdb_id=pdb, outdir=dir_to_build, overwrite=overwrite)
         download_one_cif(pdb_id=pdb, outdir=dir_to_build, overwrite=overwrite)
-        # download_one_mrc(emd_id=em_id, outdir=dir_to_build, overwrite=overwrite)
+        download_one_mrc(emd_id=em_id, outdir=dir_to_build, overwrite=overwrite)
 
 
 if __name__ == '__main__':
     max_systems = None
-    relevant_ids = get_ab_list()[:max_systems]
-    test_mapping = get_mapping_ids(relevant_ids)
+    csv_pdb = '../data/cleaned.csv'
+    pdb_df = get_ab_list(out_csv=csv_pdb)
+    # pdb_df = pd.read_csv(csv_pdb)
+    relevant_ids = np.unique(pdb_df['pdb'])[:max_systems]
+    pdb_em_mapping = get_mapping_ids(relevant_ids)
 
+    csv_mapped = '../data/mapped.csv'
+    add_mrc(csv_pdb=csv_pdb, pdb_em_mapping=pdb_em_mapping, out_csv=csv_mapped)
     # download_one_mrc()
     # download_one_mmtf()
-    get_database(test_mapping)
+    get_database(pdb_em_mapping)
 
     # path = '../data/pdb_em'
     # for system in os.listdir(path):

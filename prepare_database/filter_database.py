@@ -2,12 +2,16 @@ import os
 import sys
 
 import multiprocessing
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
 import pymol2
 import subprocess
 import time
 from tqdm import tqdm
+
+from utils.pymol_utils import list_id_to_pymol_sel
 
 PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
 PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
@@ -323,6 +327,66 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 2 (3)   : Some don't exist anymore in PDB (obsolete) : 7n01, 6mf7
     # 3 (671) : Very frequent, I count those as a failure for dock in map
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
+
+
+def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
+    """
+    This goes through a csv of systems, filters it :
+    - removes systems with empty antigen chain
+    - removes systems with no-antibody chain
+    - filters on resolution : <10 A
+
+    Then it groups systems that have several chains
+
+    :param csv_file:
+    :return:
+    """
+    df = pd.read_csv(csv_file, index_col=0)
+
+    # # Get subset
+    # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
+    # df_sub = df[df.pdb.isin(reduced_pdblist)]
+
+    # df_sub.to_csv('../data/reduced_clean.csv')
+
+    # # Get resolution histogram
+    # import matplotlib.pyplot as plt
+    # import numpy as np
+    # grouped = df.groupby('pdb').nth(0)
+    # all_res = grouped[['resolution']].values.squeeze()
+    # float_res = [str_resolution_to_float(str_res) for str_res in all_res]
+    # plot_res = [res if res < 20 else 20. for res in float_res]
+    # plt.hist(plot_res, bins=np.arange(21))
+    # plt.show()
+    # filtered_res = [res for res in float_res if res < 10]
+    # print(f" Retained {len(filtered_res)} / {len(all_res)} systems based on resolution")
+    df = df[["pdb", "Hchain", "Lchain", "antigen_chain", "resolution"]]
+    pdb_selections = defaultdict(list)
+    for i, row in df.iterrows():
+        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+
+        # Resolution cutoff
+        resolution = str_resolution_to_float(resolution)
+        if resolution > max_resolution:
+            continue
+
+        # Check for nans : if no antigen, just ignore
+        if isinstance(antigen, str):
+            list_chain_antigen = antigen.split('|')
+            antigen_selection = list_id_to_pymol_sel(list_chain_antigen)
+
+            list_chain_antibody = list()
+            if isinstance(heavy_chain, str):
+                list_chain_antibody.append(heavy_chain)
+            if isinstance(light_chain, str):
+                list_chain_antibody.append(light_chain)
+
+            # If only one chain, we still accept it (?)
+            if len(list_chain_antibody) > 0:
+                antibody_selection = list_id_to_pymol_sel(list_chain_antibody)
+                pdb_selections[pdb.upper()].append(
+                    (antibody_selection, antigen_selection, heavy_chain, light_chain, antigen, resolution))
+    return pdb_selections
 
 
 if __name__ == '__main__':
