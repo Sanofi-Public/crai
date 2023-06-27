@@ -14,7 +14,7 @@ if __name__ == '__main__':
 from utils.python_utils import download_with_overwrite
 
 
-def get_ab_list(in_tsv='../data/20230315_0733035_summary.tsv', out_csv='../data/cleaned.csv'):
+def get_ab_list(in_tsv='../data/csvs/20230315_0733035_summary.tsv', out_csv='../data/csvs/cleaned.csv'):
     """
     Parse SabDab tsv file to get pdbs and infos
     :return:
@@ -60,7 +60,7 @@ def get_mapping_ids(list_of_ids=("6GH5", "3JAU")):
 
 
 def add_mrc(csv_pdb, pdb_em_mapping, out_csv):
-    pdb_df = pd.read_csv(csv_pdb)
+    pdb_df = pd.read_csv(csv_pdb, index_col=0)
     pdb_df['mrc'] = pdb_df.apply(lambda x: pdb_em_mapping.get(x['pdb'].upper(), '0000missing')[4:], axis=1)
     # for manual inspection : pdb_df.loc[pdb_df['mrc'] == 'missing']
     # We see about 5 obsolete PDBs, that can be fixed in the original tsv by changing the numbers
@@ -110,13 +110,13 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
 
 if __name__ == '__main__':
     max_systems = None
-    csv_pdb = '../data/cleaned.csv'
+    csv_pdb = '../data/csvs/cleaned.csv'
     pdb_df = get_ab_list(out_csv=csv_pdb)
     # pdb_df = pd.read_csv(csv_pdb)
     relevant_ids = np.unique(pdb_df['pdb'])[:max_systems]
     pdb_em_mapping = get_mapping_ids(relevant_ids)
 
-    csv_mapped = '../data/mapped.csv'
+    csv_mapped = '../data/csvs/mapped.csv'
     add_mrc(csv_pdb=csv_pdb, pdb_em_mapping=pdb_em_mapping, out_csv=csv_mapped)
     # download_one_mrc()
     # download_one_mmtf()

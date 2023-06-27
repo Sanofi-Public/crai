@@ -103,19 +103,16 @@ def extract_resolution_from_pdb(pdb_path):
 
 
 def clean_resolution(datadir_name='../data/pdb_em',
-                     csv_in="../data/cleaned.csv",
-                     csv_out='../data/cleaned_res.csv'):
+                     csv_in="../data/csvs/mapped.csv",
+                     csv_out='../data/csvs/resolution.csv'):
     """
     Sabdab fails to parse certain resolutions
     """
-    files_list = os.listdir(datadir_name)
-    pdb_to_file = {file_name.split('_')[0]: file_name for file_name in files_list}
-
     df = pd.read_csv(csv_in, index_col=0)
     new_df = pd.DataFrame(columns=df.columns)
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
-        pdb, heavy_chain, light_chain, antigen, resolution = row.values
+        pdb, heavy_chain, light_chain, antigen, resolution, mrc = row.values
 
         # Try to read the resolution with a placeholder default value
         # If we hit this, open the mmcif and get a corrected value
@@ -123,9 +120,7 @@ def clean_resolution(datadir_name='../data/pdb_em',
         resolution = str_resolution_to_float(resolution, default_value=default_value)
         if resolution == default_value:
             pdb = pdb.upper()
-            if not pdb in pdb_to_file:
-                continue
-            pdb_path = os.path.join(datadir_name, pdb_to_file[pdb], f"{pdb}.cif")
+            pdb_path = os.path.join(datadir_name, f"{pdb.upper()}_{mrc}", f"{pdb}.cif")
             try:
                 resolution = extract_resolution_from_pdb(pdb_path)
             except:
@@ -329,7 +324,7 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
-def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
+def process_csv(csv_file="../data/csvs/cleaned.csv", max_resolution=10.):
     """
     This goes through a csv of systems, filters it :
     - removes systems with empty antigen chain
@@ -347,7 +342,7 @@ def process_csv(csv_file="../data/cleaned.csv", max_resolution=10.):
     # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
     # df_sub = df[df.pdb.isin(reduced_pdblist)]
 
-    # df_sub.to_csv('../data/reduced_clean.csv')
+    # df_sub.to_csv('../data/csvs/reduced_clean.csv')
 
     # # Get resolution histogram
     # import matplotlib.pyplot as plt
@@ -394,11 +389,11 @@ if __name__ == '__main__':
     # parallel_do()
     # 3J3O_5291
 
-    raw = '../data/cleaned.csv'
-    clean_res = '../data/cleaned_res.csv'
-    validated = '../data/validated.csv'
-    docked = '../data/docked.csv'
-    # clean_resolution(csv_in=raw, csv_out=clean_res)
+    raw = '../data/csvs/cleaned.csv'
+    clean_res = '../data/csvs/resolution.csv'
+    validated = '../data/csvs/validated.csv'
+    docked = '../data/csvs/docked.csv'
+    clean_resolution(csv_in=raw, csv_out=clean_res)
 
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
@@ -410,6 +405,6 @@ if __name__ == '__main__':
     # add_validation_score(csv_in=clean_res, csv_out=validated)
     # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
     # print(res)
-    t0 = time.time()
-    add_docking_score(csv_in=validated, csv_out=docked)
-    print("done in ", time.time() - t0)
+    # t0 = time.time()
+    # add_docking_score(csv_in=validated, csv_out=docked)
+    # print("done in ", time.time() - t0)
