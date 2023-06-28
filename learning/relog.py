@@ -61,8 +61,11 @@ def validate_detailed(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, position_dist, all_dists = coords_loss(prediction, comp,
-                                                                                                    return_dists=True)
+            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp,
+                                                                                   return_metrics=True)
+            position_dist = metrics['mean_dist']
+            real_dists = metrics['real_dists']
+            all_dists = metrics['dists']
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss
                 losses.append([loss.item(),
@@ -73,7 +76,7 @@ def validate_detailed(model, device, loader):
                                position_dist
                                ])
 
-                dict_res[name] = all_dists
+                dict_res[name] = all_dists, real_dists
             else:
                 dict_res[name] = None
             if not step % 100:
@@ -95,22 +98,19 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    data_root = "../data/pdb_em"
     rotate = False
     crop = 0
     num_workers = 0
     # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    csv_to_read = "../data/reduced_final.csv"
-    # csv_to_read = "../data/cleaned_final.csv"
-    ab_dataset = ABDataset(data_root=data_root,
-                           csv_to_read=csv_to_read,
-                           rotate=rotate,
-                           crop=crop,
-                           full=True,
-                           return_grid=False)
-    _, val_loader_full, _ = get_split_dataloaders(ab_dataset, num_workers=num_workers,
-                                                  collate_fn=lambda x: x[0])
-
+    # csv_to_read = "../data/csvs/chunked_val.csv"
+    csv_to_read = "../data/csvs/chunked_val_reduced.csv"
+    val_ab_dataset = ABDataset(csv_to_read=csv_to_read,
+                               rotate=rotate,
+                               crop=crop,
+                               full=True)
+    val_loader = torch.utils.data.DataLoader(dataset=val_ab_dataset,
+                                             collate_fn=lambda x: x[0],
+                                             num_workers=num_workers)
     # Learning hyperparameters
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
@@ -127,4 +127,4 @@ if __name__ == '__main__':
     # weights_path = f"../saved_models/{args.model_name}.pth"
     model.load_state_dict(torch.load(weights_path))
     model = model.to(device)
-    validate_detailed(model=model, device=device, loader=val_loader_full)
+    validate_detailed(model=model, device=device, loader=val_loader)

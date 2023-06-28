@@ -26,7 +26,29 @@ from utils.object_detection import nms
 from utils.learning_utils import weighted_bce, weighted_dice_loss, weighted_focal_loss
 
 
-def coords_loss(prediction, comp, return_dists=False):
+def dists_to_hits(dists):
+    """
+    Take dists and turn it to a hit ratio
+    0,1,2 => 1/3, 2/3
+    0,0 => 2/2, 2/2
+    :return:
+    """
+    dists = np.asarray(dists)
+    hr_0 = np.sum(dists == 0) / len(dists)
+    hr_1 = np.sum(dists <= 1) / len(dists)
+    return hr_0, hr_1
+
+
+def compute_metrics_ijks(actual_ijks, pred_ijks):
+    dist_matrix = scipy.spatial.distance.cdist(pred_ijks, actual_ijks)
+    row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
+    position_dists = dist_matrix[row_ind, col_ind]
+    mean_dist_expanded = float(position_dists.mean())
+    hr_0, hr_1 = dists_to_hits(position_dists)
+    return mean_dist_expanded, hr_0, hr_1, position_dists, col_ind
+
+
+def coords_loss(prediction, comp, return_metrics=True):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -44,8 +66,10 @@ def coords_loss(prediction, comp, return_dists=False):
     :return:
     """
 
+    metrics = {}
     pred_shape = prediction.shape[-3:]
     device = prediction.device
+    prediction_np = prediction.clone().cpu().detach().numpy()
 
     # First let's find out the position of our antibodies in our prediction
     origin = comp.mrc.origin
@@ -73,17 +97,36 @@ def coords_loss(prediction, comp, return_dists=False):
     if len(filtered_transforms) == 0:
         return position_loss, None, None, None, None
 
-    # And as a metric, keep track of the bin distance using linear assignment
-    prediction_np = prediction[0, 0, ...].clone().cpu().detach().numpy()
-    predicted_ijks = nms(pred_loc=prediction_np, n_objects=len(filtered_transforms))
-    predicted_ijks = np.asarray(predicted_ijks)
+    # Get the locations of the prediction
     actual_ijks = np.asarray([x[0] for x in filtered_transforms])
-    dist_matrix = scipy.spatial.distance.cdist(predicted_ijks, actual_ijks)
-    row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
-    position_dist = dist_matrix[row_ind, col_ind].mean()
-    position_dist = float(position_dist)
-    if return_dists:
-        all_dists = dist_matrix.T[col_ind, row_ind]
+    prediction_np_loc = prediction_np[0, 0, ...]
+    predicted_ijks_expanded = nms(pred_loc=prediction_np_loc, n_objects=max(5, len(filtered_transforms)))
+    predicted_ijks_expanded = np.asarray(predicted_ijks_expanded)
+
+    # As a metric, keep track of the bin distance using linear assignment. First compute it with 5 systems
+    mean_dist_expanded, hr_0_expanded, hr_1_expanded, _, _ = compute_metrics_ijks(actual_ijks, predicted_ijks_expanded)
+    metrics['mean_dist_5'] = mean_dist_expanded
+    metrics['hr_0_5'] = hr_0_expanded
+    metrics['hr_1_5'] = hr_1_expanded
+
+    # Then again, with the right amount
+    predicted_ijks = predicted_ijks_expanded[:len(filtered_transforms)]
+    mean_dist, hr_0, hr_1, dists, mapping = compute_metrics_ijks(actual_ijks, predicted_ijks)
+    metrics['mean_dist'] = mean_dist
+    metrics['hr_0'] = hr_0
+    metrics['hr_1'] = hr_1
+    metrics['dists'] = dists
+
+    actual_distances = []
+    for index, (i, j, k) in enumerate(predicted_ijks):
+        # Extract the predicted vector at this location
+        ground_truth_translation = filtered_transforms[mapping[index]][1]
+        predicted_offset = prediction_np[0, 1:4, i, j, k]
+        predicted_position = predicted_offset + np.asarray([bin_x[i], bin_y[j], bin_z[k]])
+        distance = np.linalg.norm(ground_truth_translation - predicted_position)
+        actual_distances.append(distance)
+    metrics['real_dists'] = actual_distances
+
     offset_losses, rz_losses, angle_losses = [], [], []
     for pos_tuple, translation, rotation in filtered_transforms:
         # Extract the predicted vector at this location
@@ -119,9 +162,7 @@ def coords_loss(prediction, comp, return_dists=False):
     offset_loss = torch.mean(torch.stack(offset_losses))
     rz_loss = torch.mean(torch.stack(rz_losses))
     angle_loss = torch.mean(torch.stack(angle_losses))
-    if return_dists:
-        return position_loss, offset_loss, rz_loss, angle_loss, position_dist, all_dists
-    return position_loss, offset_loss, rz_loss, angle_loss, position_dist
+    return position_loss, offset_loss, rz_loss, angle_loss, metrics
 
 
 def train(model, device, optimizer, loader,
@@ -136,7 +177,8 @@ def train(model, device, optimizer, loader,
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
+            position_dist = metrics['mean_dist']
 
             if offset_loss is None:
                 loss = position_loss
@@ -216,7 +258,9 @@ def validate(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, position_dist = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
+            position_dist = metrics['mean_dist']
+
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss
                 losses.append([loss.item(),
@@ -249,10 +293,10 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_train = "../data/csvs/chunked_train_reduced.csv"
-    csv_train = "../data/csvs/chunked_train.csv"
+    num_workers = 0
+    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    csv_train = "../data/csvs/chunked_train_reduced.csv"
+    # csv_train = "../data/csvs/chunked_train.csv"
     train_ab_dataset = ABDataset(csv_to_read=csv_train, rotate=args.rotate, crop=args.crop, full=args.train_full)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
                               shuffle=True, collate_fn=lambda x: x[0], num_workers=num_workers)

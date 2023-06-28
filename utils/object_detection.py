@@ -10,7 +10,7 @@ from utils.mrc_utils import MRCGrid
 
 
 # Array to predictions as rotation/translation
-def predict_one_ijk(pred_array, margin=6):
+def predict_one_ijk(pred_array, margin=4):
     """
     Zero around a point while respecting border effects
     """
