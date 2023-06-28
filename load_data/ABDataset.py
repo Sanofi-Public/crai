@@ -70,7 +70,7 @@ class ABDataset(Dataset):
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selections=antibody_selections,
-                                normalize=self.normalize or self.full,
+                                normalize=self.full,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp

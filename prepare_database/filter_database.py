@@ -413,5 +413,5 @@ if __name__ == '__main__':
     # add_docking_score(csv_in=validated, csv_out=docked)
     # print("done in ", time.time() - t0)
 
-    res = filter_csv(in_csv=docked, out_csv=filtered)
+    filter_csv(in_csv=docked, out_csv=filtered)
     split_csv(csv_file=filtered)

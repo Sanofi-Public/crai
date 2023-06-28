@@ -96,7 +96,6 @@ def get_rmsd_pairsel(pdb_path, pdb_path2=None, sel1='polymer.protein', sel2='pol
         if pdb_path2 is not None:
             p.cmd.load(pdb_path2, 'titi')
             sel2 = f'titi  and ({sel2})'
-        sel2 = f'toto  and ({sel2})'
         p.cmd.extract("sel1", sel1)
         p.cmd.extract("sel2", sel2)
         test = p.cmd.align(mobile="sel2", target="sel1")
@@ -172,6 +171,13 @@ def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
         print(e)
         return 2, dirname
     return 0, local_rows
+
+
+def get_pdb_selection(csv_in):
+    df_load = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
+    pdb_selections = group_pdb(df_load, columns=['antibody_selection', 'antigen_selection',
+                                                 'Hchain', 'Lchain', 'antigen_chain', 'resolution'])
+    return pdb_selections
 
 
 def chunk_around(datadir_name="../data/pdb_em",
@@ -272,13 +278,16 @@ if __name__ == '__main__':
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
     # filtered = filter_copies(pdb_path, sels)
 
+    # filtered = '../data/csvs/filtered.csv'
+    # pdb_selections = get_pdb_selection(filtered)
     # dirname = '7KDE_22820'  # Buggy creation
+    # dirname = '7P40_13190'
     # dirname = '7LO8_23464'
     # datadir_name = "../data/pdb_em"
     # pdb_name, mrc = dirname.split("_")
     # sels = pdb_selections[pdb_name]
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-    # do_one_dirname(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
+    # do_one_chunking(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
     chunk_around(csv_in='../data/csvs/filtered_train.csv', csv_dump='../data/csvs/chunked_train.csv', overwrite=True)
     chunk_around(csv_in='../data/csvs/filtered_val.csv', csv_dump='../data/csvs/chunked_val.csv', overwrite=True)
