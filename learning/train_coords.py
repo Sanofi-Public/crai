@@ -6,6 +6,7 @@ import time
 import numpy as np
 import scipy.spatial.distance
 import torch
+from torch.utils.data import DataLoader
 import pymol
 import pymol2
 
@@ -236,10 +237,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--train_full", action='store_false', default=True)
+    parser.add_argument("--rotate", action='store_false', default=True)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--agg_grads", type=int, default=20)
+    parser.add_argument("--agg_grads", type=int, default=4)
     parser.add_argument("--crop", type=int, default=3)
     args = parser.parse_args()
 
@@ -247,41 +249,28 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    data_root = "../data/pdb_em"
-    rotate = True
     # num_workers = 0
     num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_to_read = "../data/reduced_final.csv"
-    csv_to_read = "../data/cleaned_final.csv"
-    ab_dataset = ABDataset(data_root=data_root,
-                           csv_to_read=csv_to_read,
-                           rotate=rotate,
-                           crop=args.crop,
-                           return_grid=False)
+    # csv_train = "../data/csvs/chunked_train_reduced.csv"
+    csv_train = "../data/csvs/chunked_train.csv"
+    train_ab_dataset = ABDataset(csv_to_read=csv_train, rotate=args.rotate, crop=args.crop, full=args.train_full)
+    train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
+                              shuffle=True, collate_fn=lambda x: x[0], num_workers=num_workers)
     # # Test loss
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
-    # coords_loss(fake_out, ab_dataset[0][1])
+    # coords_loss(fake_out, train_ab_dataset[0][1])
     # sys.exit()
-    train_loader_small, val_loader_small, _ = get_split_dataloaders(dataset=ab_dataset,
-                                                        shuffle=True,
-                                                        collate_fn=lambda x: x[0],
-                                                        num_workers=num_workers)
 
-    ab_dataset_2 = ABDataset(data_root=data_root,
-                             csv_to_read=csv_to_read,
-                             rotate=False,
-                             crop=0,
-                             full=True,
-                             return_grid=False)
-    train_loader_full, val_loader_full, _ = get_split_dataloaders(ab_dataset_2, num_workers=num_workers,
-                                                  collate_fn=lambda x: x[0])
+    csv_val = "../data/csvs/chunked_val.csv"
+    val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=False)
+    val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=True)
+    val_loader_full = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
 
     # Learning hyperparameters
     n_epochs = 1000
     accumulated_batch = args.agg_grads
-    # model = HalfUnetModel(out_channels_decoder=128,
-    #                       num_feature_map=24, )
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
                                 num_convs=3,
@@ -293,28 +282,6 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
-    train_loader = train_loader_full if args.train_full else train_loader_small
     train(model=model, device=device, loader=train_loader, optimizer=optimizer,
-          writer=writer, n_epochs=n_epochs, val_loader=val_loader_small, val_loader_full=val_loader_full,
+          writer=writer, n_epochs=n_epochs, val_loader=val_loader, val_loader_full=val_loader_full,
           accumulated_batch=accumulated_batch, save_path=save_path)
-
-    # ######################################
-    # 
-    # pl.seed_everything(seed, workers=True)
-    # # init model
-    # model = PIPModule(cfg)
-    # tb_logger = TensorBoardLogger(save_dir=log_dir, version=name)
-    # loggers = [tb_logger]
-    # # init trainer
-    # trainer = pl.Trainer(
-    #     accelerator="gpu",
-    #     devices=[args.gpu],
-    #     max_epochs=200,
-    #     logger=loggers,
-    # )
-    # # datamodule
-    # datamodule = PLDataModule(PIPDataset, cfg.dataset.data_dir, cfg.loader.batch_size_train)
-    # # train
-    # trainer.fit(model, datamodule=datamodule)
-    # # test
-    # trainer.test(model, datamodule=datamodule)

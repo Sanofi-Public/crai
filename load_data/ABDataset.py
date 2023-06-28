@@ -10,40 +10,46 @@ if __name__ == '__main__':
 
 from load_data.GridComplex import GridComplex
 from load_data.CoordComplex import CoordComplex
-from prepare_database.filter_database import filter_csv
+from prepare_database.process_data import get_pdb_selection
 
 
 class ABDataset(Dataset):
 
     def __init__(self,
                  data_root="../data/pdb_em",
-                 csv_to_read="../data/final.csv",
-                 all_systems="../data/validated.csv",
-                 return_grid=True,
+                 csv_to_read="../data/csvs/chunked_train.csv",
+                 all_systems="../data/csvs/filtered.csv",
+                 return_grid=False,
                  return_sdf=False,
                  rotate=True,
                  full=False,
                  normalize=False,
                  crop=0):
+
         self.data_root = data_root
+        self.pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+        self.full = full
+
+        # First get_df only to get length, but is not passed to each worker as it can cause memory problems
         self.csv_to_read = csv_to_read
-        df = pd.read_csv(self.csv_to_read)[
-            ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
-        if full:
-            self.length = len(df["pdb_id"].unique())
-        else:
-            self.length = len(df)
+        df = self.get_df()
+        self.length = len(df)
         self.df = None
+
 
         self.rotate = rotate
         self.crop = crop
-        self.normalize = normalize
+        self.normalize = normalize or full
 
         self.return_sdf = return_sdf
         self.return_grid = return_grid
 
-        self.pdb_selections = filter_csv(in_csv=all_systems)
-        self.full = full
+    def get_df(self):
+        columns = ["pdb", "dirname"] if self.full else ["pdb", "dirname", "local_ab_id"]
+        df = pd.read_csv(self.csv_to_read)[columns]
+        if self.full:
+            df = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)
+        return df
 
     def __len__(self):
         return self.length
@@ -52,14 +58,16 @@ class ABDataset(Dataset):
         """
         Just useful to desactivate the try/except for debugging
         """
-        pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
-        antibody_selections = [res[0] for res in self.pdb_selections[pdb_id]]
-        pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
         if self.full:
+            pdb_id, dirname = row
             mrc_name = f'full_crop_resampled_2.mrc'
         else:
+            pdb_id, dirname, local_ab_id = row
             mrc_name = f'resampled_{local_ab_id}_2.mrc'
+        pdb_path = os.path.join(self.data_root, dirname, f'{pdb_id}.cif')
         mrc_path = os.path.join(self.data_root, dirname, mrc_name)
+        antibody_selections = [res[0] for res in self.pdb_selections[pdb_id]]
+
         if self.return_grid:
             comp = GridComplex(mrc_path=mrc_path,
                                pdb_path=pdb_path,
@@ -70,32 +78,26 @@ class ABDataset(Dataset):
             comp = CoordComplex(mrc_path=mrc_path,
                                 pdb_path=pdb_path,
                                 antibody_selections=antibody_selections,
-                                normalize=self.full,
+                                normalize=self.normalize,
                                 rotate=self.rotate,
                                 crop=self.crop)
         return dirname, comp
 
     def __getitem__(self, item):
         if self.df is None:
-            self.df = pd.read_csv(self.csv_to_read)[
-                ["pdb_id", "mrc_id", "dirname", "local_ab_id", "antibody_selection"]]
-            if self.full:
-                self.df = self.df.groupby("pdb_id", as_index=False).nth(0).reset_index(drop=True)
+            self.df = self.get_df()
         row = self.df.loc[item].values
-        pdb_id, mrc_id, dirname, local_ab_id, antibody_selection = row
         # return self.unwrapped_get_item(row)
         try:
             return self.unwrapped_get_item(row)
         except Exception as e:
-            # print(f"Buggy data loading for system : {dirname}, local : {local_ab_id},"
-            #      f" selection :  {antibody_selection}, {e}")
-            return dirname, None
+            return row[0], None
 
 
 if __name__ == '__main__':
     pass
     dataset = ABDataset(data_root='../data/pdb_em',
-                        csv_to_read='../data/reduced_final.csv',
+                        csv_to_read='../data/csvs/chunked_train_reduced.csv',
                         return_grid=False,
                         rotate=True,
                         crop=2,

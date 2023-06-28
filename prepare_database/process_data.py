@@ -1,6 +1,5 @@
 """
 Starting from the downloaded raw data and a curated csv :
-- filter bad data points based on resolution and validation values
 - filter symmetric copies of antibodies
 - carve the mrc to get a box around the pdb to have lighter mrc files.
 - resample the experimental maps to get a fixed voxel_size value of 2.
@@ -9,8 +8,8 @@ Starting from the downloaded raw data and a curated csv :
 import os
 import sys
 
+from collections import defaultdict
 import multiprocessing
-
 import pandas as pd
 import pymol2
 from tqdm import tqdm
@@ -126,12 +125,23 @@ def filter_copies(pdb_path, pdb_selections):
     return list_to_keep
 
 
-def group_pdb(df, columns):
-    """"""
-    from collections import defaultdict
+def get_pdb_selection(df=None, csv_in=None, columns=None):
+    """
+    Takes either a df or csv, groups it based on the pdb id and
+       returns the queried colums as a list (for each antibody in the PDB) of lists (of each of the column values)
+    :param df:
+    :param csv_in:
+    :param columns:
+    :return:
+    """
+    if columns is None:
+        columns = ['antibody_selection', 'antigen_selection', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']
+    if df is None:
+        df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     pdb_selections = defaultdict(list)
     df = df[['pdb'] + columns]
     for i, row in df.iterrows():
+        row = row.values
         pdb, content = row[0], row[1:]
         pdb_selections[pdb.upper()].append(content)
     return pdb_selections
@@ -156,8 +166,7 @@ def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
         local_ab_id = 0
         local_rows = []
         for antibody in filtered:
-            antibody_selection, antigen_selection, \
-                heavy_chain, light_chain, antigen, resolution = antibody
+            antibody_selection, antigen_selection, heavy_chain, light_chain, antigen, resolution = antibody
             resampled_name = os.path.join(datadir_name, dirname, f"resampled_{local_ab_id}_2.mrc")
             angstrom_expand = 10
             expanded_selection = f"(({antibody_selection}) expand {angstrom_expand}) or {antigen_selection}"
@@ -171,13 +180,6 @@ def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
         print(e)
         return 2, dirname
     return 0, local_rows
-
-
-def get_pdb_selection(csv_in):
-    df_load = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
-    pdb_selections = group_pdb(df_load, columns=['antibody_selection', 'antigen_selection',
-                                                 'Hchain', 'Lchain', 'antigen_chain', 'resolution'])
-    return pdb_selections
 
 
 def chunk_around(datadir_name="../data/pdb_em",
@@ -196,16 +198,11 @@ def chunk_around(datadir_name="../data/pdb_em",
     :return:
     """
     df_load = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
-    pdb_mrc = df_load.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)[['pdb', 'mrc']]
-    files_list = [f"{pdb.upper()}_{em}" for pdb, em in pdb_mrc.values]
-    # grouped_df = df_load.groupby("pdb")['antigen_selection', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']
-    # grouped_df = df_load.groupby("pdb")['antigen_selection']
-    # pdb_selections = {str(name).upper(): list(group) for name, group in grouped_df}
-    pdb_selections = group_pdb(df_load, columns=['antibody_selection', 'antigen_selection',
-                                                 'Hchain', 'Lchain', 'antigen_chain', 'resolution'])
-
+    pdb_selections_mrc = get_pdb_selection(df_load, columns=['mrc'])
+    files_list = [f"{pdb.upper()}_{ems[0][0]}" for pdb, ems in pdb_selections_mrc.items()]
+    pdb_selections = get_pdb_selection(df_load)
     skip_list, fail_list = [], []
-    columns = "pdb_id, mrc_id, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
+    columns = "pdb, mrc, dirname, local_ab_id, heavy_chain, light_chain, antigen, resolution," \
               " antibody_selection, antigen_selection".split(', ')
     df = pd.DataFrame(columns=columns)
     if not parallel:
