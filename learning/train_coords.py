@@ -293,10 +293,10 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    num_workers = 0
-    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    csv_train = "../data/csvs/chunked_train_reduced.csv"
-    # csv_train = "../data/csvs/chunked_train.csv"
+    # num_workers = 0
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    # csv_train = "../data/csvs/chunked_train_reduced.csv"
+    csv_train = "../data/csvs/chunked_train.csv"
     train_ab_dataset = ABDataset(csv_to_read=csv_train, rotate=args.rotate, crop=args.crop, full=args.train_full)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
                               shuffle=True, collate_fn=lambda x: x[0], num_workers=num_workers)
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=False)
     val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
     val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=True)
-    val_loader_full = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
 
     # Learning hyperparameters
     n_epochs = 1000
@@ -320,8 +320,6 @@ if __name__ == '__main__':
                                 num_convs=3,
                                 max_decode=2,
                                 num_feature_map=32)
-    # model_path = "../saved_models/object_4_last.pth"
-    # model.load_state_dict(torch.load(model_path))
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
