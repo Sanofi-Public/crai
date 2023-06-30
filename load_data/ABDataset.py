@@ -36,7 +36,6 @@ class ABDataset(Dataset):
         self.length = len(df)
         self.df = None
 
-
         self.rotate = rotate
         self.crop = crop
         self.normalize = normalize or full

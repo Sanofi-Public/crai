@@ -22,16 +22,21 @@ from prepare_database.filter_database import init
 from utils.mrc_utils import MRCGrid
 
 
-def crop_one_dirname(dirname, datadir_name, overwrite):
+def crop_one_dirname(dirname, datadir_name, overwrite, resample=False):
     try:
         pdb_name, mrc_name = dirname.split("_")
         pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
         mrc_path = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map")
-        resampled_name = os.path.join(datadir_name, dirname, f"full_crop_resampled_2.mrc")
-        if not os.path.exists(resampled_name) or overwrite:
+        file_name = "full_crop_resampled_2.mrc" if resample else "full_crop.mrc"
+        file_path = os.path.join(datadir_name, dirname, file_name)
+
+        if not os.path.exists(file_path) or overwrite:
             mrc = MRCGrid.from_mrc(mrc_path)
             carved = mrc.carve(pdb_path=pdb_path, margin=25)
-            carved.resample(out_name=resampled_name, new_voxel_size=2, overwrite=overwrite)
+            if resample:
+                carved.resample(out_name=file_path, new_voxel_size=2, overwrite=overwrite)
+            else:
+                carved.save(outname=file_path, overwrite=overwrite)
         return 0, None
     except Exception as e:
         print(e)
@@ -249,6 +254,7 @@ def chunk_around(datadir_name="../data/pdb_em",
 
 if __name__ == '__main__':
     pass
+    # crop_one_dirname(datadir_name="../data/pdb_em/", dirname="6V4N_21042", overwrite=False)
     # crop_maps()
 
     # # Get ones from my local database

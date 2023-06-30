@@ -69,8 +69,8 @@ def get_template(pdb_path, pymol_sel, crop_sel):
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 name = 'reference'
-REF_PATH_FV = os.path.join(script_dir, f'{name}_fv.pdb')
-REF_PATH_FAB = os.path.join(script_dir, f'{name}_fab.pdb')
+REF_PATH_FV = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fv.pdb')
+REF_PATH_FAB = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fab.pdb')
 
 if __name__ == '__main__':
     pdb_path = '../data/pdb_em/7LO8_23464/7LO8.cif'

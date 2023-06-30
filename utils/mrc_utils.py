@@ -306,7 +306,8 @@ if __name__ == '__main__':
     # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "3J3O_5291"  # large offset between pdb and cryoem
-    dirname = "6NQD_0485"
+    # dirname = "6NQD_0485"
+    dirname = "6V4N_21042"
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
