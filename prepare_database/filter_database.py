@@ -20,11 +20,7 @@ if __name__ == '__main__':
 
 from utils.mrc_utils import load_mrc
 from utils.pymol_utils import list_id_to_pymol_sel
-
-
-def init(l):
-    global lock
-    lock = l
+from utils.python_utils import init
 
 
 def do_one(dirname, datadir_name):

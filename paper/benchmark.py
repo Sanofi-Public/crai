@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 import pymol2
+import string
 import subprocess
 import time
 import numpy as np
@@ -23,10 +24,36 @@ from utils.mrc_utils import MRCGrid
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from prepare_database.process_data import get_pdb_selection
 
+ALPHABET = string.ascii_uppercase
 
-def init(l):
-    global lock
-    lock = l
+
+def copy_templates():
+    """
+    Stupid idea, the goal is to produce 11 (max number of antibodies in the data) copies of the reference files
+     Then we rename the 11 pair of chains with a number, so that alignments produced by dock_in_map can be more
+     easily processed.
+    fv1 => A, fv2=>...fv11=>L, fab1=>M,...fab11=>W
+    """
+
+    with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
+        p.cmd.load(REF_PATH_FV, 'ref_fv')
+        fv_file_path, _ = os.path.splitext(REF_PATH_FV)
+        p.cmd.load(REF_PATH_FAB, 'ref_fab')
+        fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
+        for i in range(11):
+            fv_copy = f"{fv_file_path}_{i + 1}"
+            fv_sel_i = f"fv_{i + 1}"
+            p.cmd.copy(fv_sel_i, "ref_fv")
+            p.cmd.alter(fv_sel_i, f"chain='{ALPHABET[i]}'")
+            p.cmd.save(f"{fv_copy}.pdb", fv_sel_i)
+
+            # Fab chains are offset to avoid collisions
+            fab_copy = f"{fab_file_path}_{i + 1}"
+            fab_sel_i = f"fab_{i + 1}"
+            p.cmd.copy(fab_sel_i, "ref_fab")
+            p.cmd.alter(fab_sel_i, f"chain='{ALPHABET[i + 11]}'")
+            p.cmd.save(f"{fab_copy}.pdb", fab_sel_i)
 
 
 def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
@@ -85,7 +112,10 @@ def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
 
         # NOW WE CAN DOCK IN MAP
         pdb_out = os.path.join(os.path.dirname(pdb_path), 'output_dock_in_map.pdb')
-        to_dock = [REF_PATH_FAB] * fabs + [REF_PATH_FV] * fvs
+        fv_file_path, _ = os.path.splitext(REF_PATH_FV)
+        fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
+        to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
+                  [f"{fab_file_path}_{i + 1}.pdb" for i in range(fabs)]
         cmd = f'{PHENIX_DOCK_IN_MAP} {" ".join(to_dock)} {mrc_path} pdb_out={pdb_out} resolution={resolution}'
         res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
         returncode = res.returncode
@@ -109,6 +139,8 @@ def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
 
 if __name__ == '__main__':
     pass
+    copy_templates()
+
     datadir_name = "../data/pdb_em"
     dirname = "6V4N_21042"
     pdb_name, mrc_name = dirname.split("_")
