@@ -1,20 +1,16 @@
 import os
 import sys
 
+import functools
 import multiprocessing
-from collections import defaultdict
-
 import numpy as np
 import pandas as pd
 import pymol2
+from scipy.spatial.transform import Rotation as R
 import string
 import subprocess
 import time
-import numpy as np
 from tqdm import tqdm
-
-# PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
-PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -25,6 +21,7 @@ from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import init
 
+PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 ALPHABET = string.ascii_uppercase
 
 
@@ -57,7 +54,7 @@ def copy_templates():
             p.cmd.save(f"{fab_copy}.pdb", fab_sel_i)
 
 
-def dock_chains(mrc_path, pdb_path, selections, resolution=4.):
+def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=False):
     """
     Run dock in map on one chain.
     The mrc file is supposed to be a custom one in mrc format.
@@ -77,46 +74,54 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4.):
 
     mrc_path = os.path.abspath(mrc_path)
     pdb_path = os.path.abspath(pdb_path)
-    filename, file_extension = os.path.splitext(mrc_path)
-    assert file_extension == '.mrc'
+    _, mrc_extension = os.path.splitext(mrc_path)
+    assert mrc_extension == '.mrc'
     try:
         t0 = time.time()
         # GET THE PDB TO DOCK (for now copies of the reference)
+        dir_path = os.path.dirname(pdb_path)
         pdb_file = os.path.basename(pdb_path)
         pdb, _ = os.path.splitext(pdb_file)
         selections = [res[0] for res in selections]
-        fabs, fvs = 0, 0
-        with pymol2.PyMOL() as p:
-            p.cmd.feedback("disable", "all", "everything")
-            p.cmd.load(pdb_path, 'in_pdb')
-            for selection in selections:
-                sel = f'in_pdb and ({selection})'
-                p.cmd.extract("to_align", sel)
-                residues_to_align = len(p.cmd.get_model("to_align").get_residues())
-                if residues_to_align < 300:
-                    fvs += 1
-                else:
-                    fabs += 1
+        if use_template:
+            fabs, fvs = 0, 0
+            with pymol2.PyMOL() as p:
+                p.cmd.feedback("disable", "all", "everything")
+                p.cmd.load(pdb_path, 'in_pdb')
+                for selection in selections:
+                    sel = f'in_pdb and ({selection})'
+                    p.cmd.extract("to_align", sel)
+                    residues_to_align = len(p.cmd.get_model("to_align").get_residues())
+                    if residues_to_align < 300:
+                        fvs += 1
+                    else:
+                        fabs += 1
+            fv_file_path, _ = os.path.splitext(REF_PATH_FV)
+            fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
+            to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
+                      [f"{fab_file_path}_{i + 1}.pdb" for i in range(fabs)]
+            pdb_out = os.path.join(dir_path, 'output_dock_in_map.pdb')
 
         # We could also implement extraction of the actual chains (is that cheating ?)
-        # with pymol2.PyMOL() as p:
-        #     p.cmd.feedback("disable", "all", "everything")
-        #     p.cmd.load(pdb, 'toto')
-        #     coords = p.cmd.get_coords('toto')
-        #     import numpy as np
-        #     from scipy.spatial.transform import Rotation as R
-        #     rotated = R.random().apply(coords)
-        #     translated = rotated + np.array([10, 20, 30])[None, :]
-        #     p.cmd.load_coords(translated, "toto", state=1)
-        #     outname = os.path.join(os.path.dirname(pdb), 'rotated.pdb')
-        #     p.cmd.save(outname, 'toto')
+        else:
+            to_dock = []
+            with pymol2.PyMOL() as p:
+                p.cmd.feedback("disable", "all", "everything")
+                p.cmd.load(pdb_path, 'in_pdb')
+                for i, selection in enumerate(selections):
+                    sel = f'in_pdb and ({selection})'
+                    p.cmd.extract("to_align", sel)
+                    coords = p.cmd.get_coords("to_align")
+                    rotated = R.random().apply(coords)
+                    translated = rotated + np.array([10, 20, 30])[None, :]
+                    p.cmd.load_coords(translated, "to_align", state=1)
+                    outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_{i}.pdb')
+                    p.cmd.save(outname, 'to_align')
+                    to_dock.append(outname)
+            pdb_out = os.path.join(os.path.dirname(pdb_path), 'output_dock_in_map_actual.pdb')
 
         # NOW WE CAN DOCK IN MAP
-        pdb_out = os.path.join(os.path.dirname(pdb_path), 'output_dock_in_map.pdb')
-        fv_file_path, _ = os.path.splitext(REF_PATH_FV)
-        fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
-        to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
-                  [f"{fab_file_path}_{i + 1}.pdb" for i in range(fabs)]
+
         cmd = f'{PHENIX_DOCK_IN_MAP} {" ".join(to_dock)} {mrc_path} pdb_out={pdb_out} resolution={resolution}'
         res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
         returncode = res.returncode
@@ -138,7 +143,7 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4.):
         return 2, e
 
 
-def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em'):
+def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_template=False):
     # Prepare input list
     all_systems = "../data/csvs/filtered.csv"
     pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
@@ -159,7 +164,8 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # Parallel computation
     l = multiprocessing.Lock()
     pool = multiprocessing.Pool(processes=1, initializer=init, initargs=(l,), )
-    results = pool.starmap(dock_chains, tqdm(to_process, total=len(to_process)))
+    dock = functools.partial(dock_chains, use_template=use_template)
+    results = pool.starmap(dock, tqdm(to_process, total=len(to_process)))
 
     # Parse results
     all_results = []
@@ -195,5 +201,6 @@ if __name__ == '__main__':
 
     # test all
     csv_in = '../data/csvs/filtered.csv'
-    csv_out = '../data/csvs/benchmark.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out)
+    use_template = True
+    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
