@@ -23,6 +23,7 @@ if __name__ == '__main__':
 from utils.mrc_utils import MRCGrid
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from prepare_database.process_data import get_pdb_selection
+from utils.python_utils import init
 
 ALPHABET = string.ascii_uppercase
 
@@ -56,7 +57,7 @@ def copy_templates():
             p.cmd.save(f"{fab_copy}.pdb", fab_sel_i)
 
 
-def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
+def dock_chains(mrc_path, pdb_path, selections, resolution=4.):
     """
     Run dock in map on one chain.
     The mrc file is supposed to be a custom one in mrc format.
@@ -83,7 +84,7 @@ def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
         # GET THE PDB TO DOCK (for now copies of the reference)
         pdb_file = os.path.basename(pdb_path)
         pdb, _ = os.path.splitext(pdb_file)
-        selections = [res[0] for res in pdb_selections[pdb]]
+        selections = [res[0] for res in selections]
         fabs, fvs = 0, 0
         with pymol2.PyMOL() as p:
             p.cmd.feedback("disable", "all", "everything")
@@ -137,16 +138,62 @@ def dock_chains(mrc_path, pdb_path, pdb_selections, resolution=4.):
         return 2, e
 
 
-if __name__ == '__main__':
-    pass
-    copy_templates()
-
-    datadir_name = "../data/pdb_em"
-    dirname = "6V4N_21042"
-    pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    resampled_path = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc")
+def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em'):
+    # Prepare input list
     all_systems = "../data/csvs/filtered.csv"
     pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
-    res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, pdb_selections=pdb_selections)
-    print(res)
+    columns = ["pdb", "mrc", "resolution"]
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})[columns]
+    df = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)
+    to_process = []
+    for i, row in df.iterrows():
+        pdb, mrc, resolution = row.values
+        pdb = pdb.upper()
+        dirname = f"{pdb}_{mrc}"
+        system_dir = os.path.join(datadir_name, dirname)
+        pdb_path = os.path.join(system_dir, f"{pdb}.cif")
+        mrc_path = os.path.join(system_dir, "full_crop_resampled_2.mrc")
+        selections = pdb_selections[pdb]
+        to_process.append((mrc_path, pdb_path, selections, resolution))
+
+    # Parallel computation
+    l = multiprocessing.Lock()
+    pool = multiprocessing.Pool(processes=1, initializer=init, initargs=(l,), )
+    results = pool.starmap(dock_chains, tqdm(to_process, total=len(to_process)))
+
+    # Parse results
+    all_results = []
+    all_errors = []
+    for i, (return_code, runtime) in enumerate(results):
+        if return_code == 0:
+            all_results.append(runtime)
+        else:
+            all_results.append(-return_code)
+            all_errors.append((return_code, runtime))
+    df['docked_validation_score'] = all_results
+    df.to_csv(csv_out)
+    for x in all_errors:
+        print(x)
+
+
+if __name__ == '__main__':
+    pass
+    # test templates
+    copy_templates()
+
+    # test one
+    # datadir_name = "../data/pdb_em"
+    # dirname = "6V4N_21042"
+    # pdb_name, mrc_name = dirname.split("_")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # resampled_path = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc")
+    # all_systems = "../data/csvs/filtered.csv"
+    # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+    # selections=pdb_selections[pdb_name.upper()]
+    # res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, pdb_selections=selections)
+    # print(res)
+
+    # test all
+    csv_in = '../data/csvs/filtered.csv'
+    csv_out = '../data/csvs/benchmark.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out)
