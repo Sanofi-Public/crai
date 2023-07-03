@@ -22,7 +22,8 @@ from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import init
 
 PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
-ALPHABET = string.ascii_uppercase
+UPPERCASE = string.ascii_uppercase
+LOWERCASE = string.ascii_lowercase
 
 
 def copy_templates():
@@ -30,7 +31,7 @@ def copy_templates():
     Stupid idea, the goal is to produce 11 (max number of antibodies in the data) copies of the reference files
      Then we rename the 11 pair of chains with a number, so that alignments produced by dock_in_map can be more
      easily processed.
-    fv1 => A, fv2=>...fv11=>L, fab1=>M,...fab11=>W
+    fv1 => Aa, fv2=> Bb,...fv11=>Ll, fab1=>Mm,...fab11=>Ww
     """
 
     with pymol2.PyMOL() as p:
@@ -40,18 +41,20 @@ def copy_templates():
         p.cmd.load(REF_PATH_FAB, 'ref_fab')
         fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
         for i in range(11):
-            fv_copy = f"{fv_file_path}_{i + 1}"
+            fv_save_path = f"{fv_file_path}_{i + 1}.pdb"
             fv_sel_i = f"fv_{i + 1}"
             p.cmd.copy(fv_sel_i, "ref_fv")
-            p.cmd.alter(fv_sel_i, f"chain='{ALPHABET[i]}'")
-            p.cmd.save(f"{fv_copy}.pdb", fv_sel_i)
+            p.cmd.alter(f'{fv_sel_i} and chain H', f"chain='{UPPERCASE[i]}'")
+            p.cmd.alter(f'{fv_sel_i} and chain L', f"chain='{LOWERCASE[i]}'")
+            p.cmd.save(fv_save_path, fv_sel_i)
 
             # Fab chains are offset to avoid collisions
-            fab_copy = f"{fab_file_path}_{i + 1}"
+            fab_save_path = f"{fab_file_path}_{i + 1}.pdb"
             fab_sel_i = f"fab_{i + 1}"
             p.cmd.copy(fab_sel_i, "ref_fab")
-            p.cmd.alter(fab_sel_i, f"chain='{ALPHABET[i + 11]}'")
-            p.cmd.save(f"{fab_copy}.pdb", fab_sel_i)
+            p.cmd.alter(f'{fab_sel_i} and chain H', f"chain='{UPPERCASE[i + 11]}'")
+            p.cmd.alter(f'{fab_sel_i} and chain L', f"chain='{LOWERCASE[i + 11]}'")
+            p.cmd.save(fab_save_path, fab_sel_i)
 
 
 def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=False):
@@ -163,7 +166,7 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
 
     # Parallel computation
     l = multiprocessing.Lock()
-    pool = multiprocessing.Pool(processes=1, initializer=init, initargs=(l,), )
+    pool = multiprocessing.Pool(processes=32, initializer=init, initargs=(l,), )
     dock = functools.partial(dock_chains, use_template=use_template)
     results = pool.starmap(dock, tqdm(to_process, total=len(to_process)))
 
@@ -185,7 +188,7 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
 if __name__ == '__main__':
     pass
     # test templates
-    copy_templates()
+    # copy_templates()
 
     # test one
     # datadir_name = "../data/pdb_em"
@@ -195,8 +198,8 @@ if __name__ == '__main__':
     # resampled_path = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc")
     # all_systems = "../data/csvs/filtered.csv"
     # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
-    # selections=pdb_selections[pdb_name.upper()]
-    # res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, pdb_selections=selections)
+    # selections = pdb_selections[pdb_name.upper()]
+    # res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, selections=selections)
     # print(res)
 
     # test all
