@@ -6,6 +6,7 @@ import multiprocessing
 import numpy as np
 import pandas as pd
 import pymol2
+import scipy
 from scipy.spatial.transform import Rotation as R
 import string
 import subprocess
@@ -20,6 +21,7 @@ from utils.mrc_utils import MRCGrid
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import init
+from utils.object_detection import pdbsel_to_transform
 
 PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 UPPERCASE = string.ascii_uppercase
@@ -57,6 +59,22 @@ def copy_templates():
             p.cmd.save(fab_save_path, fab_sel_i)
 
 
+def get_num_fabs_fvs(pdb_path, selections):
+    fabs, fvs = 0, 0
+    with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
+        p.cmd.load(pdb_path, 'in_pdb')
+        for selection in selections:
+            sel = f'in_pdb and ({selection})'
+            p.cmd.extract("to_align", sel)
+            residues_to_align = len(p.cmd.get_model("to_align").get_residues())
+            if residues_to_align < 300:
+                fvs += 1
+            else:
+                fabs += 1
+    return fabs, fvs
+
+
 def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=False):
     """
     Run dock in map on one chain.
@@ -87,18 +105,7 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
         pdb, _ = os.path.splitext(pdb_file)
         selections = [res[0] for res in selections]
         if use_template:
-            fabs, fvs = 0, 0
-            with pymol2.PyMOL() as p:
-                p.cmd.feedback("disable", "all", "everything")
-                p.cmd.load(pdb_path, 'in_pdb')
-                for selection in selections:
-                    sel = f'in_pdb and ({selection})'
-                    p.cmd.extract("to_align", sel)
-                    residues_to_align = len(p.cmd.get_model("to_align").get_residues())
-                    if residues_to_align < 300:
-                        fvs += 1
-                    else:
-                        fabs += 1
+            fabs, fvs = get_num_fabs_fvs(pdb_path)
             fv_file_path, _ = os.path.splitext(REF_PATH_FV)
             fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
             to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
@@ -121,7 +128,7 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
                     outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_{i}.pdb')
                     p.cmd.save(outname, 'to_align')
                     to_dock.append(outname)
-            pdb_out = os.path.join(os.path.dirname(pdb_path), 'output_dock_in_map_actual.pdb')
+            pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual.pdb')
 
         # NOW WE CAN DOCK IN MAP
 
@@ -185,6 +192,24 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
         print(x)
 
 
+def parse_one(outfile, gt_pdb, selections, template=False):
+    selections = [x[0] for x in selections]
+    gt_transforms = pdbsel_to_transform(gt_pdb, selections)
+    if template:
+        fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
+        fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
+        fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fvs)]
+        selections = fvs_selections + fabs_selections
+    predicted_transforms = pdbsel_to_transform(outfile, selections, cache=False)
+    pred_translations = [res[1] for res in predicted_transforms]
+    gt_translations = [res[1] for res in gt_transforms]
+    dist_matrix = scipy.spatial.distance.cdist(pred_translations, gt_translations)
+    row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
+    position_dists = dist_matrix[row_ind, col_ind]
+    mean_dist = float(position_dists.mean())
+    return mean_dist, position_dists, col_ind
+
+
 if __name__ == '__main__':
     pass
     # test templates
@@ -203,7 +228,41 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    csv_in = '../data/csvs/filtered.csv'
-    use_template = True
-    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    # csv_in = '../data/csvs/filtered.csv'
+    # use_template = True
+    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+
+    # NO TEMPLATE
+    # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7TEQ_25849/output_dock_in_map_actual.pdb"'))
+    # (1, 'Sorry: Unknown charge:\n  "ATOM   1541  N   LYS H 212 .*. D    N "\n                                       ^^\n')
+    # (1, 'Sorry: Unknown charge:\n  "ATOM    916  N   ALA H 125 .*. C    N "\n                                       ^^\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7OH1_12891/output_dock_in_map_actual.pdb"'))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, TimeoutExpired(['/users/mallet/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_0.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_1.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_2.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_3.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_4.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_5.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_6.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_7.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/to_dock_8.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/full_crop_resampled_2.mrc', 'pdb_out=/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/output_dock_in_map_actual.pdb', 'resolution=3.16'],
+    # 18000.0))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: Error in SS definitions, most likely atoms are absent for one of them.\n')
+    # (1, 'Sorry: Unknown charge:\n  "ATOM   1298  N   ASN F 176 .*. E    N "\n                                       ^^\n')
+    # (1, 'Sorry: Unknown charge:\n  "ATOM   1141  N   ASP L 152 .*. C    N "\n                                       ^^\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: Unknown charge:\n  "ATOM   2795  N   SER L 158 .*. F    N "\n                                       ^^\n')
+    # (1, 'Sorry: Unknown charge:\n  "ATOM   1541  N   LYS H 212 .*. D    N "\n                                       ^^\n')
+
+    # Parse one
+    datadir_name = "../data/pdb_em"
+    dirname = "6V4N_21042"
+    use_template = False
+    pdb_name, mrc_name = dirname.split("_")
+    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+    out_path = os.path.join(datadir_name, dirname, out_name)
+    all_systems = "../data/csvs/filtered.csv"
+    pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+    selections = pdb_selections[pdb_name.upper()]
+    res = parse_one(out_path, pdb_path, selections, template=use_template)
+    print(res)

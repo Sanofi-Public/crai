@@ -43,9 +43,9 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     dist_matrix = scipy.spatial.distance.cdist(pred_ijks, actual_ijks)
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
     position_dists = dist_matrix[row_ind, col_ind]
-    mean_dist_expanded = float(position_dists.mean())
+    mean_dist = float(position_dists.mean())
     hr_0, hr_1 = dists_to_hits(position_dists)
-    return mean_dist_expanded, hr_0, hr_1, position_dists, col_ind
+    return mean_dist, hr_0, hr_1, position_dists, col_ind
 
 
 def coords_loss(prediction, comp, return_metrics=True):

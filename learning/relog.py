@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
 from load_data.ABDataset import ABDataset
 from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import get_split_dataloaders, setup_learning
+from utils.learning_utils import setup_learning
 from learning.train_coords import coords_loss, validate
 
 
