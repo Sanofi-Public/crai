@@ -22,7 +22,9 @@ def plot_distance():
     csv_in = '../data/csvs/filtered.csv'
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
 
-    output_file = '../learning/toto_test.p'
+    output_file = '../learning/out_big_train_gamma_last.p'
+    # output_file = '../learning/out_big_train_normalize_210.p'
+    # output_file = '../learning/out_big_train_normalize_last.p'
     dict_res = pickle.load(open(output_file, 'rb'))
     dict_res = {pdb_em[:4].lower(): val for pdb_em, val in dict_res.items()}
 
@@ -59,15 +61,15 @@ def plot_distance():
     all_dists_real[all_dists_real >= 20] = 20
     print("Capped mean : ", np.mean(all_dists_real))
 
-    # plt.hist(all_dists_real, bins=10)
-    # plt.xlabel("Distance")
-    # plt.ylabel("Count")
-    # plt.show()
-
-    plt.scatter(all_resolutions, all_dists_real)
-    plt.xlabel("Resolution")
-    plt.ylabel("Distance")
+    plt.hist(all_dists_real, bins=10)
+    plt.xlabel("Distance")
+    plt.ylabel("Count")
     plt.show()
+
+    # plt.scatter(all_resolutions, all_dists_real)
+    # plt.xlabel("Resolution")
+    # plt.ylabel("Distance")
+    # plt.show()
 
 
 def parse_runtime():
@@ -85,5 +87,5 @@ def parse_runtime():
 
 
 if __name__ == '__main__':
-    # plot_distance()
-    parse_runtime()
+    plot_distance()
+    # parse_runtime()

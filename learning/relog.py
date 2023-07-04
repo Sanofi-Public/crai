@@ -14,7 +14,7 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.learning_utils import setup_learning
-from learning.train_coords import coords_loss, validate
+from learning.train_coords import coords_loss, validate, dump_log
 
 
 def weights_from_name(name):
@@ -36,17 +36,10 @@ def relog(model, device, weights, val_loader, writer):
         time_init = time.time()
         model.load_state_dict(torch.load(weight))
         model = model.to(device)
-        losses = validate(model=model, device=device, loader=val_loader)
-        losses = np.array(losses)
-        val_loss, position_loss, offset_loss, rz_loss, angle_loss, position_dist = np.mean(losses, axis=0)
-        print(f'Validation loss ={val_loss}')
-        writer.add_scalar('full_val_loss', val_loss, epoch)
-        writer.add_scalar('full_val_position_loss', position_loss, epoch)
-        writer.add_scalar('full_val_position_distance', position_dist, epoch)
-        writer.add_scalar('full_val_offset_loss', offset_loss, epoch)
-        writer.add_scalar('full_val_rz_loss', rz_loss, epoch)
-        writer.add_scalar('full_val_angle_loss', angle_loss, epoch)
-        print(epoch, time.time() - time_init, val_loss)
+        to_log = validate(model=model, device=device, loader=val_loader)
+        val_loss = to_log["loss"]
+        dump_log(writer, epoch, to_log, prefix='full_val_')
+        print(f'Validation loss ={val_loss}, epoch : {epoch}, time : {time.time() - time_init}')
         writer.flush()
 
 
@@ -61,8 +54,7 @@ def validate_detailed(model, device, loader, outname):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp,
-                                                                                   return_metrics=True)
+            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             all_dists = metrics['dists']
@@ -81,7 +73,7 @@ def validate_detailed(model, device, loader, outname):
                 dict_res[name] = None
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
-        pickle.dump(dict_res, open('toto_test.p', 'wb'))
+        pickle.dump(dict_res, open(outname, 'wb'))
     return losses
 
 
@@ -94,16 +86,13 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
-    writer, save_path, device = setup_learning(model_name=args.model_name,
-                                               gpu_number=args.gpu)
-
     # Setup data
     rotate = False
     crop = 0
-    num_workers = 0
-    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_to_read = "../data/csvs/chunked_val.csv"
-    csv_to_read = "../data/csvs/chunked_val_reduced.csv"
+    # num_workers = 0
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    # csv_to_read = "../data/csvs/chunked_val_reduced.csv"
+    csv_to_read = "../data/csvs/chunked_val.csv"
     val_ab_dataset = ABDataset(csv_to_read=csv_to_read,
                                rotate=rotate,
                                crop=crop,
@@ -118,14 +107,20 @@ if __name__ == '__main__':
                                 max_decode=2,
                                 num_feature_map=32)
 
-    # weights = weights_from_name(args.model_name)
-    # relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader_full)
+    # RELOG
+    writer, save_path, device = setup_learning(model_name=args.model_name,
+                                               gpu_number=args.gpu)
+    weights = weights_from_name(args.model_name)
+    relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader)
 
-    # model_name = "multi_train_339"
-    # model_name = "multi_train_861"
-    model_name = "big_train_gamma_last"
-    # model_name=args.model_name
-    weights_path = f"../saved_models/{model_name}.pth"
-    model.load_state_dict(torch.load(weights_path))
-    model = model.to(device)
-    validate_detailed(model=model, device=device, loader=val_loader, outname=model_name)
+    # VALIDATE DETAILED
+    # device = f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'
+    # # model_name = "multi_train_339"
+    # # model_name = "multi_train_861"
+    # model_name = "big_train_gamma_last"
+    # # model_name=args.model_name
+    # weights_path = f"../saved_models/{model_name}.pth"
+    # model.load_state_dict(torch.load(weights_path))
+    # model = model.to(device)
+    # outname = f"out_{model_name}.p"
+    # validate_detailed(model=model, device=device, loader=val_loader, outname=model_name)

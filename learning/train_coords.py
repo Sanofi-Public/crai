@@ -48,7 +48,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     return mean_dist, hr_0, hr_1, position_dists, col_ind
 
 
-def coords_loss(prediction, comp, return_metrics=True):
+def coords_loss(prediction, comp):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -165,6 +165,11 @@ def coords_loss(prediction, comp, return_metrics=True):
     return position_loss, offset_loss, rz_loss, angle_loss, metrics
 
 
+def dump_log(writer, epoch, to_log, prefix=''):
+    for name, value in to_log.items():
+        writer.add_scalar(f'{prefix}{name}', value, epoch)
+
+
 def train(model, device, optimizer, loader,
           writer=None, n_epochs=10, val_loader=None, val_loader_full=None,
           accumulated_batch=1, save_path=''):
@@ -196,12 +201,13 @@ def train(model, device, optimizer, loader,
                 eluded_time = time.time() - time_init
                 print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
                 if offset_loss is not None:
-                    writer.add_scalar('train_position_loss', position_loss.item(), step_total)
-                    writer.add_scalar('train_loss', loss.item(), step_total)
-                    writer.add_scalar('train_position_distance', position_dist, step_total)
-                    writer.add_scalar('train_offset_loss', offset_loss.item(), step_total)
-                    writer.add_scalar('train_rz_loss', rz_loss.item(), step_total)
-                    writer.add_scalar('train_angle_loss', angle_loss.item(), step_total)
+                    to_log = {"loss": loss.item(),
+                              "position_loss": position_loss.item(),
+                              "offset_loss": offset_loss.item(),
+                              "rz_loss": rz_loss.item(),
+                              "angle_loss": angle_loss.item(),
+                              "position_distance": position_dist}
+                    dump_log(writer, step_total, to_log, prefix='train_')
 
         if epoch == n_epochs - 1:
             model.cpu()
@@ -210,16 +216,10 @@ def train(model, device, optimizer, loader,
 
         if val_loader is not None:
             print("validation")
-            losses = validate(model=model, device=device, loader=val_loader)
-            losses = np.array(losses)
-            val_loss, position_loss, offset_loss, rz_loss, angle_loss, position_dist = np.mean(losses, axis=0)
+            to_log = validate(model=model, device=device, loader=val_loader)
+            val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
-            writer.add_scalar('val_loss', val_loss, epoch)
-            writer.add_scalar('val_position_loss', position_loss, epoch)
-            writer.add_scalar('val_position_distance', position_dist, epoch)
-            writer.add_scalar('val_offset_loss', offset_loss, epoch)
-            writer.add_scalar('val_rz_loss', rz_loss, epoch)
-            writer.add_scalar('val_angle_loss', angle_loss, epoch)
+            dump_log(writer, epoch, to_log, prefix='val_')
             # Model checkpointing
             if val_loader_full is None and val_loss < best_mean_val_loss:
                 best_mean_val_loss = val_loss
@@ -230,16 +230,10 @@ def train(model, device, optimizer, loader,
 
         if val_loader_full is not None:
             print("validation full")
-            losses = validate(model=model, device=device, loader=val_loader_full)
-            losses = np.array(losses)
-            val_loss, position_loss, offset_loss, rz_loss, angle_loss, position_dist = np.mean(losses, axis=0)
+            to_log = validate(model=model, device=device, loader=val_loader_full)
+            val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
-            writer.add_scalar('full_val_loss', val_loss, epoch)
-            writer.add_scalar('full_val_position_loss', position_loss, epoch)
-            writer.add_scalar('full_val_position_distance', position_dist, epoch)
-            writer.add_scalar('full_val_offset_loss', offset_loss, epoch)
-            writer.add_scalar('full_val_rz_loss', rz_loss, epoch)
-            writer.add_scalar('full_val_angle_loss', angle_loss, epoch)
+            dump_log(writer, epoch, to_log, prefix='full_val_')
             # Model checkpointing
             if val_loss < best_mean_val_loss:
                 best_mean_val_loss = val_loss
@@ -252,6 +246,7 @@ def train(model, device, optimizer, loader,
 def validate(model, device, loader):
     time_init = time.time()
     losses = list()
+    all_dists = list()
     with torch.no_grad():
         for step, (name, comp) in enumerate(loader):
             if comp is None:
@@ -260,6 +255,7 @@ def validate(model, device, loader):
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
+            real_dists = metrics['real_dists']
 
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss
@@ -270,9 +266,29 @@ def validate(model, device, loader):
                                angle_loss.item(),
                                position_dist
                                ])
+                all_dists.extend(real_dists)
+
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
-    return losses
+    losses = np.array(losses)
+    losses = np.mean(losses, axis=0)
+    real_dists = np.asarray(real_dists)
+    hr_6 = sum(real_dists <= 6) / len(real_dists)
+    mean_real_dist = np.mean(real_dists)
+    real_dists[real_dists >= 20] = 20
+    mean_real_dist_capped = np.mean(real_dists)
+
+    to_log = {"loss": losses[0],
+              "position_loss": losses[1],
+              "offset_loss": losses[2],
+              "rz_loss": losses[3],
+              "angle_loss": losses[4],
+              "position_distance": losses[5],
+              "real_dist": mean_real_dist,
+              "real_dist_capped": mean_real_dist_capped,
+              "hr_6": hr_6,
+              }
+    return to_log
 
 
 if __name__ == '__main__':
