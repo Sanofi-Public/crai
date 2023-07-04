@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 
 import functools
@@ -192,22 +193,42 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
         print(x)
 
 
-def parse_one(outfile, gt_pdb, selections, template=False):
-    selections = [x[0] for x in selections]
-    gt_transforms = pdbsel_to_transform(gt_pdb, selections)
-    if template:
-        fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
-        fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
-        fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fvs)]
-        selections = fvs_selections + fabs_selections
-    predicted_transforms = pdbsel_to_transform(outfile, selections, cache=False)
-    pred_translations = [res[1] for res in predicted_transforms]
-    gt_translations = [res[1] for res in gt_transforms]
-    dist_matrix = scipy.spatial.distance.cdist(pred_translations, gt_translations)
-    row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
-    position_dists = dist_matrix[row_ind, col_ind]
-    mean_dist = float(position_dists.mean())
-    return mean_dist, position_dists, col_ind
+def parse_one(outfile, gt_pdb, selections, use_template=False):
+    try:
+        selections = [x[0] for x in selections]
+        gt_transforms = pdbsel_to_transform(gt_pdb, selections)
+        if use_template:
+            fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
+            fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
+            fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fabs)]
+            selections = fvs_selections + fabs_selections
+        predicted_transforms = pdbsel_to_transform(outfile, selections, cache=False)
+        pred_translations = [res[1] for res in predicted_transforms]
+        gt_translations = [res[1] for res in gt_transforms]
+        dist_matrix = scipy.spatial.distance.cdist(pred_translations, gt_translations)
+        row_ind, col_ind = scipy.optimize.linear_sum_assignment(dist_matrix)
+        position_dists = dist_matrix[row_ind, col_ind]
+        mean_dist = float(position_dists.mean())
+        return mean_dist, position_dists, col_ind
+    except Exception as e:
+        print(e)
+        return None
+
+
+def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False):
+    df_raw = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
+    all_res = dict()
+    for i, row in df_raw.iterrows():
+        pdb, mrc, resolution, docked_validation_score = row.values
+        datadir_name = "../data/pdb_em"
+        dirname = f"{pdb.upper()}_{mrc}"
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb}.cif")
+        out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+        out_path = os.path.join(datadir_name, dirname, out_name)
+        selections = pdb_selections[pdb.upper()]
+        res = parse_one(out_path, pdb_path, selections, use_template=False)
+        all_res[pdb] = res
+    pickle.dump(all_res, open(parsed_out, 'wb'))
 
 
 if __name__ == '__main__':
@@ -254,15 +275,26 @@ if __name__ == '__main__':
     # (1, 'Sorry: Unknown charge:\n  "ATOM   1541  N   LYS H 212 .*. D    N "\n                                       ^^\n')
 
     # Parse one
-    datadir_name = "../data/pdb_em"
-    dirname = "6V4N_21042"
-    use_template = False
-    pdb_name, mrc_name = dirname.split("_")
-    pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
-    out_path = os.path.join(datadir_name, dirname, out_name)
-    all_systems = "../data/csvs/filtered.csv"
-    pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
-    selections = pdb_selections[pdb_name.upper()]
-    res = parse_one(out_path, pdb_path, selections, template=use_template)
-    print(res)
+    # datadir_name = "../data/pdb_em"
+    # dirname = "6NQD_0485"
+    # use_template = True
+    # pdb_name, mrc_name = dirname.split("_")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+    # out_path = os.path.join(datadir_name, dirname, out_name)
+    # all_systems = "../data/csvs/filtered.csv"
+    # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+    # selections = pdb_selections[pdb_name.upper()]
+    # res = parse_one(out_path, pdb_path, selections, use_template=use_template)
+    # print(res)
+
+    # Parse all
+    csv_in = '../data/csvs/filtered.csv'
+    use_template = True
+    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
+    out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    parse_all_dockinmap(csv_in=out_dock,
+                        parsed_out=parsed_out,
+                        pdb_selections=pdb_selections,
+                        use_template=use_template)
