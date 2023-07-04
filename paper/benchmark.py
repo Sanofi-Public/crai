@@ -187,7 +187,7 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
         else:
             all_results.append(-return_code)
             all_errors.append((return_code, runtime))
-    df['docked_validation_score'] = all_results
+    df['dock_runtime'] = all_results
     df.to_csv(csv_out)
     for x in all_errors:
         print(x)
@@ -219,15 +219,17 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False):
     df_raw = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     all_res = dict()
     for i, row in df_raw.iterrows():
-        pdb, mrc, resolution, docked_validation_score = row.values
+        pdb, mrc, resolution, dock_runtime = row.values
         datadir_name = "../data/pdb_em"
         dirname = f"{pdb.upper()}_{mrc}"
-        pdb_path = os.path.join(datadir_name, dirname, f"{pdb}.cif")
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb.upper()}.cif")
         out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
         out_path = os.path.join(datadir_name, dirname, out_name)
         selections = pdb_selections[pdb.upper()]
         res = parse_one(out_path, pdb_path, selections, use_template=False)
         all_res[pdb] = res
+        if not i % 20:
+            print(f"Done {i}/{len(df_raw)}")
     pickle.dump(all_res, open(parsed_out, 'wb'))
 
 
@@ -290,7 +292,7 @@ if __name__ == '__main__':
 
     # Parse all
     csv_in = '../data/csvs/filtered.csv'
-    use_template = True
+    use_template = False
     pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
     out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
     parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'

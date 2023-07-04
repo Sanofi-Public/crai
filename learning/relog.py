@@ -50,7 +50,7 @@ def relog(model, device, weights, val_loader, writer):
         writer.flush()
 
 
-def validate_detailed(model, device, loader):
+def validate_detailed(model, device, loader, outname):
     time_init = time.time()
     losses = list()
     dict_res = {}
@@ -121,10 +121,11 @@ if __name__ == '__main__':
     # weights = weights_from_name(args.model_name)
     # relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader_full)
 
-    # weights_path = f"../saved_models/multi_train_339.pth"
-    # weights_path = f"../saved_models/multi_train_861.pth"
-    weights_path = f"../saved_models/big_train_gamma_last.pth"
-    # weights_path = f"../saved_models/{args.model_name}.pth"
+    # model_name = "multi_train_339"
+    # model_name = "multi_train_861"
+    model_name = "big_train_gamma_last"
+    # model_name=args.model_name
+    weights_path = f"../saved_models/{model_name}.pth"
     model.load_state_dict(torch.load(weights_path))
     model = model.to(device)
-    validate_detailed(model=model, device=device, loader=val_loader)
+    validate_detailed(model=model, device=device, loader=val_loader, outname=model_name)
