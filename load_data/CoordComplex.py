@@ -24,8 +24,8 @@ class CoordComplex:
         self.initial_mrc_origin = self.mrc.origin
 
         transforms = pdbsel_to_transform(pdb_path, antibody_selections, cache=cache)
-        if any([transform[0] > 5 for transform in transforms]):
-            raise ValueError("The RMSD between template and query is suspiciously high")
+        # if any([transform[0] > 5 for transform in transforms]):
+        #     raise ValueError("The RMSD between template and query is suspiciously high")
 
         # Add data augmentation : a rotation that rotates the data around the origin of the mrc.
         # The original transform is X' = rotation * X + translation
@@ -77,8 +77,14 @@ if __name__ == '__main__':
     # dirname = "7V3L_31683"
     # antibody_selection = 'chain D or chain E'
 
-    dirname = "8DIM_27440"
-    antibody_selection = 'chain E or chain F'
+    # dirname = "8DIM_27440"
+    # antibody_selection = 'chain E or chain F'
+
+    # dirname = "7JVC_22506"
+    # antibody_selection = 'chain C or chain D'
+
+    dirname = "6LHT_0897"
+    antibody_selection = 'chain H or chain L'
 
     # dirname = '6PZY_20540'
     # antibody_selection = 'chain C or chain D'
@@ -105,11 +111,11 @@ if __name__ == '__main__':
                                rotate=False,
                                crop=3)
     # To plot: get a rotated version of the mrc and compare it to the rotated template
-    comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
-    rmsd, translation, rotation = comp_coords.transforms[0]
-    transform_to_pdb(translations=[translation],
-                     rotations=[rotation],
-                     out_name="rotated.pdb")
+    # comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
+    # rmsd, translation, rotation = comp_coords.transforms[0]
+    # transform_to_pdb(translations=[translation],
+    #                  rotations=[rotation],
+    #                  out_name="rotated.pdb")
 
     # Chimerax command to put colored pseudo atom
     # shape sphere center 81.9, 14.9, 44.9 radius 2 color blue

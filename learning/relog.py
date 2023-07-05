@@ -108,8 +108,15 @@ if __name__ == '__main__':
                                 num_feature_map=32)
 
     # RELOG
-    writer, save_path, device = setup_learning(model_name=args.model_name,
-                                               gpu_number=args.gpu)
+    # for name in ['big_train', 'multi_train', 'big_train_crop', 'big_train_full_df', 'big_train_gamma',
+    #              'big_train_normalize', 'focal', 'recrop']:
+    #     writer, _, device = setup_learning(model_name=name,
+    #                                        gpu_number=args.gpu)
+    #     weights = weights_from_name(name)
+    #     relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader)
+
+    writer, _, device = setup_learning(model_name=args.model_name,
+                                       gpu_number=args.gpu)
     weights = weights_from_name(args.model_name)
     relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader)
 

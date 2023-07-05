@@ -107,7 +107,7 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
         pdb, _ = os.path.splitext(pdb_file)
         selections = [res[0] for res in selections]
         if use_template:
-            fabs, fvs = get_num_fabs_fvs(pdb_path)
+            fabs, fvs = get_num_fabs_fvs(pdb_path, selections=selections)
             fv_file_path, _ = os.path.splitext(REF_PATH_FV)
             fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
             to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \

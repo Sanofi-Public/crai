@@ -45,6 +45,7 @@ def plot_distance():
             all_resolutions.extend(resolutions[pdb.upper()])
         else:
             failed += 1
+            print(pdb)
     print(f"Failed on {failed}/{len(dict_res)}")
     all_dists_real = np.asarray(all_dists_real)
 

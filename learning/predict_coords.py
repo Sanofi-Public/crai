@@ -46,9 +46,10 @@ if __name__ == '__main__':
     # dirname = '7V3L_31683' # present in train set
     # dirname = '7LO8_23464'  # this is test set
     # dirname = '6BF9_7093'  # this is test set
-    dirname = '8DG9_27419'  # this is test set
+    # dirname = '8DG9_27419'  # this is test set
     # dirname = '7DCC_30635'  # this is test set
     # dirname = '6NQD_0485'  # this is test set
+    dirname = '6VJA_21212'  # this is close Fvs
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
@@ -66,9 +67,9 @@ if __name__ == '__main__':
     # model_name = 'crop_256'
     # model_name = 'focal_332'
     # model_name = 'less_agg_432'
-    model_name = 'multi_train_339'
+    # model_name = 'multi_train_339'
     # model_name = 'multi_train_861'
-    # model_name = 'big_train_gamma_last'
+    model_name = 'big_train_gamma_last'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
     dump_path = os.path.join(datadir_name, dirname, dump_name)
     out_mrc = dump_path.replace(".pdb", "pred.mrc")
-    n_objects = 3
+    n_objects = 2
     thresh = 0.5
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
                    n_objects=n_objects, thresh=thresh)
