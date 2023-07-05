@@ -44,19 +44,20 @@ def copy_templates():
         p.cmd.load(REF_PATH_FAB, 'ref_fab')
         fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
         for i in range(11):
+            # Copy each chain into Xx format. Start with lowercase to avoid upper H/L collision
             fv_save_path = f"{fv_file_path}_{i + 1}.pdb"
             fv_sel_i = f"fv_{i + 1}"
             p.cmd.copy(fv_sel_i, "ref_fv")
-            p.cmd.alter(f'{fv_sel_i} and chain H', f"chain='{UPPERCASE[i]}'")
             p.cmd.alter(f'{fv_sel_i} and chain L', f"chain='{LOWERCASE[i]}'")
+            p.cmd.alter(f'{fv_sel_i} and chain H', f"chain='{UPPERCASE[i]}'")
             p.cmd.save(fv_save_path, fv_sel_i)
 
             # Fab chains are offset to avoid collisions
             fab_save_path = f"{fab_file_path}_{i + 1}.pdb"
             fab_sel_i = f"fab_{i + 1}"
             p.cmd.copy(fab_sel_i, "ref_fab")
-            p.cmd.alter(f'{fab_sel_i} and chain H', f"chain='{UPPERCASE[i + 11]}'")
             p.cmd.alter(f'{fab_sel_i} and chain L', f"chain='{LOWERCASE[i + 11]}'")
+            p.cmd.alter(f'{fab_sel_i} and chain H', f"chain='{UPPERCASE[i + 11]}'")
             p.cmd.save(fab_save_path, fab_sel_i)
 
 
@@ -251,10 +252,10 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    # csv_in = '../data/csvs/filtered.csv'
-    # use_template = True
-    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    csv_in = '../data/csvs/filtered.csv'
+    use_template = True
+    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
 
     # NO TEMPLATE
     # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
@@ -291,12 +292,12 @@ if __name__ == '__main__':
     # print(res)
 
     # Parse all
-    csv_in = '../data/csvs/filtered.csv'
-    use_template = False
-    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-    out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
-    parse_all_dockinmap(csv_in=out_dock,
-                        parsed_out=parsed_out,
-                        pdb_selections=pdb_selections,
-                        use_template=use_template)
+    # csv_in = '../data/csvs/filtered.csv'
+    # use_template = False
+    # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
+    # out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    # parse_all_dockinmap(csv_in=out_dock,
+    #                     parsed_out=parsed_out,
+    #                     pdb_selections=pdb_selections,
+    #                     use_template=use_template)
