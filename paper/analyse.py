@@ -22,9 +22,10 @@ def plot_distance():
     csv_in = '../data/csvs/filtered.csv'
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
 
-    output_file = '../learning/out_big_train_gamma_last.p'
+    # output_file = '../learning/out_big_train_gamma_last.p'
+    # output_file = '../learning/out_big_train_gamma_last_old.p'
     # output_file = '../learning/out_big_train_normalize_210.p'
-    # output_file = '../learning/out_big_train_normalize_last.p'
+    output_file = '../learning/out_big_train_normalize_last.p'
     dict_res = pickle.load(open(output_file, 'rb'))
     dict_res = {pdb_em[:4].lower(): val for pdb_em, val in dict_res.items()}
 
@@ -37,10 +38,9 @@ def plot_distance():
     all_dists_real = []
     failed = 0
     for pdb, elt in dict_res.items():
+        # if pdb in ['7jvc', '6lht']:
+        #     print(pdb, elt)
         if elt is not None:
-            # print(key, elt)
-            # all_dists.extend(elt[0])
-            # all_dists_real.extend(elt[0])
             all_dists_real.extend(elt[1])
             all_resolutions.extend(resolutions[pdb.upper()])
         else:
@@ -49,10 +49,10 @@ def plot_distance():
     print(f"Failed on {failed}/{len(dict_res)}")
     all_dists_real = np.asarray(all_dists_real)
 
-    def hr(all_dists):
-        print(f"Hits at zero distance : {sum(all_dists <= 0)}/{len(all_dists)}")
-        print(f"Hits below one distance : {sum(all_dists <= 1)}/{len(all_dists)}")
-        print(f"Hits below six distance : {sum(all_dists <= 6)}/{len(all_dists)}")
+    def hr(distances):
+        print(f"Hits at zero distance : {sum(distances <= 0)}/{len(distances)}")
+        print(f"Hits below one distance : {sum(distances <= 1)}/{len(distances)}")
+        print(f"Hits below six distance : {sum(distances <= 6)}/{len(distances)}")
 
     hr(all_dists_real)
 

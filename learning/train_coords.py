@@ -246,7 +246,7 @@ def train(model, device, optimizer, loader,
 def validate(model, device, loader):
     time_init = time.time()
     losses = list()
-    all_dists = list()
+    all_real_dists = list()
     with torch.no_grad():
         for step, (name, comp) in enumerate(loader):
             if comp is None:
@@ -266,17 +266,20 @@ def validate(model, device, loader):
                                angle_loss.item(),
                                position_dist
                                ])
-                all_dists.extend(real_dists)
+                all_real_dists.extend(real_dists)
 
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
     losses = np.array(losses)
     losses = np.mean(losses, axis=0)
-    real_dists = np.asarray(real_dists)
-    hr_6 = sum(real_dists <= 6) / len(real_dists)
-    mean_real_dist = np.mean(real_dists)
-    real_dists[real_dists >= 20] = 20
-    mean_real_dist_capped = np.mean(real_dists)
+    all_real_dists = np.asarray(all_real_dists)
+    hr_6 = sum(all_real_dists <= 6) / len(all_real_dists)
+    mean_real_dist = np.mean(all_real_dists)
+    all_real_dists[all_real_dists >= 20] = 20
+    mean_real_dist_capped = np.mean(all_real_dists)
+    print(hr_6)
+    print(mean_real_dist)
+    print(mean_real_dist_capped)
 
     to_log = {"loss": losses[0],
               "position_loss": losses[1],

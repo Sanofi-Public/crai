@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     # RELOG
     # for name in ['big_train', 'multi_train', 'big_train_crop', 'big_train_full_df', 'big_train_gamma',
-    #              'big_train_normalize', 'focal', 'recrop']:
+    #              'big_train_normalize', 'focal', 'recrop', 'rebig']:
     #     writer, _, device = setup_learning(model_name=name,
     #                                        gpu_number=args.gpu)
     #     weights = weights_from_name(name)
@@ -130,4 +130,4 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load(weights_path))
     # model = model.to(device)
     # outname = f"out_{model_name}.p"
-    # validate_detailed(model=model, device=device, loader=val_loader, outname=model_name)
+    # validate_detailed(model=model, device=device, loader=val_loader, outname=outname)

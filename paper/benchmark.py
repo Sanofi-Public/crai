@@ -227,7 +227,7 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False):
         out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
         out_path = os.path.join(datadir_name, dirname, out_name)
         selections = pdb_selections[pdb.upper()]
-        res = parse_one(out_path, pdb_path, selections, use_template=False)
+        res = parse_one(out_path, pdb_path, selections, use_template=use_template)
         all_res[pdb] = res
         if not i % 20:
             print(f"Done {i}/{len(df_raw)}")
@@ -252,10 +252,10 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    csv_in = '../data/csvs/filtered.csv'
-    use_template = True
-    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    # csv_in = '../data/csvs/filtered.csv'
+    # use_template = True
+    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
 
     # NO TEMPLATE
     # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
@@ -277,6 +277,70 @@ if __name__ == '__main__':
     # (1, 'Sorry: Unknown charge:\n  "ATOM   2795  N   SER L 158 .*. F    N "\n                                       ^^\n')
     # (1, 'Sorry: Unknown charge:\n  "ATOM   1541  N   LYS H 212 .*. D    N "\n                                       ^^\n')
 
+    # TEMPLATE : more errors
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7XW7_33493/output_dock_in_map.pdb"'))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, TimeoutExpired(['/users/mallet/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_1.pdb', '/home/
+    # mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_2.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_3.pdb', '/home/mallet/pr
+    # ojects/crIA-EM/prepare_database/../data/templates/reference_fv_4.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_5.pdb', '/home/mallet/projects/cr
+    # IA-EM/prepare_database/../data/templates/reference_fv_6.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7LY2_23582/full_crop_resampled_2.mrc', 'pdb_out=/home/mallet/projects/crIA-EM/
+    # data/pdb_em/7LY2_23582/output_dock_in_map.pdb', 'resolution=2.5'], 18000.0))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7C2T_30279/output_dock_in_map.pdb"'))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/6W09_21496/output_dock_in_map.pdb"'))
+    # (2, TimeoutExpired(['/users/mallet/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fab_1.pdb', '/home
+    # /mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fab_2.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fab_3.pdb', '/home/mallet
+    # /projects/crIA-EM/prepare_database/../data/templates/reference_fab_4.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fab_5.pdb', '/home/mallet/proje$
+    # ts/crIA-EM/prepare_database/../data/templates/reference_fab_6.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7WJZ_32553/full_crop_resampled_2.mrc', 'pdb_out=/home/mallet/projects/c$
+    # IA-EM/data/pdb_em/7WJZ_32553/output_dock_in_map.pdb', 'resolution=3.34'], 18000.0))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, TimeoutExpired(['/users/mallet/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_1.pdb', '/home/
+    # mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_2.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_3.pdb', '/home/mallet/pr
+    # ojects/crIA-EM/prepare_database/../data/templates/reference_fv_4.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_5.pdb', '/home/mallet/projects/cr
+    # IA-EM/prepare_database/../data/templates/reference_fv_6.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_7.pdb', '/home/mallet/projects/crIA-EM/pre
+    # pare_database/../data/templates/reference_fv_8.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_9.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/
+    # 7E8C_31014/full_crop_resampled_2.mrc', 'pdb_out=/home/mallet/projects/crIA-EM/data/pdb_em/7E8C_31014/output_dock_in_map.pdb', 'resolution=3.16'], 18000.0))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, TimeoutExpired(['/users/mallet/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_1.pdb', '/home/
+    # mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_2.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_3.pdb', '/home/mallet/pr
+    # ojects/crIA-EM/prepare_database/../data/templates/reference_fv_4.pdb', '/home/mallet/projects/crIA-EM/prepare_database/../data/templates/reference_fv_5.pdb', '/home/mallet/projects/cr
+    # IA-EM/prepare_database/../data/templates/reference_fv_6.pdb', '/home/mallet/projects/crIA-EM/data/pdb_em/7LXZ_23580/full_crop_resampled_2.mrc', 'pdb_out=/home/mallet/projects/crIA-EM/
+    # data/pdb_em/7LXZ_23580/output_dock_in_map.pdb', 'resolution=2.6'], 18000.0))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7BUE_30196/output_dock_in_map.pdb"'))
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7BUF_30197/output_dock_in_map.pdb"'))
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Traceback (most recent call last):\n  File "/home/mallet/bin/phenix-1.20.1-4487/build/../modules/phenix/phenix/command_line/dock_in_map.py", line 7, in <module>\n    run_program(
+    # program_class=dock_in_map.Program)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/cctbx_project/iotbx/cli_parser.py", line 79, in run_program\n    task.run()\n  File "/home/mall
+    # et/bin/phenix-1.20.1-4487/modules/phenix/phenix/programs/dock_in_map.py", line 699, in run\n    self.dock_in_map = self.run_dock_in_map.run_iter()\n  File "/home/mallet/bin/phenix-1.2
+    # 0.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 121, in run_iter\n    local_dock_in_map.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/d
+    # ock_in_map.py", line 617, in run\n    new_cc=self.get_cc_in_place(model = self.final_model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py",
+    #  line 2293, in get_cc_in_place\n    mam = self.get_original_map_with_model_boxed(model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", li$
+    # e 2269, in get_original_map_with_model_boxed\n    map_data = self.original_map_data.deep_copy() # going to shift it\nAttributeError: \'NoneType\' object has no attribute \'deep_copy\$
+    # \n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+
     # Parse one
     # datadir_name = "../data/pdb_em"
     # dirname = "6NQD_0485"
@@ -292,12 +356,12 @@ if __name__ == '__main__':
     # print(res)
 
     # Parse all
-    # csv_in = '../data/csvs/filtered.csv'
-    # use_template = False
-    # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-    # out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
-    # parse_all_dockinmap(csv_in=out_dock,
-    #                     parsed_out=parsed_out,
-    #                     pdb_selections=pdb_selections,
-    #                     use_template=use_template)
+    csv_in = '../data/csvs/filtered.csv'
+    use_template = False
+    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
+    out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    parse_all_dockinmap(csv_in=out_dock,
+                        parsed_out=parsed_out,
+                        pdb_selections=pdb_selections,
+                        use_template=use_template)
