@@ -166,7 +166,7 @@ def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
         pdb_path = os.path.join(system_dir, f"{pdb}.cif")
         mrc_path = os.path.join(system_dir, f"emd_{mrc}.map.gz")
-        selection = f'chain {heavy_chain} or chain {light_chain}'
+        selection = list_id_to_pymol_sel([heavy_chain, light_chain])
         to_process.append((mrc_path, pdb_path, selection, resolution))
 
     # # For reduced computation
@@ -265,7 +265,7 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
         pdb_path = os.path.join(system_dir, f"{pdb}.cif")
         mrc_path = os.path.join(system_dir, f"emd_{mrc}.map.gz")
-        selection = f'chain {heavy_chain} or chain {light_chain}'
+        selection = list_id_to_pymol_sel([heavy_chain, light_chain])
         to_process.append((mrc_path, pdb_path, selection, resolution))
 
     # # For reduced computation
@@ -385,15 +385,24 @@ if __name__ == '__main__':
     pass
     # parallel_do()
     # 3J3O_5291
+    nanobodies = True
+    if not nanobodies:
+        mapped = '../data/csvs/mapped.csv'
+        resolution = '../data/csvs/resolution.csv'
+        validated = '../data/csvs/validated.csv'
+        docked = '../data/csvs/docked.csv'
+        filtered = '../data/csvs/filtered.csv'
+    else:
+        mapped = '../data/nano_csvs/mapped.csv'
+        resolution = '../data/nano_csvs/resolution.csv'
+        validated = '../data/nano_csvs/validated.csv'
+        docked = '../data/nano_csvs/docked.csv'
+        filtered = '../data/nano_csvs/filtered.csv'
 
-    mapped = '../data/csvs/mapped.csv'
-    resolution = '../data/csvs/resolution.csv'
-    validated = '../data/csvs/validated.csv'
-    docked = '../data/csvs/docked.csv'
-    filtered = '../data/csvs/filtered.csv'
+    # ADD RESOLUTION
+    clean_resolution(csv_in=mapped, csv_out=resolution)
 
-    # clean_resolution(csv_in=mapped, csv_out=resolution)
-
+    # VALIDATE
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
     # sel = 'chain H or chain L'
@@ -401,13 +410,15 @@ if __name__ == '__main__':
     # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
     # sel = "chain H or chain G"
     # validate_one(pdb=pdb, mrc=mrc, sel=sel)
-    # add_validation_score(csv_in=clean_res, csv_out=validated)
+    add_validation_score(csv_in=resolution, csv_out=validated)
 
+    # DOCK
     # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
     # print(res)
     # t0 = time.time()
     # add_docking_score(csv_in=validated, csv_out=docked)
     # print("done in ", time.time() - t0)
 
+    # FILTER AND SPLIT
     filter_csv(in_csv=docked, out_csv=filtered)
     split_csv(csv_file=filtered)

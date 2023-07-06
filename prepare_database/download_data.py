@@ -110,13 +110,21 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
 
 if __name__ == '__main__':
     max_systems = None
-    csv_pdb = '../data/csvs/cleaned.csv'
-    pdb_df = get_ab_list(out_csv=csv_pdb)
+    nanobodies = True
+    if not nanobodies:
+        in_tsv = '../data/csvs/20230315_0733035_summary.tsv'
+        csv_pdb = '../data/csvs/cleaned.csv'
+        csv_mapped = '../data/csvs/mapped.csv'
+    else:
+        in_tsv = '../data/nano_csvs/nanobodies.tsv'
+        csv_pdb = '../data/nano_csvs/cleaned.csv'
+        csv_mapped = '../data/nano_csvs/mapped.csv'
+
+    pdb_df = get_ab_list(in_tsv=in_tsv, out_csv=csv_pdb)
     # pdb_df = pd.read_csv(csv_pdb)
     relevant_ids = np.unique(pdb_df['pdb'])[:max_systems]
     pdb_em_mapping = get_mapping_ids(relevant_ids)
 
-    csv_mapped = '../data/csvs/mapped.csv'
     add_mrc(csv_pdb=csv_pdb, pdb_em_mapping=pdb_em_mapping, out_csv=csv_mapped)
     # download_one_mrc()
     # download_one_mmtf()

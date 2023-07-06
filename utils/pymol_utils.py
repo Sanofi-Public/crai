@@ -44,7 +44,8 @@ def list_id_to_pymol_sel(list_of_ids):
     :param list_of_ids:
     :return:
     """
-    return ' or '.join([f"chain {chain}" for chain in list_of_ids])
+    filtered_ids = [chain for chain in list_of_ids if chain != 'NA']
+    return ' or '.join([f"chain {chain}" for chain in filtered_ids])
 
 
 def save_coords(coords, topology, outfilename, selection=None):

@@ -31,6 +31,7 @@ def plot_distance():
 
     # val_systems = set(dict_res.keys())
     # output_file = '../data/csvs/benchmark_actual_parsed.p'
+    # # output_file = '../data/csvs/benchmark_parsed.p'
     # dict_res = pickle.load(open(output_file, 'rb'))
     # dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb in val_systems}
 

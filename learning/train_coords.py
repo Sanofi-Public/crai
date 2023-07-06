@@ -93,7 +93,8 @@ def coords_loss(prediction, comp):
     # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
-                                        weights=[1, 30])
+                                        weights=[1, 30],
+                                        gamma=2)
     if len(filtered_transforms) == 0:
         return position_loss, None, None, None, None
 
@@ -326,9 +327,9 @@ if __name__ == '__main__':
     # sys.exit()
 
     csv_val = "../data/csvs/chunked_val.csv"
-    val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=False)
+    val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
     val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
-    val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=args.crop, full=True)
+    val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=True)
     val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
 
     # Learning hyperparameters

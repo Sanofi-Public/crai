@@ -28,6 +28,7 @@ def weights_from_name(name):
         except ValueError:
             pass
     weights = sorted(filtered_weights, key=lambda x: x[0])
+    weights.append((350, f"../saved_models/{name}_last.pth"))
     return weights
 
 
