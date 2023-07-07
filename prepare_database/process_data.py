@@ -12,6 +12,7 @@ from collections import defaultdict
 import multiprocessing
 import pandas as pd
 import pymol2
+import subprocess
 from tqdm import tqdm
 
 if __name__ == '__main__':
@@ -20,6 +21,16 @@ if __name__ == '__main__':
 
 from prepare_database.filter_database import init
 from utils.mrc_utils import MRCGrid
+
+
+def extract_all(in_path='data/pdb_em', overwrite=False):
+    filelist = os.listdir(in_path)
+    for file in filelist:
+        pdb, em = file.split('_')
+        outpath = os.path.join(in_path, file, f"emd_{em}.map")
+        if not os.path.exists(outpath) or overwrite:
+            cmd1 = f"gunzip -c {outpath}.gz> {outpath}"
+            subprocess.call(cmd1, shell=True)
 
 
 def crop_one_dirname(dirname, datadir_name, overwrite, resample=True):
@@ -255,6 +266,7 @@ def chunk_around(datadir_name="../data/pdb_em",
 if __name__ == '__main__':
     pass
     nanobodies = True
+    extract_all()
     # crop_one_dirname(datadir_name="../data/pdb_em/", dirname="6V4N_21042", overwrite=False)
     crop_maps(overwrite=False)
 

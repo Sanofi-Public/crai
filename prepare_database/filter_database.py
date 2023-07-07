@@ -392,12 +392,14 @@ if __name__ == '__main__':
         validated = '../data/csvs/validated.csv'
         docked = '../data/csvs/docked.csv'
         filtered = '../data/csvs/filtered.csv'
+        out_basename = '../data/csvs/filtered'
     else:
         mapped = '../data/nano_csvs/mapped.csv'
         resolution = '../data/nano_csvs/resolution.csv'
         validated = '../data/nano_csvs/validated.csv'
         docked = '../data/nano_csvs/docked.csv'
         filtered = '../data/nano_csvs/filtered.csv'
+        out_basename = '../data/nano_csvs/filtered'
 
     # ADD RESOLUTION
     clean_resolution(csv_in=mapped, csv_out=resolution)
@@ -410,7 +412,7 @@ if __name__ == '__main__':
     # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
     # sel = "chain H or chain G"
     # validate_one(pdb=pdb, mrc=mrc, sel=sel)
-    add_validation_score(csv_in=resolution, csv_out=validated)
+    # add_validation_score(csv_in=resolution, csv_out=validated)
 
     # DOCK
     # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
@@ -421,4 +423,4 @@ if __name__ == '__main__':
 
     # FILTER AND SPLIT
     filter_csv(in_csv=docked, out_csv=filtered)
-    split_csv(csv_file=filtered)
+    split_csv(csv_file=filtered, out_basename=out_basename)
