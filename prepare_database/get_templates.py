@@ -4,7 +4,7 @@ import pymol2
 from sklearn.decomposition import PCA
 
 
-def get_template(pdb_path, pymol_sel, crop_sel):
+def get_template(pdb_path, pymol_sel, crop_sel, nano_sel):
     """
     The goal is to remove asymetric units by comparing their coordinates
     :param pdb_path:
@@ -50,7 +50,13 @@ def get_template(pdb_path, pymol_sel, crop_sel):
         p.cmd.load_coords(new_coords - cropped_com, "ab", state=1)
 
         p.cmd.save(REF_PATH_FAB, "ab", state=1)
-        p.cmd.save(REF_PATH_FV, "cropped_sel", state=1)
+        p.cmd.save(REF_PATH_FV, cropped_sel, state=1)
+
+        nano_sel = f"ab and ({nano_sel})"
+        nano_coords = p.cmd.get_coords(nano_sel)
+        nano_com = nano_coords.mean(axis=0)
+        p.cmd.load_coords(nano_coords - nano_com, nano_sel, state=1)
+        p.cmd.save(REF_PATH_NANO, nano_sel, state=1)
 
         # Let's create random dummies
         # from scipy.spatial.transform import Rotation as R
@@ -71,11 +77,14 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 name = 'reference'
 REF_PATH_FV = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fv.pdb')
 REF_PATH_FAB = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fab.pdb')
+REF_PATH_NANO = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_nano.pdb')
 
 if __name__ == '__main__':
     pdb_path = '../data/pdb_em/7LO8_23464/7LO8.cif'
     pymol_sel = 'chain H or chain L'
     crop_sel = '(chain H and resi 1-155) or (chain L and resi 1-131)'
+    nano_sel = '(chain L and resi 1-131)'
     get_template(pdb_path=pdb_path,
                  pymol_sel=pymol_sel,
-                 crop_sel=crop_sel)
+                 crop_sel=crop_sel,
+                 nano_sel=nano_sel)
