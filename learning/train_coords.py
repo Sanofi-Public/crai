@@ -313,11 +313,14 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    num_workers = 0
+    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     # csv_train = "../data/csvs/chunked_train_reduced.csv"
     csv_train = "../data/csvs/chunked_train.csv"
-    train_ab_dataset = ABDataset(csv_to_read=csv_train, rotate=args.rotate, crop=args.crop, full=args.train_full)
+    # csv_train = ["../data/csvs/chunked_train.csv", "../data/csvs/chunked_train.csv"]
+    all_systems_train = ["../data/csvs/filtered_train.csv", "../data/nano_csvs/filtered_train.csv"]
+    train_ab_dataset = ABDataset(csv_to_read=csv_train, all_systems=all_systems_train,
+                                 rotate=args.rotate, crop=args.crop, full=args.train_full)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
                               shuffle=True, collate_fn=lambda x: x[0], num_workers=num_workers)
     # # Test loss

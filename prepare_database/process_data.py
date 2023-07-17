@@ -150,6 +150,15 @@ def get_pdb_selection(df=None, csv_in=None, columns=None):
     :param columns:
     :return:
     """
+    # In case of a list of dataframes to aggregate, call self a bunch of times and update dict
+    if isinstance(csv_in, list):
+        all_pdb_selections = defaultdict(list)
+        for individual_csv in csv_in:
+            individual_dict = get_pdb_selection(csv_in=individual_csv, columns=columns)
+            for key, list_sels in individual_dict.items():
+                all_pdb_selections[key].extend(list_sels)
+        return all_pdb_selections
+
     if columns is None:
         columns = ['antibody_selection', 'antigen_selection', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']
     if df is None:

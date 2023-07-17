@@ -44,5 +44,7 @@ To get this template, we pick a random Fab system and manually select the Fv res
 Then we shift the system so that the Fv is centered at the origin and align its main axis with uz vector using PCA.
 Given an antibody, pymol align now gives us a translation and rotation to transform our template into it.
 
-
-
+## Nanobodies
+All of these steps apply to the production of nanobody data. 
+We start with the .tsv result of cryo-EM systems containing nanobodies
+We manually curate it, as several lines pertain to Fabs instead of nanobodies.
