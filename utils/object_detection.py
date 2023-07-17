@@ -4,7 +4,7 @@ import numpy as np
 import pymol2
 from scipy.spatial.transform import Rotation
 
-from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
+from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB, REF_PATH_NANO
 from utils.rotation import vector_to_rotation
 from utils.mrc_utils import MRCGrid
 
@@ -148,7 +148,9 @@ def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=Fal
                 sel = f'in_pdb and ({antibody_selection})'
                 p.cmd.extract("to_align", sel)
                 residues_to_align = len(p.cmd.get_model("to_align").get_residues())
-                if residues_to_align < 300:
+                if residues_to_align < 165:
+                    p.cmd.load(REF_PATH_NANO, 'ref')
+                elif residues_to_align < 300:
                     # len_fv = len(p.cmd.get_model("ref").get_residues())  # len_fv=237, len_fab=446
                     p.cmd.load(REF_PATH_FV, 'ref')
                 else:
@@ -156,8 +158,8 @@ def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=Fal
                 coords_ref = p.cmd.get_coords("ref")
 
                 # Now perform the alignment. The com of the aligned template is the object detection objective
-                test = p.cmd.align(mobile="ref", target="to_align")
-                rmsd = test[0]
+                result_align = p.cmd.align(mobile="ref", target="to_align")
+                rmsd = result_align[0]
 
                 # We retrieve the parameters of the transformation, notably the rotation
                 transformation_matrix = p.cmd.get_object_matrix('ref')

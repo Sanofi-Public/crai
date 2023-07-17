@@ -362,16 +362,48 @@ def filter_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
     df_new.to_csv(out_csv)
 
 
-def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/filtered'):
+def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/filtered', other=None):
     """
     :param csv_file:
+    :param out_basename:
+    :param other: if not None, respect the data split of another split (to be able to cross train)
     :return:
     """
     df = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
     unique_pdb = df["pdb"].unique()
-    train = unique_pdb[:int(0.7 * len(unique_pdb))]
-    val = unique_pdb[int(0.7 * len(unique_pdb)):int(0.85 * len(unique_pdb))]
-    test = unique_pdb[int(0.85 * len(unique_pdb)):]
+
+    if other is not None:
+        # First read the other pdbs
+        csv_file = f'{other}_train.csv'
+        df_train = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
+        csv_file = f'{other}_val.csv'
+        df_val = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
+        csv_file = f'{other}_test.csv'
+        df_test = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
+
+        # Now remove interesting systems and place them in the right split to allow merging the sets
+        # We use dummy dicts instead of sets to have consistent order
+        unique_pdb = {x: 0 for x in unique_pdb}
+        train = {x: 0 for x in df_train["pdb"].unique() if x in unique_pdb}
+        val = {x: 0 for x in df_val["pdb"].unique() if x in unique_pdb}
+        test = {x: 0 for x in df_test["pdb"].unique() if x in unique_pdb}
+
+        # Finally split the remaining systems to achieve a given size for each set
+        size_train = int(0.7 * len(unique_pdb))
+        size_val = int(0.85 * len(unique_pdb)) - int(0.7 * len(unique_pdb))
+        filtered_unique = {x: 0 for x in unique_pdb if not (x in train or x in val or x in test)}
+        for x in filtered_unique:
+            if len(train) < size_train:
+                train[x] = 0
+                continue
+            if len(val) < size_val:
+                val[x] = 0
+                continue
+            test[x] = 0
+    else:
+        train = unique_pdb[:int(0.7 * len(unique_pdb))]
+        val = unique_pdb[int(0.7 * len(unique_pdb)):int(0.85 * len(unique_pdb))]
+        test = unique_pdb[int(0.85 * len(unique_pdb)):]
     train_df = df[df["pdb"].isin(train)]
     val_df = df[df["pdb"].isin(val)]
     test_df = df[df["pdb"].isin(test)]
@@ -383,8 +415,6 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
 
 if __name__ == '__main__':
     pass
-    # parallel_do()
-    # 3J3O_5291
     nanobodies = True
     if not nanobodies:
         mapped = '../data/csvs/mapped.csv'
@@ -393,6 +423,7 @@ if __name__ == '__main__':
         docked = '../data/csvs/docked.csv'
         filtered = '../data/csvs/filtered.csv'
         out_basename = '../data/csvs/filtered'
+        other = None
     else:
         mapped = '../data/nano_csvs/mapped.csv'
         resolution = '../data/nano_csvs/resolution.csv'
@@ -400,9 +431,10 @@ if __name__ == '__main__':
         docked = '../data/nano_csvs/docked.csv'
         filtered = '../data/nano_csvs/filtered.csv'
         out_basename = '../data/nano_csvs/filtered'
+        other = '../data/csvs/filtered'
 
     # ADD RESOLUTION
-    clean_resolution(csv_in=mapped, csv_out=resolution)
+    # clean_resolution(csv_in=mapped, csv_out=resolution)
 
     # VALIDATE
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
@@ -422,5 +454,5 @@ if __name__ == '__main__':
     # print("done in ", time.time() - t0)
 
     # FILTER AND SPLIT
-    filter_csv(in_csv=docked, out_csv=filtered)
-    split_csv(csv_file=filtered, out_basename=out_basename)
+    # filter_csv(in_csv=docked, out_csv=filtered)
+    split_csv(csv_file=filtered, out_basename=out_basename, other=other)
