@@ -244,13 +244,7 @@ class MRCGrid:
                               voxel_size=self.voxel_size.copy())
         return rotated_mrc
 
-    def random_crop(self, margin=4):
-        """
-        Cut the box with random left and right cuts, up to a margin
-        :param margin: integer
-        :return: a new MRC object
-        """
-        dx1, dx2, dy1, dy2, dz1, dz2 = np.random.randint(0, margin + 1, size=6)
+    def crop(self, dx1, dx2, dy1, dy2, dz1, dz2):
         new_data = self.data.copy()
         new_data = new_data[dx1:-dx2 - 1, dy1:-dy2 - 1, dz1:-dz2 - 1]
         new_origin = self.origin + self.voxel_size * np.array([dx1, dy1, dz1])
@@ -259,6 +253,15 @@ class MRCGrid:
                               origin=new_origin,
                               voxel_size=new_voxel_size)
         return cropped_mrc
+
+    def random_crop(self, margin=4):
+        """
+        Cut the box with random left and right cuts, up to a margin
+        :param margin: integer
+        :return: a new MRC object
+        """
+        dx1, dx2, dy1, dy2, dz1, dz2 = np.random.randint(0, margin + 1, size=6)
+        return self.crop(self, dx1, dx2, dy1, dy2, dz1, dz2)
 
     def save(self, outname, data=None, overwrite=False):
         data = self.data if data is None else data

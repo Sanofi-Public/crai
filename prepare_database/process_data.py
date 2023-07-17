@@ -23,9 +23,9 @@ from prepare_database.filter_database import init
 from utils.mrc_utils import MRCGrid
 
 
-def extract_all(in_path='data/pdb_em', overwrite=False):
+def extract_all(in_path='../data/pdb_em/', overwrite=False):
     filelist = os.listdir(in_path)
-    for file in filelist:
+    for file in tqdm(filelist):
         pdb, em = file.split('_')
         outpath = os.path.join(in_path, file, f"emd_{em}.map")
         if not os.path.exists(outpath) or overwrite:

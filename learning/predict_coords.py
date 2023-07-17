@@ -13,8 +13,9 @@ from utils.object_detection import output_to_transforms, transform_to_pdb
 
 
 def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_objects=None, thresh=0.5,
-                   overwrite=True):
+                   overwrite=True, crop=0):
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+    mrc = mrc.crop(*(crop,) * 6)
     if process:
         mrc = mrc.resample().normalize()
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
@@ -48,14 +49,14 @@ if __name__ == '__main__':
     # dirname = '6BF9_7093'  # this is test set
     # dirname = '8DG9_27419'  # this is test set
     # dirname = '7DCC_30635'  # this is test set
-    # dirname = '6NQD_0485'  # this is test set
-    dirname = '6VJA_21212'  # this is close Fvs
+    dirname = '6NQD_0485'  # this is test set
+    # dirname = '6VJA_21212'  # this is close Fvs
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
     mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
 
-    # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+    mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
     # align_output(fake_out, mrc)
@@ -83,7 +84,8 @@ if __name__ == '__main__':
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
     dump_path = os.path.join(datadir_name, dirname, dump_name)
     out_mrc = dump_path.replace(".pdb", "pred.mrc")
-    n_objects = 2
+    n_objects = 3
     thresh = 0.5
+    crop = 0
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
-                   n_objects=n_objects, thresh=thresh)
+                   n_objects=n_objects, thresh=thresh, crop=crop)
