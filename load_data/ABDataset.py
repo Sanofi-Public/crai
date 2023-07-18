@@ -97,7 +97,7 @@ class ABDataset(Dataset):
         # return self.unwrapped_get_item(row)
         try:
             return self.unwrapped_get_item(row)
-        except Exception as e:
+        except FileNotFoundError as e:
             return row[0], None
 
 

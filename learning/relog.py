@@ -55,7 +55,7 @@ def validate_detailed(model, device, loader, outname):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             all_dists = metrics['dists']
@@ -66,6 +66,7 @@ def validate_detailed(model, device, loader, outname):
                                offset_loss.item(),
                                rz_loss.item(),
                                angle_loss.item(),
+                               nano_loss.item(),
                                position_dist
                                ])
 

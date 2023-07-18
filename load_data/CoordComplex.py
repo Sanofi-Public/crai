@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
 from utils import mrc_utils
 from utils.rotation import Rotor
-from utils.object_detection import transform_to_pdb, pdbsel_to_transform
+from utils.object_detection import pdbsel_to_transforms
 
 
 class CoordComplex:
@@ -23,7 +23,7 @@ class CoordComplex:
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path, normalize=normalize)
         self.initial_mrc_origin = self.mrc.origin
 
-        transforms = pdbsel_to_transform(pdb_path, antibody_selections, cache=cache)
+        transforms = pdbsel_to_transforms(pdb_path, antibody_selections, cache=cache, recompute=True)
         # if any([transform[0] > 5 for transform in transforms]):
         #     raise ValueError("The RMSD between template and query is suspiciously high")
 
@@ -34,9 +34,9 @@ class CoordComplex:
         #  (r_tot * rotation) * X + (r_tot (com - origin) + origin)
         self.rotor = Rotor() if rotate else Rotor(0, 0)
         rotated_transforms = []
-        for rmsd, translation, rotation in transforms:
+        for rmsd, translation, rotation, nano in transforms:
             new_trans, new_rot = self.apply_rotational_augment(translation=translation, rotation=rotation)
-            rotated_transforms.append((rmsd, new_trans, new_rot))
+            rotated_transforms.append((rmsd, new_trans, new_rot, nano))
         transforms = rotated_transforms
         self.transforms = transforms
 
@@ -112,9 +112,8 @@ if __name__ == '__main__':
                                crop=3)
     # To plot: get a rotated version of the mrc and compare it to the rotated template
     # comp_coords.mrc.save(outname="rotated.mrc", overwrite=True)
-    # rmsd, translation, rotation = comp_coords.transforms[0]
-    # transform_to_pdb(translations=[translation],
-    #                  rotations=[rotation],
+    # from utils.object_detection import transform_to_pdb
+    # transform_to_pdb(transforms = comp_coords.transforms,
     #                  out_name="rotated.pdb")
 
     # Chimerax command to put colored pseudo atom

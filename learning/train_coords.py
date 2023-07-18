@@ -48,7 +48,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     return mean_dist, hr_0, hr_1, position_dists, col_ind
 
 
-def coords_loss(prediction, comp):
+def coords_loss(prediction, comp, classif_nano=True):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -82,14 +82,14 @@ def coords_loss(prediction, comp):
     # Some might fall out of the considered density : filter them out
     BCE_target = torch.zeros(size=pred_shape, device=device)
     filtered_transforms = []
-    for rmsd, translation, rotation in comp.transforms:
+    for rmsd, translation, rotation, nano in comp.transforms:
         position_i = np.digitize(translation[0], bin_x) - 1
         position_j = np.digitize(translation[1], bin_y) - 1
         position_k = np.digitize(translation[2], bin_z) - 1
         pos_tuple = (position_i, position_j, position_k)
         if all((0 <= pos_tuple[i] < pred_shape[i] for i in range(3))):
             BCE_target[position_i, position_j, position_k] = 1
-            filtered_transforms.append((pos_tuple, translation, rotation))
+            filtered_transforms.append((pos_tuple, translation, rotation, nano))
     # position_loss = weighted_bce(prediction[0, 0, ...], BCE_target, weights=[1, 1000])
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
@@ -128,8 +128,8 @@ def coords_loss(prediction, comp):
         actual_distances.append(distance)
     metrics['real_dists'] = actual_distances
 
-    offset_losses, rz_losses, angle_losses = [], [], []
-    for pos_tuple, translation, rotation in filtered_transforms:
+    offset_losses, rz_losses, angle_losses, nano_losses = [], [], [], []
+    for pos_tuple, translation, rotation, nano in filtered_transforms:
         # Extract the predicted vector at this location
         position_i, position_j, position_k = pos_tuple
         vector_pose = prediction[0, 1:, position_i, position_j, position_k]
@@ -153,17 +153,27 @@ def coords_loss(prediction, comp):
         # We turn our angle into a unit vector of R2, push predicted norm to and penalize dot product to ground truth
         vec_angle = [np.cos(angle), np.sin(angle)]
         vec_angle = torch.tensor(vec_angle, device=device, dtype=torch.float)
-        predicted_angle = vector_pose[6:]
+        predicted_angle = vector_pose[6:8]
         angle_norm = torch.norm(predicted_angle)
         angle_loss = 1 - torch.dot(predicted_angle / angle_norm, vec_angle) + (angle_norm - 1) ** 2
+
+        if classif_nano:
+            # Now we also include the nanobodies
+            nano_loss = weighted_focal_loss(vector_pose[8], nano, weights=[1, 1726 / 426])
+            # print(nano, vector_pose[8], nano_loss)
+        else:
+            nano_loss = torch.zeros(1)
+
         offset_losses.append(offset_loss)
         rz_losses.append(rz_loss)
         angle_losses.append(angle_loss)
+        nano_losses.append(nano_loss)
 
     offset_loss = torch.mean(torch.stack(offset_losses))
     rz_loss = torch.mean(torch.stack(rz_losses))
     angle_loss = torch.mean(torch.stack(angle_losses))
-    return position_loss, offset_loss, rz_loss, angle_loss, metrics
+    nano_loss = torch.mean(torch.stack(nano_losses))
+    return position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics
 
 
 def dump_log(writer, epoch, to_log, prefix=''):
@@ -183,13 +193,13 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu',
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
 
             if offset_loss is None:
                 loss = position_loss
             else:
-                loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss)
+                loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss + nano_loss)
             loss.backward()
 
             # Accumulated gradients
@@ -207,6 +217,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu',
                               "offset_loss": offset_loss.item(),
                               "rz_loss": rz_loss.item(),
                               "angle_loss": angle_loss.item(),
+                              "nano_loss": nano_loss.item(),
                               "position_distance": position_dist}
                     dump_log(writer, step_total, to_log, prefix='train_')
 
@@ -249,6 +260,12 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu',
             val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
             dump_log(writer, epoch, to_log, prefix='nano_val_')
+            if val_loader_full is None and val_loss < best_mean_val_loss:
+                best_mean_val_loss = val_loss
+                best_model_path = f'{save_path}_{epoch}.pth'
+                model.cpu()
+                torch.save(model.state_dict(), best_model_path)
+                model.to(device)
 
 
 def validate(model, device, loader):
@@ -261,17 +278,18 @@ def validate(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
 
             if offset_loss is not None:
-                loss = position_loss + offset_loss + rz_loss + angle_loss
+                loss = position_loss + offset_loss + rz_loss + angle_loss + nano_loss
                 losses.append([loss.item(),
                                position_loss.item(),
                                offset_loss.item(),
                                rz_loss.item(),
                                angle_loss.item(),
+                               nano_loss.item(),
                                position_dist
                                ])
                 all_real_dists.extend(real_dists)
@@ -285,16 +303,17 @@ def validate(model, device, loader):
     mean_real_dist = np.mean(all_real_dists)
     all_real_dists[all_real_dists >= 20] = 20
     mean_real_dist_capped = np.mean(all_real_dists)
-    print(hr_6)
-    print(mean_real_dist)
-    print(mean_real_dist_capped)
+    # print(hr_6)
+    # print(mean_real_dist)
+    # print(mean_real_dist_capped)
 
     to_log = {"loss": losses[0],
               "position_loss": losses[1],
               "offset_loss": losses[2],
               "rz_loss": losses[3],
               "angle_loss": losses[4],
-              "position_distance": losses[5],
+              "nano_loss": losses[5],
+              "position_distance": losses[6],
               "real_dist": mean_real_dist,
               "real_dist_capped": mean_real_dist_capped,
               "hr_6": hr_6,
@@ -320,13 +339,19 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
+    use_fabs = True
+    use_nano = True
     num_workers = 0
     # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     # csv_train = "../data/csvs/chunked_train_reduced.csv"
-    # all_systems_train = "../data/csvs/filtered_train.csv"
-    all_systems_train = ["../data/csvs/filtered_train.csv", "../data/nano_csvs/filtered_train.csv"]
-    # csv_train = "../data/csvs/chunked_train.csv"
-    csv_train = ["../data/csvs/chunked_train.csv", "../data/nano_csvs/chunked_train.csv"]
+    all_systems_train = []
+    csv_train = []
+    if use_fabs:
+        all_systems_train.append("../data/csvs/filtered_train.csv")
+        csv_train.append("../data/csvs/chunked_train.csv")
+    if use_nano:
+        all_systems_train.append("../data/nano_csvs/filtered_train.csv")
+        csv_train.append("../data/nano_csvs/chunked_train.csv")
     train_ab_dataset = ABDataset(csv_to_read=csv_train, all_systems=all_systems_train,
                                  rotate=args.rotate, crop=args.crop, full=args.train_full)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
@@ -337,22 +362,32 @@ if __name__ == '__main__':
     # coords_loss(fake_out, train_ab_dataset[0][1])
     # sys.exit()
 
-    csv_val = "../data/csvs/chunked_val.csv"
-    # val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
-    # val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
-    val_loader = None
-    val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=True)
-    val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
-    csv_val_nano = "../data/nano_csvs/chunked_val.csv"
-    all_system_val_nano = "../data/nano_csvs/filtered_val.csv"
-    val_ab_dataset_nano_full = ABDataset(all_systems=all_system_val_nano, csv_to_read=csv_val_nano,
-                                         rotate=False, crop=0, full=True)
-    val_loader_nano_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
+    if use_fabs:
+        csv_val = "../data/csvs/chunked_val.csv"
+        # val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
+        # val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+        val_loader = None
+        val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=True)
+        val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
+    else:
+        val_loader = None
+        val_loader_full = None
+    if use_nano:
+        csv_val_nano = "../data/nano_csvs/chunked_val.csv"
+        all_system_val_nano = "../data/nano_csvs/filtered_val.csv"
+        val_ab_dataset_nano_full = ABDataset(all_systems=all_system_val_nano, csv_to_read=csv_val_nano,
+                                             rotate=False, crop=0, full=True)
+        val_loader_nano_full = DataLoader(dataset=val_ab_dataset_nano_full, collate_fn=lambda x: x[0],
+                                          num_workers=num_workers)
+    else:
+        val_loader_nano_full = None
 
     # Learning hyperparameters
     n_epochs = 1000
     accumulated_batch = args.agg_grads
     model = SimpleHalfUnetModel(in_channels=1,
+                                classif_nano=use_nano and use_fabs,
+                                out_channels=10,
                                 model_depth=4,
                                 num_convs=3,
                                 max_decode=2,

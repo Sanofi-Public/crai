@@ -46,7 +46,8 @@ def nms(pred_loc, n_objects=None, thresh=0.5):
     return ijk_s
 
 
-def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None):
+def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
+                         outmrc=None, classif_nano=False, default_nano=False):
     """
     First we need to go from grid, complex -> rotation, translation
     Then we call the second one
@@ -63,13 +64,14 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None)
         voxel_size = (top - origin) / pred_shape
         mrc_pred = MRCGrid(data=pred_loc, voxel_size=voxel_size, origin=origin)
         mrc_pred.save(outname=outmrc, overwrite=True)
+        if classif_nano:
+            mrc_pred.save(outname=outmrc.replace("pred.mrc", "pred_nano.mrc"), data=out_grid[-1], overwrite=True)
 
     # First let's find out the position of the antibody in our prediction
     ijk_s = nms(pred_loc, n_objects=n_objects, thresh=thresh)
 
-    translations, rotations = [], []
+    transforms = list()
     for i, j, k in ijk_s:
-
         predicted_vector = out_grid[1:, i, j, k]
         offset_x, offset_y, offset_z = predicted_vector[:3]
         x = bin_x[i] + offset_x
@@ -79,7 +81,7 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None)
 
         # Then cast the angles by normalizing them and inverting the angle->R2 transform
         predicted_rz = predicted_vector[3:6] / np.linalg.norm(predicted_vector[3:6])
-        cos_t, sin_t = predicted_vector[6:] / np.linalg.norm(predicted_vector[6:])
+        cos_t, sin_t = predicted_vector[6:8] / np.linalg.norm(predicted_vector[6:8])
         t = np.arccos(cos_t)
         if np.sin(t) - sin_t > 0.01:
             t = -t
@@ -89,36 +91,42 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5, outmrc=None)
         rotation = uz_to_p * Rotation.from_rotvec([0, 0, t])
         # Assert that the rz with rotation matches predicted_rz
         # rz = rotation.apply([0, 0, 1])
-        translations.append(translation)
-        rotations.append(rotation)
-
-    return translations, rotations
+        if classif_nano:
+            nano = predicted_vector[8] > 0.5
+        else:
+            nano = default_nano
+        transforms.append((0, translation, rotation, nano))
+    return transforms
 
 
 # rotation/translation to pdbs
-def transform_to_pdb(translations, rotations, out_name=None):
+def transforms_to_pdb(transforms, out_name=None):
     """
     Take our template and apply the learnt rotation to it.
     """
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH_FV, 'ref')
-        coords_ref = p.cmd.get_coords("ref")
-        for i, (translation, rotation) in enumerate(zip(translations, rotations)):
+        p.cmd.load(REF_PATH_FV, 'ref_fv')
+        p.cmd.load(REF_PATH_NANO, 'ref_nano')
+        for i, (rmsd, translation, rotation, nano) in enumerate(transforms):
             hit = f"result_{i}"
-            p.cmd.copy(hit, "ref")
+            if nano:
+                p.cmd.copy(hit, "ref_nano")
+            else:
+                p.cmd.copy(hit, "ref_fv")
+            coords_ref = p.cmd.get_coords(hit)
             p.cmd.alter(hit, f"chain='{i}'")
             rotated = rotation.apply(coords_ref)
             new_coords = rotated + translation[None, :]
             p.cmd.load_coords(new_coords, hit, state=1)
         if out_name is not None:
-            to_save = ' or '.join([f"result_{i}" for i in range(len(translations))])
+            to_save = ' or '.join([f"result_{i}" for i in range(len(transforms))])
             p.cmd.save(out_name, to_save)
     return new_coords
 
 
 # pdb, sel -> rotation/translation
-def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=False):
+def pdbsel_to_transforms(pdb_path, antibody_selections, cache=True, recompute=False):
     """
     We want to get the transformation to insert the template at the right spot.
     Pymol "align" returns the solid transform as R (x + t), so to avoid getting huge translations (centering first)
@@ -148,8 +156,10 @@ def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=Fal
                 sel = f'in_pdb and ({antibody_selection})'
                 p.cmd.extract("to_align", sel)
                 residues_to_align = len(p.cmd.get_model("to_align").get_residues())
+                nano = False
                 if residues_to_align < 165:
                     p.cmd.load(REF_PATH_NANO, 'ref')
+                    nano = True
                 elif residues_to_align < 300:
                     # len_fv = len(p.cmd.get_model("ref").get_residues())  # len_fv=237, len_fab=446
                     p.cmd.load(REF_PATH_FV, 'ref')
@@ -168,8 +178,8 @@ def pdbsel_to_transform(pdb_path, antibody_selections, cache=True, recompute=Fal
                 rotation = transformation_matrix[:3, :3]
                 rotation = Rotation.from_matrix(rotation)
             if cache:
-                pickle.dump((rmsd, translation, rotation), open(dump_align_name, 'wb'))
+                pickle.dump((rmsd, translation, rotation, nano), open(dump_align_name, 'wb'))
         else:
-            rmsd, translation, rotation = pickle.load(open(dump_align_name, 'rb'))
-        transforms.append((rmsd, translation, rotation))
+            rmsd, translation, rotation, nano = pickle.load(open(dump_align_name, 'rb'))
+        transforms.append((rmsd, translation, rotation, nano))
     return transforms

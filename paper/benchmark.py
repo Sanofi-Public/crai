@@ -22,7 +22,7 @@ from utils.mrc_utils import MRCGrid
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
 from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import init
-from utils.object_detection import pdbsel_to_transform
+from utils.object_detection import pdbsel_to_transforms
 
 PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 UPPERCASE = string.ascii_uppercase
@@ -197,13 +197,13 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
 def parse_one(outfile, gt_pdb, selections, use_template=False):
     try:
         selections = [x[0] for x in selections]
-        gt_transforms = pdbsel_to_transform(gt_pdb, selections)
+        gt_transforms = pdbsel_to_transforms(gt_pdb, selections)
         if use_template:
             fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
             fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
             fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fabs)]
             selections = fvs_selections + fabs_selections
-        predicted_transforms = pdbsel_to_transform(outfile, selections, cache=False)
+        predicted_transforms = pdbsel_to_transforms(outfile, selections, cache=False)
         pred_translations = [res[1] for res in predicted_transforms]
         gt_translations = [res[1] for res in gt_transforms]
         dist_matrix = scipy.spatial.distance.cdist(pred_translations, gt_translations)

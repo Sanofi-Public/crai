@@ -9,11 +9,11 @@ if __name__ == '__main__':
 
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils import mrc_utils
-from utils.object_detection import output_to_transforms, transform_to_pdb
+from utils.object_detection import output_to_transforms, transforms_to_pdb
 
 
 def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_objects=None, thresh=0.5,
-                   overwrite=True, crop=0):
+                   overwrite=True, crop=0, classif_nano=False, default_nano=False):
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     mrc = mrc.crop(*(crop,) * 6)
     if process:
@@ -33,10 +33,11 @@ def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_o
         # comp_coords.mrc.save('../data/pdb_em/6NQD_0485/test_test.mrc')
         # coords_loss(out, comp_coords)
         out = model(mrc_grid)[0].numpy()
-    translations, rotations = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh, outmrc=outmrc)
+    transforms = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh,
+                                      outmrc=outmrc, classif_nano=classif_nano, default_nano=default_nano)
     if outname is not None:
-        transform_to_pdb(translations=translations, rotations=rotations, out_name=outname)
-    return translations, rotations
+        transforms_to_pdb(transforms=transforms, out_name=outname)
+    return transforms
 
 
 if __name__ == '__main__':
@@ -87,5 +88,7 @@ if __name__ == '__main__':
     n_objects = 3
     thresh = 0.5
     crop = 0
+    classif_nano = False
+    default_nano = False
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
-                   n_objects=n_objects, thresh=thresh, crop=crop)
+                   n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=False)

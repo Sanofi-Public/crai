@@ -186,6 +186,7 @@ class SimpleHalfUnetModel(nn.Module):
                  in_channels=1,
                  out_channels_decoder=128,
                  out_channels=9,
+                 classif_nano=False,
                  model_depth=4,
                  num_feature_map=16,
                  max_decode=2,
@@ -203,13 +204,18 @@ class SimpleHalfUnetModel(nn.Module):
                                     max_decode=max_decode,
                                     num_convs=num_convs)
 
-        self.final_conv = nn.Conv3d(in_channels=out_channels_decoder, out_channels=out_channels, kernel_size=1)
+        self.classif_nano = classif_nano
+        self.final_conv = nn.Conv3d(in_channels=out_channels_decoder,
+                                    out_channels=out_channels + 1 if classif_nano else out_channels,
+                                    kernel_size=1)
 
     def forward(self, x):
         mid, downsampling_features = self.encoder(x)
         x = self.decoder(mid, downsampling_features=downsampling_features)
         x = self.final_conv(x)
         x[0, 0, ...] = torch.sigmoid(x[0, 0, ...])
+        if self.classif_nano:
+            x[0, -1, ...] = torch.sigmoid(x[0, -1, ...])
         return x
 
 
