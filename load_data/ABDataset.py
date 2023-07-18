@@ -17,8 +17,8 @@ class ABDataset(Dataset):
 
     def __init__(self,
                  data_root="../data/pdb_em",
-                 csv_to_read="../data/csvs/chunked_train.csv",
                  all_systems="../data/csvs/filtered.csv",
+                 csv_to_read="../data/csvs/chunked_train.csv",
                  return_grid=False,
                  return_sdf=False,
                  rotate=True,
@@ -45,7 +45,15 @@ class ABDataset(Dataset):
 
     def get_df(self):
         columns = ["pdb", "dirname"] if self.full else ["pdb", "dirname", "local_ab_id"]
-        df = pd.read_csv(self.csv_to_read)[columns]
+        if isinstance(self.csv_to_read, list):
+            all_dfs = []
+            for csv in self.csv_to_read:
+                local_df = pd.read_csv(csv)[columns]
+                all_dfs.append(local_df)
+            df = pd.concat(all_dfs)
+        else:
+            df = pd.read_csv(self.csv_to_read)[columns]
+
         if self.full:
             df = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)
         return df

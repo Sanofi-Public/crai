@@ -275,9 +275,9 @@ def chunk_around(datadir_name="../data/pdb_em",
 if __name__ == '__main__':
     pass
     nanobodies = True
-    extract_all()
+    # extract_all()
     # crop_one_dirname(datadir_name="../data/pdb_em/", dirname="6V4N_21042", overwrite=False)
-    crop_maps(overwrite=False)
+    # crop_maps(overwrite=False)
 
     # # Get ones from my local database
     # multi_pdbs = [pdb for pdb, sels in pdb_selections.items() if len(sels) > 1]

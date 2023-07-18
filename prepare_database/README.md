@@ -1,20 +1,20 @@
 ## Data processing pipeline
 
-### Getting the right pairs and downloading the data
-This is done in `download_data.py`
+### Getting the initial data
 The data is originally fetched from SabDab, and a few obsolete systems are removed : 6mf7 and 7ny5.
 We also fix a weird duplicate for 7XOD where chains R and S were considered separate, and remove nanobodies from the 
 initial data. 
 We remove 7khf whose structure is very weird.
 They were found to cause bugs later on.
 
-Then, the PDB ids and chain selections are retrieved, and stored in `cleaned.csv`.
+### Getting the right pairs and downloading the data
+This is done in `download_data.py`
+The PDB ids and chain selections are retrieved, and stored in `cleaned.csv`.
 Then, using the PDB, we find the corresponding cryo-em maps and build a mapping pdb_id : em_id.
 We add the mrc column and dump `mapped.csv`
 Finally, we download all corresponding maps and cifs.
 
 ### Filtering the database
-
 This is done in `filter_database.py`.
 Starting from mapped.csv, the parsed output of SabDab, we add missing resolutions by opening the cif files,
 yielding the `resolution.csv` file. 

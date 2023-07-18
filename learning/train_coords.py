@@ -171,9 +171,9 @@ def dump_log(writer, epoch, to_log, prefix=''):
         writer.add_scalar(f'{prefix}{name}', value, epoch)
 
 
-def train(model, device, optimizer, loader,
-          writer=None, n_epochs=10, val_loader=None, val_loader_full=None,
-          accumulated_batch=1, save_path=''):
+def train(model, loader, optimizer, n_epochs=10, device='cpu',
+          val_loader=None, val_loader_full=None, nano_loader=None,
+          writer=None, accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
     last_model_path = f'{save_path}_last.pth'
     time_init = time.time()
@@ -242,6 +242,13 @@ def train(model, device, optimizer, loader,
                 model.cpu()
                 torch.save(model.state_dict(), best_model_path)
                 model.to(device)
+
+        if val_loader_nano_full is not None:
+            print("validation nano")
+            to_log = validate(model=model, device=device, loader=val_loader_nano_full)
+            val_loss = to_log["loss"]
+            print(f'Validation loss ={val_loss}')
+            dump_log(writer, epoch, to_log, prefix='nano_val_')
 
 
 def validate(model, device, loader):
@@ -316,9 +323,10 @@ if __name__ == '__main__':
     num_workers = 0
     # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     # csv_train = "../data/csvs/chunked_train_reduced.csv"
-    csv_train = "../data/csvs/chunked_train.csv"
-    # csv_train = ["../data/csvs/chunked_train.csv", "../data/csvs/chunked_train.csv"]
+    # all_systems_train = "../data/csvs/filtered_train.csv"
     all_systems_train = ["../data/csvs/filtered_train.csv", "../data/nano_csvs/filtered_train.csv"]
+    # csv_train = "../data/csvs/chunked_train.csv"
+    csv_train = ["../data/csvs/chunked_train.csv", "../data/nano_csvs/chunked_train.csv"]
     train_ab_dataset = ABDataset(csv_to_read=csv_train, all_systems=all_systems_train,
                                  rotate=args.rotate, crop=args.crop, full=args.train_full)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
@@ -330,10 +338,16 @@ if __name__ == '__main__':
     # sys.exit()
 
     csv_val = "../data/csvs/chunked_val.csv"
-    val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
-    val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    # val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
+    # val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    val_loader = None
     val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=True)
     val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
+    csv_val_nano = "../data/nano_csvs/chunked_val.csv"
+    all_system_val_nano = "../data/nano_csvs/filtered_val.csv"
+    val_ab_dataset_nano_full = ABDataset(all_systems=all_system_val_nano, csv_to_read=csv_val_nano,
+                                         rotate=False, crop=0, full=True)
+    val_loader_nano_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
 
     # Learning hyperparameters
     n_epochs = 1000
@@ -347,6 +361,6 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
-    train(model=model, device=device, loader=train_loader, optimizer=optimizer,
-          writer=writer, n_epochs=n_epochs, val_loader=val_loader, val_loader_full=val_loader_full,
-          accumulated_batch=accumulated_batch, save_path=save_path)
+    train(model=model, loader=train_loader, optimizer=optimizer, n_epochs=n_epochs, device=device,
+          val_loader=val_loader, val_loader_full=val_loader_full, nano_loader=val_loader_nano_full,
+          writer=writer, accumulated_batch=accumulated_batch, save_path=save_path)
