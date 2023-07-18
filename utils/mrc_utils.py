@@ -261,7 +261,7 @@ class MRCGrid:
         :return: a new MRC object
         """
         dx1, dx2, dy1, dy2, dz1, dz2 = np.random.randint(0, margin + 1, size=6)
-        return self.crop(self, dx1, dx2, dy1, dy2, dz1, dz2)
+        return self.crop(dx1, dx2, dy1, dy2, dz1, dz2)
 
     def save(self, outname, data=None, overwrite=False):
         data = self.data if data is None else data

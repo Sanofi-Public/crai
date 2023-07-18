@@ -243,9 +243,9 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu',
                 torch.save(model.state_dict(), best_model_path)
                 model.to(device)
 
-        if val_loader_nano_full is not None:
+        if nano_loader is not None:
             print("validation nano")
-            to_log = validate(model=model, device=device, loader=val_loader_nano_full)
+            to_log = validate(model=model, device=device, loader=nano_loader)
             val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
             dump_log(writer, epoch, to_log, prefix='nano_val_')
