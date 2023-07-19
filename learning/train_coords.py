@@ -233,7 +233,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
 
         if val_loader is not None:
             print("validation")
-            to_log = validate(model=model, device=device, loader=val_loader)
+            to_log = validate(model=model, device=device, loader=val_loader, classif_nano=classif)
             val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
             dump_log(writer, epoch, to_log, prefix='val_')
@@ -247,7 +247,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
 
         if val_loader_full is not None:
             print("validation full")
-            to_log = validate(model=model, device=device, loader=val_loader_full)
+            to_log = validate(model=model, device=device, loader=val_loader_full, classif_nano=classif)
             val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
             dump_log(writer, epoch, to_log, prefix='full_val_')
@@ -261,7 +261,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
 
         if nano_loader is not None:
             print("validation nano")
-            to_log = validate(model=model, device=device, loader=nano_loader)
+            to_log = validate(model=model, device=device, loader=nano_loader, classif_nano=classif)
             val_loss = to_log["loss"]
             print(f'Validation loss ={val_loss}')
             dump_log(writer, epoch, to_log, prefix='nano_val_')
@@ -273,7 +273,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
                 model.to(device)
 
 
-def validate(model, device, loader):
+def validate(model, device, loader, classif_nano=True):
     time_init = time.time()
     losses = list()
     all_real_dists = list()
@@ -284,7 +284,8 @@ def validate(model, device, loader):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
+                                                                                              classif_nano=classif_nano)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             nano_classifs = metrics['nano_classifs']
@@ -353,8 +354,8 @@ if __name__ == '__main__':
 
     # Setup data
 
-    num_workers = 0
-    # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
+    # num_workers = 0
+    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
     all_systems_train = []
     csv_train = []
     if args.use_fabs:
