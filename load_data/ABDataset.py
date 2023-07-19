@@ -23,7 +23,7 @@ class ABDataset(Dataset):
                  return_sdf=False,
                  rotate=True,
                  full=False,
-                 normalize=False,
+                 normalize=True,
                  crop=0):
 
         self.data_root = data_root
@@ -38,7 +38,7 @@ class ABDataset(Dataset):
 
         self.rotate = rotate
         self.crop = crop
-        self.normalize = normalize or full
+        self.normalize = normalize
 
         self.return_sdf = return_sdf
         self.return_grid = return_grid
@@ -97,7 +97,7 @@ class ABDataset(Dataset):
         # return self.unwrapped_get_item(row)
         try:
             return self.unwrapped_get_item(row)
-        except FileNotFoundError as e:
+        except Exception as e:
             return row[0], None
 
 

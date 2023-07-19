@@ -128,6 +128,7 @@ def coords_loss(prediction, comp, classif_nano=True):
         actual_distances.append(distance)
     metrics['real_dists'] = actual_distances
 
+    metrics['nano_classifs'] = list()
     offset_losses, rz_losses, angle_losses, nano_losses = [], [], [], []
     for pos_tuple, translation, rotation, nano in filtered_transforms:
         # Extract the predicted vector at this location
@@ -160,9 +161,12 @@ def coords_loss(prediction, comp, classif_nano=True):
         if classif_nano:
             # Now we also include the nanobodies
             nano_loss = weighted_focal_loss(vector_pose[8], nano, weights=[1, 1726 / 426])
+            right_classif = nano == (vector_pose[8] > 0.5).item()
             # print(nano, vector_pose[8], nano_loss)
         else:
             nano_loss = torch.zeros(1)
+            right_classif = 0
+        metrics['nano_classifs'].append(right_classif)
 
         offset_losses.append(offset_loss)
         rz_losses.append(rz_loss)
@@ -181,7 +185,7 @@ def dump_log(writer, epoch, to_log, prefix=''):
         writer.add_scalar(f'{prefix}{name}', value, epoch)
 
 
-def train(model, loader, optimizer, n_epochs=10, device='cpu',
+def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
           val_loader=None, val_loader_full=None, nano_loader=None,
           writer=None, accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
@@ -193,7 +197,8 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu',
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
+                                                                                              classif_nano=classif)
             position_dist = metrics['mean_dist']
 
             if offset_loss is None:
@@ -272,6 +277,7 @@ def validate(model, device, loader):
     time_init = time.time()
     losses = list()
     all_real_dists = list()
+    all_nano_classifs = list()
     with torch.no_grad():
         for step, (name, comp) in enumerate(loader):
             if comp is None:
@@ -281,6 +287,7 @@ def validate(model, device, loader):
             position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
+            nano_classifs = metrics['nano_classifs']
 
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss + nano_loss
@@ -293,6 +300,7 @@ def validate(model, device, loader):
                                position_dist
                                ])
                 all_real_dists.extend(real_dists)
+                all_nano_classifs.extend(nano_classifs)
 
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
@@ -303,6 +311,7 @@ def validate(model, device, loader):
     mean_real_dist = np.mean(all_real_dists)
     all_real_dists[all_real_dists >= 20] = 20
     mean_real_dist_capped = np.mean(all_real_dists)
+    nano_classif_rate = np.mean(np.asarray(all_nano_classifs))
     # print(hr_6)
     # print(mean_real_dist)
     # print(mean_real_dist_capped)
@@ -314,6 +323,7 @@ def validate(model, device, loader):
               "angle_loss": losses[4],
               "nano_loss": losses[5],
               "position_distance": losses[6],
+              "nano_classif_rate": nano_classif_rate,
               "real_dist": mean_real_dist,
               "real_dist_capped": mean_real_dist_capped,
               "hr_6": hr_6,
@@ -328,6 +338,9 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--train_full", action='store_false', default=True)
     parser.add_argument("--rotate", action='store_false', default=True)
+    parser.add_argument("--use_fabs", action='store_false', default=True)
+    parser.add_argument("--use_nano", action='store_false', default=True)
+    parser.add_argument("--normalize", action='store_false', default=True)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -339,21 +352,19 @@ if __name__ == '__main__':
                                                gpu_number=args.gpu)
 
     # Setup data
-    use_fabs = True
-    use_nano = True
+
     num_workers = 0
     # num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_train = "../data/csvs/chunked_train_reduced.csv"
     all_systems_train = []
     csv_train = []
-    if use_fabs:
+    if args.use_fabs:
         all_systems_train.append("../data/csvs/filtered_train.csv")
         csv_train.append("../data/csvs/chunked_train.csv")
-    if use_nano:
+    if args.use_nano:
         all_systems_train.append("../data/nano_csvs/filtered_train.csv")
         csv_train.append("../data/nano_csvs/chunked_train.csv")
     train_ab_dataset = ABDataset(csv_to_read=csv_train, all_systems=all_systems_train,
-                                 rotate=args.rotate, crop=args.crop, full=args.train_full)
+                                 rotate=args.rotate, crop=args.crop, full=args.train_full, normalize=args.normalize)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
                               shuffle=True, collate_fn=lambda x: x[0], num_workers=num_workers)
     # # Test loss
@@ -362,32 +373,36 @@ if __name__ == '__main__':
     # coords_loss(fake_out, train_ab_dataset[0][1])
     # sys.exit()
 
-    if use_fabs:
+    if args.use_fabs:
         csv_val = "../data/csvs/chunked_val.csv"
-        # val_ab_dataset = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=False)
+        all_system_val = "../data/csvs/filtered_val.csv"
+        # val_ab_dataset = ABDataset(all_systems=all_system_val,csv_to_read=csv_val,
+        #                            rotate=False, crop=0, full=False, normalize=args.normalize)
         # val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
         val_loader = None
-        val_ab_dataset_full = ABDataset(csv_to_read=csv_val, rotate=False, crop=0, full=True)
+        val_ab_dataset_full = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
+                                        rotate=False, crop=0, full=True, normalize=args.normalize)
         val_loader_full = DataLoader(dataset=val_ab_dataset_full, collate_fn=lambda x: x[0], num_workers=num_workers)
     else:
         val_loader = None
         val_loader_full = None
-    if use_nano:
+    if args.use_nano:
         csv_val_nano = "../data/nano_csvs/chunked_val.csv"
         all_system_val_nano = "../data/nano_csvs/filtered_val.csv"
         val_ab_dataset_nano_full = ABDataset(all_systems=all_system_val_nano, csv_to_read=csv_val_nano,
-                                             rotate=False, crop=0, full=True)
+                                             rotate=False, crop=0, full=True, normalize=args.normalize)
         val_loader_nano_full = DataLoader(dataset=val_ab_dataset_nano_full, collate_fn=lambda x: x[0],
                                           num_workers=num_workers)
     else:
         val_loader_nano_full = None
 
     # Learning hyperparameters
+    classif = args.use_nano and args.use_fabs
     n_epochs = 1000
     accumulated_batch = args.agg_grads
     model = SimpleHalfUnetModel(in_channels=1,
-                                classif_nano=use_nano and use_fabs,
-                                out_channels=10,
+                                classif_nano=classif,
+                                out_channels=9,
                                 model_depth=4,
                                 num_convs=3,
                                 max_decode=2,
@@ -396,6 +411,6 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Train
-    train(model=model, loader=train_loader, optimizer=optimizer, n_epochs=n_epochs, device=device,
+    train(model=model, loader=train_loader, optimizer=optimizer, n_epochs=n_epochs, device=device, classif=classif,
           val_loader=val_loader, val_loader_full=val_loader_full, nano_loader=val_loader_nano_full,
           writer=writer, accumulated_batch=accumulated_batch, save_path=save_path)

@@ -91,4 +91,4 @@ if __name__ == '__main__':
     classif_nano = False
     default_nano = False
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
-                   n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=False)
+                   n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=default_nano)

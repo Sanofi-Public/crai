@@ -23,7 +23,7 @@ class CoordComplex:
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path, normalize=normalize)
         self.initial_mrc_origin = self.mrc.origin
 
-        transforms = pdbsel_to_transforms(pdb_path, antibody_selections, cache=cache, recompute=True)
+        transforms = pdbsel_to_transforms(pdb_path, antibody_selections, cache=cache)
         # if any([transform[0] > 5 for transform in transforms]):
         #     raise ValueError("The RMSD between template and query is suspiciously high")
 

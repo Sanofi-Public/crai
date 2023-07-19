@@ -190,7 +190,7 @@ class SimpleHalfUnetModel(nn.Module):
                  model_depth=4,
                  num_feature_map=16,
                  max_decode=2,
-                 num_convs=2
+                 num_convs=3
                  ):
         super(SimpleHalfUnetModel, self).__init__()
         self.num_feat_maps = num_feature_map
