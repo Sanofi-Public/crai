@@ -94,7 +94,7 @@ def coords_loss(prediction, comp, classif_nano=True):
     position_loss = weighted_focal_loss(prediction[0, 0, ...],
                                         BCE_target,
                                         weights=[1, 30],
-                                        gamma=2)
+                                        gamma=4)
     if len(filtered_transforms) == 0:
         return position_loss, None, None, None, None
 
