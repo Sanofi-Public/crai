@@ -112,7 +112,7 @@ if __name__ == '__main__':
     max_systems = None
     nanobodies = True
     if not nanobodies:
-        in_tsv = '../data/csvs/20230315_0733035_summary.tsv'
+        in_tsv = '../data/csvs/fabs.tsv'
         csv_pdb = '../data/csvs/cleaned.csv'
         csv_mapped = '../data/csvs/mapped.csv'
     else:
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     add_mrc(csv_pdb=csv_pdb, pdb_em_mapping=pdb_em_mapping, out_csv=csv_mapped)
     # download_one_mrc()
     # download_one_mmtf()
-    get_database(pdb_em_mapping)
+    # get_database(pdb_em_mapping)
 
     # path = '../data/pdb_em'
     # for system in os.listdir(path):

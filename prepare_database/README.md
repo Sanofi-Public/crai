@@ -1,11 +1,37 @@
 ## Data processing pipeline
 
 ### Getting the initial data
-The data is originally fetched from SabDab, and a few obsolete systems are removed : 6mf7 and 7ny5.
-We also fix a weird duplicate for 7XOD where chains R and S were considered separate, and remove nanobodies from the 
-initial data. 
-We remove 7khf whose structure is very weird.
+The data is originally fetched from SabDab.
+A few obsolete systems are removed 7ny5.
+We remove very weird structures (fusion protein or immunoglobulins M)
+7khf, 8blq, 7uvl, 8ema, 8ae{0-1-3}, 8ad{x,y}, 7xq8, 7rxd, 7rxc, 7l6m
 They were found to cause bugs later on.
+
+We also fix systems where chains are considered separate :
+7YVN, chain HI
+7YVP, chain IJ
+8HHX, chain HI
+8HHY, FW-GI
+8DXS, FI-GJ
+7XOD, RS-UV-XY
+7MLV, KF
+6XJA (missing chain AB and missing antigen)
+
+Nanobodies were present in the fab files. They were annotated as having just one chain and no antigen partner.
+We moved them to the nanobody file :
+7zl{g-h-i-j} chain K bound to L
+8hi{i-j-k} chain N bound to L
+7xw6 chain N bound to AB
+7sk7 chain K bound to C
+7sk5 chain E bound to C
+7zyi chain K bound to L
+7xod chain T-W-Z bound to S-V-Y
+6ni2 chain A bound to B | V
+7wpe chain W-Z bound to V-Y
+6ww2 chain K bound to L
+7jhh chain N bound to L
+7ul3 chain C bound to A
+7tuy chain K bound to L
 
 ### Getting the right pairs and downloading the data
 This is done in `download_data.py`
