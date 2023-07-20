@@ -17,7 +17,8 @@ def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_o
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     mrc = mrc.crop(*(crop,) * 6)
     if process:
-        mrc = mrc.resample().normalize()
+        # mrc = mrc.resample().normalize()
+        mrc = mrc.resample().normalize(use_max=True)
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     with torch.no_grad():
         # out = model(mrc_grid)
@@ -54,8 +55,8 @@ if __name__ == '__main__':
     # dirname = '6VJA_21212'  # this is close Fvs
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map.gz"), False
-    mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
+    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map"), False
+    # mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
 
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))

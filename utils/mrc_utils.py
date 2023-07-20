@@ -110,15 +110,18 @@ class MRCGrid:
             origin = original_origin + shift_array_xyz * voxel_size
         return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize=normalize)
 
-    def normalize(self):
+    def normalize(self, use_max=False):
         """
         :return:
         """
         relued = np.maximum(self.data, np.zeros_like(self.data))
         flat = relued.flatten()
-        above_zero = flat[flat > 0.]
-        sorted_above_zero = np.sort(above_zero)
-        threshold = sorted_above_zero[int(0.95 * len(sorted_above_zero))]
+        if use_max:
+            threshold = np.max(flat)
+        else:
+            above_zero = flat[flat > 0.]
+            sorted_above_zero = np.sort(above_zero)
+            threshold = sorted_above_zero[int(0.95 * len(sorted_above_zero))]
         relued = relued / threshold
         new_data = np.minimum(relued, np.ones_like(relued))
         self.data = new_data
@@ -309,8 +312,8 @@ if __name__ == '__main__':
     # dirname = "7WLC_32581"  # looks ok
     # dirname = '3IXX_5103'  # looks ok
     # dirname = "3J3O_5291"  # large offset between pdb and cryoem
-    # dirname = "6NQD_0485"
-    dirname = "6V4N_21042"
+    dirname = "6NQD_0485"
+    # dirname = "6V4N_21042"
 
     pdb_name, mrc = dirname.split("_")
     pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
@@ -320,6 +323,11 @@ if __name__ == '__main__':
     resampled_name = os.path.join(datadir_name, dirname, f"resampled_0_2.mrc")
     rotated_name = os.path.join(datadir_name, dirname, f"rotated.mrc")
     # t0 = time.perf_counter()
+    # outname = os.path.join(datadir_name, dirname, f"full_cleaned.mrc")
+    # mrc = MRCGrid.from_mrc(mrc_file=map_path)
+    # mrc = mrc.resample().normalize(use_max=True)
+    # mrc.save(outname, overwrite=True)
+
     mrc = MRCGrid.from_mrc(mrc_file=map_path)
     # print(f'mrc : {time.perf_counter() - t0}')
     # mrc.save_npz('toto.npz', compressed=False)
