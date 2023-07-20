@@ -25,7 +25,7 @@ def get_ab_list(in_tsv='../data/csvs/20230315_0733035_summary.tsv', out_csv='../
     # models = df[['model']]
     # un = np.unique(models, return_counts=True)
     df = df.loc[df['model'] == 0]
-    df = df[['pdb', 'Hchain', 'Lchain', 'antigen_chain', 'resolution']]
+    df = df[['pdb', 'Hchain', 'Lchain', 'antigen_chain', 'resolution', 'date']]
     df.to_csv(out_csv)
     return df
 
@@ -121,18 +121,10 @@ if __name__ == '__main__':
         csv_mapped = '../data/nano_csvs/mapped.csv'
 
     pdb_df = get_ab_list(in_tsv=in_tsv, out_csv=csv_pdb)
-    # pdb_df = pd.read_csv(csv_pdb)
     relevant_ids = np.unique(pdb_df['pdb'])[:max_systems]
     pdb_em_mapping = get_mapping_ids(relevant_ids)
 
     add_mrc(csv_pdb=csv_pdb, pdb_em_mapping=pdb_em_mapping, out_csv=csv_mapped)
     # download_one_mrc()
     # download_one_mmtf()
-    # get_database(pdb_em_mapping)
-
-    # path = '../data/pdb_em'
-    # for system in os.listdir(path):
-    #     print(system)
-    #     pdb_name, mrc_name = system.split("_")
-    #     outdir = os.path.join(path, system)
-    #     download_one_cif(pdb_id=pdb_name, outdir=outdir, overwrite=False)
+    get_database(pdb_em_mapping)

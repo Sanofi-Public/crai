@@ -23,48 +23,6 @@ from utils.pymol_utils import list_id_to_pymol_sel
 from utils.python_utils import init
 
 
-def do_one(dirname, datadir_name):
-    """
-    Any jobs that needs to be run on the database, such as statistics, to be done in parallel
-    :param dirname:
-    :param datadir_name:
-    :return:
-    """
-    try:
-        pdb_name, mrc = dirname.split("_")
-        # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.mmtf.gz")
-        pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-        mrcgz_path = os.path.join(datadir_name, dirname, f"emd_{mrc}.map.gz")
-        carved_name = os.path.join(datadir_name, dirname, "carved.mrc")
-        resampled_name = os.path.join(datadir_name, dirname, "resampled_3.mrc")
-        # mrc = MRCGrid.from_mrc(mrcgz_path)
-
-        mrc = load_mrc(mrcgz_path)
-        boo = mrc.header.mx.item() != mrc.data.shape[0] or \
-              mrc.header.my.item() != mrc.data.shape[1] or \
-              mrc.header.mz.item() != mrc.data.shape[2]
-        if boo:
-            print(f'{dirname} : {mrc.header.mx.item()}')
-    except Exception as e:
-        # print(f"Failed for system : {dirname}")
-        return 1, f"Failed for system : {dirname} with error {e}"
-
-
-def parallel_do(datadir_name="../data/pdb_em", ):
-    """
-    Run do one in parallel
-    :param datadir_name:
-    :return:
-    """
-    files_list = os.listdir(datadir_name)
-    l = multiprocessing.Lock()
-    pool = multiprocessing.Pool(initializer=init, initargs=(l,))
-    njobs = len(files_list)
-    results = pool.starmap(do_one,
-                           tqdm(zip(files_list, [datadir_name, ] * njobs), total=njobs))
-    print(results)
-
-
 def str_resolution_to_float(str_res, default_value=20):
     # Some res are weird
     try:
@@ -104,10 +62,10 @@ def clean_resolution(datadir_name='../data/pdb_em',
     Sabdab fails to parse certain resolutions
     """
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
-    new_df = pd.DataFrame(columns=df.columns)
-
-    for i, row in tqdm(df.iterrows(), total=len(df)):
-        pdb, heavy_chain, light_chain, antigen, resolution, mrc = row.values
+    pruned = df[['resolution', 'pdb', 'mrc']]
+    new_resolutions = []
+    for i, row in tqdm(pruned.iterrows(), total=len(pruned)):
+        resolution, pdb, mrc = row.values
 
         # Try to read the resolution with a placeholder default value
         # If we hit this, open the mmcif and get a corrected value
@@ -120,8 +78,9 @@ def clean_resolution(datadir_name='../data/pdb_em',
             except:
                 print('Failed to fix resolution for :', pdb)
                 resolution = default_value
-        new_df.loc[len(new_df)] = pdb, heavy_chain, light_chain, antigen, resolution, mrc
-    new_df.to_csv(csv_out)
+        new_resolutions.append(resolution)
+    df['resolution'] = new_resolutions
+    df.to_csv(csv_out)
 
 
 def validate_one(mrc, pdb, sel=None, resolution=4.):
@@ -159,9 +118,10 @@ def validate_one(mrc, pdb, sel=None, resolution=4.):
 def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # Prepare input list
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
+    df = df[['pdb', 'Hchain', 'Lchain', 'resolution', 'mrc']]
     to_process = []
     for i, row in df.iterrows():
-        pdb, heavy_chain, light_chain, antigen, resolution, mrc = row.values
+        pdb, heavy_chain, light_chain, resolution, mrc = row.values
         pdb = pdb.upper()
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
         pdb_path = os.path.join(system_dir, f"{pdb}.cif")
@@ -169,21 +129,10 @@ def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
         selection = list_id_to_pymol_sel([heavy_chain, light_chain])
         to_process.append((mrc_path, pdb_path, selection, resolution))
 
-    # # For reduced computation
-    # max_systems = 10
-    # to_process = to_process[:max_systems]
-    # df = df[:max_systems]
-
     # Parallel computation
     l = multiprocessing.Lock()
     pool = multiprocessing.Pool(processes=24, initializer=init, initargs=(l,), )
     results = pool.starmap(validate_one, tqdm(to_process, total=len(to_process)))
-
-    # # For sequential computation
-    # results = []
-    # for i, x in enumerate(to_process):
-    #     print(i)
-    #     results.append(validate_one(*x))
 
     all_results = []
     all_errors = []
@@ -258,9 +207,10 @@ def dock_one(mrc, pdb, sel=None, resolution=4.):
 def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # Prepare input list
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
+    df = df[['pdb', 'Hchain', 'Lchain', 'resolution', 'mrc']]
     to_process = []
     for i, row in df.iterrows():
-        pdb, heavy_chain, light_chain, antigen, resolution, mrc, validated = row.values
+        pdb, heavy_chain, light_chain, resolution, mrc = row.values
         pdb = pdb.upper()
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
         pdb_path = os.path.join(system_dir, f"{pdb}.cif")
@@ -268,21 +218,10 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
         selection = list_id_to_pymol_sel([heavy_chain, light_chain])
         to_process.append((mrc_path, pdb_path, selection, resolution))
 
-    # # For reduced computation
-    # max_systems = 10
-    # to_process = to_process[:max_systems]
-    # df = df[:max_systems]
-
     # Parallel computation
     l = multiprocessing.Lock()
     pool = multiprocessing.Pool(processes=24, initializer=init, initargs=(l,), )
     results = pool.starmap(dock_one, tqdm(to_process, total=len(to_process)))
-
-    # # For sequential computation
-    # results = []
-    # for i, x in enumerate(to_process):
-    #     print(i)
-    #     results.append(validate_one(*x))
 
     all_results = []
     all_errors = []
@@ -304,8 +243,10 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
-def filter_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
-               out_csv='../data/csvs/filtered.csv'):
+def filter_csv(in_csv="../data/csvs/docked.csv",
+               max_resolution=10.,
+               out_csv='../data/csvs/filtered.csv',
+               nano=False):
     """
     This goes through a csv of systems, filters it :
     - removes systems with empty antigen chain
@@ -316,27 +257,12 @@ def filter_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
     :return:
     """
     df = pd.read_csv(in_csv, index_col=0, dtype={'mrc': 'str'})
-    df_new = pd.DataFrame(columns=df.columns.tolist() + ['antibody_selection', 'antigen_selection'])
-
-    # # Get subset
-    # reduced_pdblist = [name[:4].lower() for name in os.listdir("../data/pdb_em")]
-    # df_sub = df[df.pdb.isin(reduced_pdblist)]
-
-    # df_sub.to_csv('../data/csvs/reduced_clean.csv')
-
-    # # Get resolution histogram
-    # import matplotlib.pyplot as plt
-    # import numpy as np
-    # grouped = df.groupby('pdb').nth(0)
-    # all_res = grouped[['resolution']].values.squeeze()
-    # float_res = [str_resolution_to_float(str_res) for str_res in all_res]
-    # plot_res = [res if res < 20 else 20. for res in float_res]
-    # plt.hist(plot_res, bins=np.arange(21))
-    # plt.show()
-    # filtered_res = [res for res in float_res if res < 10]
-    # print(f" Retained {len(filtered_res)} / {len(all_res)} systems based on resolution")
-    for i, row in df.iterrows():
-        pdb, heavy_chain, light_chain, antigen, resolution, mrc, val, dock = row.values
+    pruned = df[['Hchain', 'Lchain', 'antigen_chain', 'resolution']]
+    ids_to_keeps = []
+    ab_sels = []
+    ag_sels = []
+    for i, row in pruned.iterrows():
+        heavy_chain, light_chain, antigen, resolution = row.values
 
         # Resolution cutoff
         resolution = str_resolution_to_float(resolution)
@@ -355,11 +281,33 @@ def filter_csv(in_csv="../data/csvs/docked.csv", max_resolution=10.,
                 list_chain_antibody.append(light_chain)
 
             # If only one chain, we still accept it (?)
-            if len(list_chain_antibody) > 0:
+            if (len(list_chain_antibody) == 2 and not nano) or (len(list_chain_antibody) == 1 and nano):
                 antibody_selection = list_id_to_pymol_sel(list_chain_antibody)
-                df_new.loc[len(df_new)] = pdb, heavy_chain, light_chain, antigen, resolution, mrc, val, dock, \
-                    antibody_selection, antigen_selection
+                ids_to_keeps.append(i)
+                ab_sels.append(antibody_selection)
+                ag_sels.append(antigen_selection)
+    df_new = df.iloc[ids_to_keeps].copy()
+    df_new['antibody_selection'] = ab_sels
+    df_new['antigen_selection'] = ag_sels
     df_new.to_csv(out_csv)
+
+
+def sort_date(x):
+    """
+    MM/DD/YY => YY/MM/DD
+    """
+    res = x[-2:] + x[:2] + x[-5:-3]
+    return res
+
+
+def sort_by_date(csv_in, csv_out):
+    df = pd.read_csv(csv_in)
+    sorter_col = df['date'].apply(sort_date)
+    df['sorter'] = sorter_col
+    df = df.sort_values(by=['sorter'])
+    df.drop(columns=['sorter'])
+    df.to_csv(csv_out)
+    return df
 
 
 def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/filtered', other=None):
@@ -415,6 +363,7 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
 
 if __name__ == '__main__':
     pass
+
     nanobodies = True
     if not nanobodies:
         mapped = '../data/csvs/mapped.csv'
@@ -423,7 +372,10 @@ if __name__ == '__main__':
         docked = '../data/csvs/docked.csv'
         filtered = '../data/csvs/filtered.csv'
         out_basename = '../data/csvs/filtered'
+        sorted_filtered = '../data/csvs/sorted_filtered.csv'
+        sorted_out_basename = '../data/csvs/sorted_filtered'
         other = None
+        sorted_other = None
     else:
         mapped = '../data/nano_csvs/mapped.csv'
         resolution = '../data/nano_csvs/resolution.csv'
@@ -432,27 +384,24 @@ if __name__ == '__main__':
         filtered = '../data/nano_csvs/filtered.csv'
         out_basename = '../data/nano_csvs/filtered'
         other = '../data/csvs/filtered'
+        sorted_filtered = '../data/nano_csvs/sorted_filtered.csv'
+        sorted_out_basename = '../data/nano_csvs/sorted_filtered'
+        sorted_other = '../data/csvs/sorted_filtered'
 
     # ADD RESOLUTION
     # clean_resolution(csv_in=mapped, csv_out=resolution)
 
-    # VALIDATE
+    # VALIDATE AND DOCK
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
     # mrc = "../data/pdb_em/7LO8_23464/emd_23464.map"
     # sel = 'chain H or chain L'
-    # pdb = '../data/pdb_em/7PC2_13316/7PC2.cif'
-    # mrc = '../data/pdb_em/7PC2_13316/emd_13316.map'
-    # sel = "chain H or chain G"
     # validate_one(pdb=pdb, mrc=mrc, sel=sel)
+    # dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
     # add_validation_score(csv_in=resolution, csv_out=validated)
-
-    # DOCK
-    # res = dock_one(pdb=pdb, mrc=mrc, sel=sel, resolution=2.8)
-    # print(res)
-    # t0 = time.time()
     # add_docking_score(csv_in=validated, csv_out=docked)
-    # print("done in ", time.time() - t0)
 
-    # FILTER AND SPLIT
-    # filter_csv(in_csv=docked, out_csv=filtered)
+    # FILTER AND SPLIT : we do two splitting, one being on sorted systems by date
+    filter_csv(in_csv=resolution, out_csv=filtered, nano=nanobodies)
+    sort_by_date(csv_in=filtered, csv_out=sorted_filtered)
     split_csv(csv_file=filtered, out_basename=out_basename, other=other)
+    split_csv(csv_file=sorted_filtered, out_basename=sorted_out_basename, other=sorted_other)
