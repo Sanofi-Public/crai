@@ -2,13 +2,11 @@ import os
 import sys
 
 import multiprocessing
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 import pymol2
 import subprocess
-import time
 from tqdm import tqdm
 
 PHENIX_VALIDATE = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.validation_cryoem"
@@ -18,7 +16,6 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from utils.mrc_utils import load_mrc
 from utils.pymol_utils import list_id_to_pymol_sel
 from utils.python_utils import init
 
@@ -243,9 +240,9 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     # 4 (42)  : FileNotFoundError or StopIteration.. mysterious
 
 
-def filter_csv(in_csv="../data/csvs/docked.csv",
+def filter_csv(csv_in="../data/csvs/docked.csv",
                max_resolution=10.,
-               out_csv='../data/csvs/filtered.csv',
+               csv_out='../data/csvs/filtered.csv',
                nano=False):
     """
     This goes through a csv of systems, filters it :
@@ -253,10 +250,13 @@ def filter_csv(in_csv="../data/csvs/docked.csv",
     - removes systems with no-antibody chain
     - filters on resolution : <10 A
 
-    :param in_csv:
+    :param csv_in:
+    :param max_resolution:
+    :param csv_out:
+    :param nano:
     :return:
     """
-    df = pd.read_csv(in_csv, index_col=0, dtype={'mrc': 'str'})
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     pruned = df[['Hchain', 'Lchain', 'antigen_chain', 'resolution']]
     ids_to_keep = []
     ab_sels = []
@@ -288,7 +288,7 @@ def filter_csv(in_csv="../data/csvs/docked.csv",
     df_new = df.iloc[ids_to_keep].copy()
     df_new['antibody_selection'] = ab_sels
     df_new['antigen_selection'] = ag_sels
-    df_new.to_csv(out_csv)
+    df_new.to_csv(csv_out)
 
 
 def sort_date(x):
@@ -300,16 +300,16 @@ def sort_date(x):
 
 
 def sort_by_date(csv_in, csv_out):
-    df = pd.read_csv(csv_in)
+    df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     sorter_col = df['date'].apply(sort_date)
     df['sorter'] = sorter_col
     df = df.sort_values(by=['sorter'])
-    df.drop(columns=['sorter'])
+    df = df.drop(columns=['sorter'])
     df.to_csv(csv_out)
     return df
 
 
-def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/filtered', other=None):
+def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/filtered', other=None, random=False):
     """
     :param csv_file:
     :param out_basename:
@@ -318,6 +318,9 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
     """
     df = pd.read_csv(csv_file, index_col=0, dtype={'mrc': 'str'})
     unique_pdb = df["pdb"].unique()
+    if random:
+        np.random.seed(42)
+        np.random.shuffle(unique_pdb)
 
     if other is not None:
         # First read the other pdbs
@@ -400,7 +403,7 @@ if __name__ == '__main__':
     # add_docking_score(csv_in=validated, csv_out=docked)
 
     # FILTER AND SPLIT : we do two splitting, one being on sorted systems by date
-    filter_csv(in_csv=resolution, out_csv=filtered, nano=nanobodies)
+    filter_csv(csv_in=resolution, csv_out=filtered, nano=nanobodies)
     sort_by_date(csv_in=filtered, csv_out=sorted_filtered)
-    split_csv(csv_file=filtered, out_basename=out_basename, other=other)
+    split_csv(csv_file=filtered, out_basename=out_basename, other=other, random=True)
     split_csv(csv_file=sorted_filtered, out_basename=sorted_out_basename, other=sorted_other)

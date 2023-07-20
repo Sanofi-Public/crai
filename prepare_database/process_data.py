@@ -315,14 +315,14 @@ if __name__ == '__main__':
     # do_one_chunking(dirname=dirname, datadir_name=datadir_name, pdb_selections=pdb_selections, overwrite=False)
 
     if not nanobodies:
-        chunk_around(csv_in='../data/csvs/filtered_train.csv', csv_dump='../data/csvs/chunked_train.csv',
-                     overwrite=True)
-        chunk_around(csv_in='../data/csvs/filtered_val.csv', csv_dump='../data/csvs/chunked_val.csv', overwrite=True)
-        chunk_around(csv_in='../data/csvs/filtered_test.csv', csv_dump='../data/csvs/chunked_test.csv', overwrite=True)
+        for split in ['train', 'val', 'test']:
+            for sort in [False, True]:
+                chunk_around(csv_in=f'../data/csvs/{"sorted_" if sort else ""}filtered_{split}.csv',
+                             csv_dump=f'../data/csvs/{"sorted_" if sort else ""}chunked_{split}.csv',
+                             overwrite=True)
     else:
-        chunk_around(csv_in='../data/nano_csvs/filtered_train.csv', csv_dump='../data/nano_csvs/chunked_train.csv',
-                     overwrite=True)
-        chunk_around(csv_in='../data/nano_csvs/filtered_val.csv', csv_dump='../data/nano_csvs/chunked_val.csv',
-                     overwrite=True)
-        chunk_around(csv_in='../data/nano_csvs/filtered_test.csv', csv_dump='../data/nano_csvs/chunked_test.csv',
-                     overwrite=True)
+        for split in ['train', 'val', 'test']:
+            for sort in [False, True]:
+                chunk_around(csv_in=f'../data/csvs/{"sorted_" if sort else ""}filtered_{split}.csv',
+                             csv_dump=f'../data/csvs/{"sorted_" if sort else ""}chunked_{split}.csv',
+                             overwrite=True)
