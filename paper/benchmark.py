@@ -77,7 +77,7 @@ def get_num_fabs_fvs(pdb_path, selections):
     return fabs, fvs
 
 
-def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=False):
+def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=False, recompute=False, nano=False):
     """
     Run dock in map on one chain.
     The mrc file is supposed to be a custom one in mrc format.
@@ -101,20 +101,37 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
     assert mrc_extension == '.mrc'
     try:
         t0 = time.time()
-        # GET THE PDB TO DOCK (for now copies of the reference)
+        # GET THE PDB TO DOCK
         dir_path = os.path.dirname(pdb_path)
         pdb_file = os.path.basename(pdb_path)
         pdb, _ = os.path.splitext(pdb_file)
         selections = [res[0] for res in selections]
-        if use_template:
-            fabs, fvs = get_num_fabs_fvs(pdb_path, selections=selections)
-            fv_file_path, _ = os.path.splitext(REF_PATH_FV)
-            fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
-            to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
-                      [f"{fab_file_path}_{i + 1}.pdb" for i in range(fabs)]
-            pdb_out = os.path.join(dir_path, 'output_dock_in_map.pdb')
-
-        # We could also implement extraction of the actual chains (is that cheating ?)
+        if not nano:
+            # Either we use templates, i.e. copies of a reference system
+            if use_template:
+                fabs, fvs = get_num_fabs_fvs(pdb_path, selections=selections)
+                fv_file_path, _ = os.path.splitext(REF_PATH_FV)
+                fab_file_path, _ = os.path.splitext(REF_PATH_FAB)
+                to_dock = [f"{fv_file_path}_{i + 1}.pdb" for i in range(fvs)] + \
+                          [f"{fab_file_path}_{i + 1}.pdb" for i in range(fabs)]
+                pdb_out = os.path.join(dir_path, 'output_dock_in_map.pdb')
+            # Or we extract the actual chains from the PDB
+            else:
+                to_dock = []
+                with pymol2.PyMOL() as p:
+                    p.cmd.feedback("disable", "all", "everything")
+                    p.cmd.load(pdb_path, 'in_pdb')
+                    for i, selection in enumerate(selections):
+                        sel = f'in_pdb and ({selection})'
+                        p.cmd.extract("to_align", sel)
+                        coords = p.cmd.get_coords("to_align")
+                        rotated = R.random().apply(coords)
+                        translated = rotated + np.array([10, 20, 30])[None, :]
+                        p.cmd.load_coords(translated, "to_align", state=1)
+                        outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_{i}.pdb')
+                        p.cmd.save(outname, 'to_align')
+                        to_dock.append(outname)
+                pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual.pdb')
         else:
             to_dock = []
             with pymol2.PyMOL() as p:
@@ -127,13 +144,15 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
                     rotated = R.random().apply(coords)
                     translated = rotated + np.array([10, 20, 30])[None, :]
                     p.cmd.load_coords(translated, "to_align", state=1)
-                    outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_{i}.pdb')
+                    outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_nano_{i}.pdb')
                     p.cmd.save(outname, 'to_align')
                     to_dock.append(outname)
-            pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual.pdb')
+            pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual_nano.pdb')
+
+        if os.path.exists(pdb_out) and not recompute:
+            return 5, "Already computed"
 
         # NOW WE CAN DOCK IN MAP
-
         cmd = f'{PHENIX_DOCK_IN_MAP} {" ".join(to_dock)} {mrc_path} pdb_out={pdb_out} resolution={resolution}'
         res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
         returncode = res.returncode
@@ -155,10 +174,10 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
         return 2, e
 
 
-def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_template=False):
+def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_template=False, recompute=False,
+                          nano=False):
     # Prepare input list
-    all_systems = "../data/csvs/filtered.csv"
-    pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
     columns = ["pdb", "mrc", "resolution"]
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})[columns]
     df = df.groupby("pdb", as_index=False).nth(0).reset_index(drop=True)
@@ -176,7 +195,7 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
     # Parallel computation
     l = multiprocessing.Lock()
     pool = multiprocessing.Pool(processes=32, initializer=init, initargs=(l,), )
-    dock = functools.partial(dock_chains, use_template=use_template)
+    dock = functools.partial(dock_chains, use_template=use_template, recompute=recompute, nano=nano)
     results = pool.starmap(dock, tqdm(to_process, total=len(to_process)))
 
     # Parse results
@@ -252,10 +271,16 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    # csv_in = '../data/csvs/filtered.csv'
-    # use_template = True
-    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    use_template = False
+    csv_in = '../data/csvs/filtered.csv'
+    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+
+    print("done computing fabs")
+
+    csv_in = '../data/nano_csvs/filtered.csv'
+    csv_out = f'../data/nano_csvs/benchmark_actual_nano.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=True)
 
     # NO TEMPLATE
     # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
@@ -356,12 +381,13 @@ if __name__ == '__main__':
     # print(res)
 
     # Parse all
-    csv_in = '../data/csvs/filtered.csv'
-    use_template = False
-    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-    out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
-    parse_all_dockinmap(csv_in=out_dock,
-                        parsed_out=parsed_out,
-                        pdb_selections=pdb_selections,
-                        use_template=use_template)
+    # csv_in = '../data/csvs/filtered.csv'
+    # use_template = False
+    # nano = False
+    # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
+    # out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    # parse_all_dockinmap(csv_in=out_dock,
+    #                     parsed_out=parsed_out,
+    #                     pdb_selections=pdb_selections,
+    #                     use_template=use_template)
