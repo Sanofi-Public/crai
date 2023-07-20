@@ -64,7 +64,7 @@ def clean_resolution(datadir_name='../data/pdb_em',
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     pruned = df[['resolution', 'pdb', 'mrc']]
     new_resolutions = []
-    for i, row in tqdm(pruned.iterrows(), total=len(pruned)):
+    for _, row in tqdm(pruned.iterrows(), total=len(pruned)):
         resolution, pdb, mrc = row.values
 
         # Try to read the resolution with a placeholder default value
@@ -120,7 +120,7 @@ def add_validation_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     df = df[['pdb', 'Hchain', 'Lchain', 'resolution', 'mrc']]
     to_process = []
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         pdb, heavy_chain, light_chain, resolution, mrc = row.values
         pdb = pdb.upper()
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
@@ -209,7 +209,7 @@ def add_docking_score(csv_in, csv_out, datadir_name='../data/pdb_em'):
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     df = df[['pdb', 'Hchain', 'Lchain', 'resolution', 'mrc']]
     to_process = []
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         pdb, heavy_chain, light_chain, resolution, mrc = row.values
         pdb = pdb.upper()
         system_dir = os.path.join(datadir_name, f"{pdb}_{mrc}")
@@ -258,12 +258,11 @@ def filter_csv(in_csv="../data/csvs/docked.csv",
     """
     df = pd.read_csv(in_csv, index_col=0, dtype={'mrc': 'str'})
     pruned = df[['Hchain', 'Lchain', 'antigen_chain', 'resolution']]
-    ids_to_keeps = []
+    ids_to_keep = []
     ab_sels = []
     ag_sels = []
-    for i, row in pruned.iterrows():
+    for i, (_, row) in enumerate(pruned.iterrows()):
         heavy_chain, light_chain, antigen, resolution = row.values
-
         # Resolution cutoff
         resolution = str_resolution_to_float(resolution)
         if resolution > max_resolution:
@@ -282,11 +281,11 @@ def filter_csv(in_csv="../data/csvs/docked.csv",
 
             # If only one chain, we still accept it (?)
             if (len(list_chain_antibody) == 2 and not nano) or (len(list_chain_antibody) == 1 and nano):
+                ids_to_keep.append(i)
                 antibody_selection = list_id_to_pymol_sel(list_chain_antibody)
-                ids_to_keeps.append(i)
                 ab_sels.append(antibody_selection)
                 ag_sels.append(antigen_selection)
-    df_new = df.iloc[ids_to_keeps].copy()
+    df_new = df.iloc[ids_to_keep].copy()
     df_new['antibody_selection'] = ab_sels
     df_new['antigen_selection'] = ag_sels
     df_new.to_csv(out_csv)
@@ -364,7 +363,7 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
 if __name__ == '__main__':
     pass
 
-    nanobodies = True
+    nanobodies = False
     if not nanobodies:
         mapped = '../data/csvs/mapped.csv'
         resolution = '../data/csvs/resolution.csv'
@@ -389,7 +388,7 @@ if __name__ == '__main__':
         sorted_other = '../data/csvs/sorted_filtered'
 
     # ADD RESOLUTION
-    # clean_resolution(csv_in=mapped, csv_out=resolution)
+    clean_resolution(csv_in=mapped, csv_out=resolution)
 
     # VALIDATE AND DOCK
     # pdb = "../data/pdb_em/7LO8_23464/7LO8.cif"
