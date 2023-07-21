@@ -235,7 +235,7 @@ def parse_one(outfile, gt_pdb, selections, use_template=False):
         return None
 
 
-def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False):
+def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False, nano=False):
     df_raw = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
     all_res = dict()
     for i, row in df_raw.iterrows():
@@ -243,7 +243,10 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False):
         datadir_name = "../data/pdb_em"
         dirname = f"{pdb.upper()}_{mrc}"
         pdb_path = os.path.join(datadir_name, dirname, f"{pdb.upper()}.cif")
-        out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+        if nano:
+            out_name = "output_dock_in_map_actual_nano"
+        else:
+            out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
         out_path = os.path.join(datadir_name, dirname, out_name)
         selections = pdb_selections[pdb.upper()]
         res = parse_one(out_path, pdb_path, selections, use_template=use_template)
