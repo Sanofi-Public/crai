@@ -342,6 +342,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_fabs", action='store_false', default=True)
     parser.add_argument("--use_nano", action='store_false', default=True)
     parser.add_argument("--normalize", action='store_false', default=True)
+    parser.add_argument("--sorted", action='store_true', default=False)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -359,11 +360,11 @@ if __name__ == '__main__':
     all_systems_train = []
     csv_train = []
     if args.use_fabs:
-        all_systems_train.append("../data/csvs/filtered_train.csv")
-        csv_train.append("../data/csvs/chunked_train.csv")
+        all_systems_train.append(f"../data/csvs/{'sorted_' if args.sorted else ''}filtered_train.csv")
+        csv_train.append(f"../data/csvs/{'sorted_' if args.sorted else ''}chunked_train.csv")
     if args.use_nano:
-        all_systems_train.append("../data/nano_csvs/filtered_train.csv")
-        csv_train.append("../data/nano_csvs/chunked_train.csv")
+        all_systems_train.append(f"../data/nano_csvs/{'sorted_' if args.sorted else ''}filtered_train.csv")
+        csv_train.append(f"../data/nano_csvs/{'sorted_' if args.sorted else ''}chunked_train.csv")
     train_ab_dataset = ABDataset(csv_to_read=csv_train, all_systems=all_systems_train,
                                  rotate=args.rotate, crop=args.crop, full=args.train_full, normalize=args.normalize)
     train_loader = DataLoader(dataset=train_ab_dataset, worker_init_fn=np.random.seed,
@@ -375,8 +376,8 @@ if __name__ == '__main__':
     # sys.exit()
 
     if args.use_fabs:
-        csv_val = "../data/csvs/chunked_val.csv"
-        all_system_val = "../data/csvs/filtered_val.csv"
+        csv_val = f"../data/csvs/{'sorted_' if args.sorted else ''}chunked_val.csv"
+        all_system_val = f"../data/csvs/{'sorted_' if args.sorted else ''}filtered_val.csv"
         # val_ab_dataset = ABDataset(all_systems=all_system_val,csv_to_read=csv_val,
         #                            rotate=False, crop=0, full=False, normalize=args.normalize)
         # val_loader = DataLoader(dataset=val_ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
@@ -388,8 +389,8 @@ if __name__ == '__main__':
         val_loader = None
         val_loader_full = None
     if args.use_nano:
-        csv_val_nano = "../data/nano_csvs/chunked_val.csv"
-        all_system_val_nano = "../data/nano_csvs/filtered_val.csv"
+        csv_val_nano = f"../data/nano_csvs/{'sorted_' if args.sorted else ''}chunked_val.csv"
+        all_system_val_nano = f"../data/nano_csvs/{'sorted_' if args.sorted else ''}filtered_val.csv"
         val_ab_dataset_nano_full = ABDataset(all_systems=all_system_val_nano, csv_to_read=csv_val_nano,
                                              rotate=False, crop=0, full=True, normalize=args.normalize)
         val_loader_nano_full = DataLoader(dataset=val_ab_dataset_nano_full, collate_fn=lambda x: x[0],

@@ -17,30 +17,16 @@ from prepare_database.process_data import get_pdb_selection
 # chunked.to_csv('chunked.csv')
 
 # Get plots for the extensive validation of a model
-def plot_distance():
+def plot_distance(csv_in='../data/csvs/filtered.csv',
+                  output_file='../data/nano_csvs/benchmark_actual_parsed.p'):
     # get resolution :
-    csv_in = '../data/csvs/filtered.csv'
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
-
-    output_file = '../learning/out_big_train_gamma_last.p'
-    # output_file = '../learning/out_big_train_gamma_last_old.p'
-    # output_file = '../learning/out_big_train_normalize_210.p'
-    # output_file = '../learning/out_big_train_normalize_last.p'
     dict_res = pickle.load(open(output_file, 'rb'))
-    dict_res = {pdb_em[:4].lower(): val for pdb_em, val in dict_res.items()}
-
-    val_systems = set(dict_res.keys())
-    output_file = '../data/csvs/benchmark_actual_parsed.p'
-    # output_file = '../data/csvs/benchmark_parsed.p'
-    dict_res = pickle.load(open(output_file, 'rb'))
-    dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb in val_systems}
-
+    dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb[:4] in resolutions}
     all_resolutions = []
     all_dists_real = []
     failed = 0
-
     # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-
     for pdb, elt in dict_res.items():
         # if pdb in ['7jvc', '6lht']:
         #     print(pdb, elt)
@@ -70,10 +56,10 @@ def plot_distance():
     all_dists_real[all_dists_real >= 20] = 20
     print("Capped mean : ", np.mean(all_dists_real))
 
-    # plt.hist(all_dists_real, bins=10)
-    # plt.xlabel("Distance")
-    # plt.ylabel("Count")
-    # plt.show()
+    plt.hist(all_dists_real, bins=10)
+    plt.xlabel("Distance")
+    plt.ylabel("Count")
+    plt.show()
 
     # plt.scatter(all_resolutions, all_dists_real)
     # plt.xlabel("Resolution")
@@ -96,5 +82,19 @@ def parse_runtime():
 
 
 if __name__ == '__main__':
-    plot_distance()
+    nano = True
+    sort = True
+    if nano:
+        # NANO
+        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        output_file = '../data/nano_csvs/benchmark_actual_parsed.p'
+    else:
+        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        # output_file = '../learning/out_big_train_gamma_last.p'
+        # output_file = '../learning/out_big_train_gamma_last_old.p'
+        # output_file = '../learning/out_big_train_normalize_210.p'
+        # output_file = '../learning/out_big_train_normalize_last.p'
+        output_file = '../data/csvs/benchmark_actual_parsed.p'
+
+    plot_distance(csv_in=csv_in, output_file=output_file)
     # parse_runtime()

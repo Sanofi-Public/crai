@@ -240,17 +240,18 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False, 
     all_res = dict()
     for i, row in df_raw.iterrows():
         pdb, mrc, resolution, dock_runtime = row.values
+        pdb=pdb.upper()
         datadir_name = "../data/pdb_em"
-        dirname = f"{pdb.upper()}_{mrc}"
-        pdb_path = os.path.join(datadir_name, dirname, f"{pdb.upper()}.cif")
+        dirname = f"{pdb}_{mrc}"
+        pdb_path = os.path.join(datadir_name, dirname, f"{pdb}.cif")
         if nano:
-            out_name = "output_dock_in_map_actual_nano"
+            out_name = "output_dock_in_map_actual_nano.pdb"
         else:
             out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
         out_path = os.path.join(datadir_name, dirname, out_name)
-        selections = pdb_selections[pdb.upper()]
+        selections = pdb_selections[pdb]
         res = parse_one(out_path, pdb_path, selections, use_template=use_template)
-        all_res[pdb] = res
+        all_res[dirname] = res
         if not i % 20:
             print(f"Done {i}/{len(df_raw)}")
     pickle.dump(all_res, open(parsed_out, 'wb'))
@@ -274,16 +275,16 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    # use_template = False
-    # csv_in = '../data/csvs/filtered.csv'
-    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
-    #
-    # print("done computing fabs")
-    #
-    # csv_in = '../data/nano_csvs/filtered.csv'
-    # csv_out = f'../data/nano_csvs/benchmark_actual_nano.csv'
-    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=True)
+    # nano = True
+    # if nano:
+    #     use_template = False
+    #     csv_in = '../data/nano_csvs/filtered.csv'
+    #     csv_out = f'../data/nano_csvs/benchmark_actual.csv'
+    # else:
+    #     use_template = False
+    #     csv_in = '../data/csvs/filtered.csv'
+    #     csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
 
     # Parse one
     # datadir_name = "../data/pdb_em"
@@ -303,7 +304,7 @@ if __name__ == '__main__':
     nano = False
     if nano:
         csv_in = '../data/nano_csvs/filtered.csv'
-        out_dock = f'../data/nano_csvs/benchmark_actual.csv'
+        out_dock = f'../data/nano_csvs/benchmark_actual_nano.csv'
         parsed_out = f'../data/nano_csvs/benchmark_actual_parsed.p'
         use_template = False
     else:
@@ -315,7 +316,8 @@ if __name__ == '__main__':
     parse_all_dockinmap(csv_in=out_dock,
                         parsed_out=parsed_out,
                         pdb_selections=pdb_selections,
-                        use_template=use_template)
+                        use_template=use_template,
+                        nano=nano)
     # FAB OUTPUT
     # NO TEMPLATE
     # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
@@ -415,5 +417,3 @@ if __name__ == '__main__':
     # (1, 'Sorry: No solution found...you might try with quick=False\n')
     # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7NJ7_12375/output_dock_in_map_actual_nano.pdb"'))
     # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/3JBC_5888/output_dock_in_map_actual_nano.pdb"'))
-
-
