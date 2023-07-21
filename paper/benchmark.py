@@ -271,17 +271,49 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    use_template = False
-    csv_in = '../data/csvs/filtered.csv'
-    csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    # use_template = False
+    # csv_in = '../data/csvs/filtered.csv'
+    # csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, use_template=use_template)
+    #
+    # print("done computing fabs")
+    #
+    # csv_in = '../data/nano_csvs/filtered.csv'
+    # csv_out = f'../data/nano_csvs/benchmark_actual_nano.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=True)
 
-    print("done computing fabs")
+    # Parse one
+    # datadir_name = "../data/pdb_em"
+    # dirname = "6NQD_0485"
+    # use_template = True
+    # pdb_name, mrc_name = dirname.split("_")
+    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
+    # out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+    # out_path = os.path.join(datadir_name, dirname, out_name)
+    # all_systems = "../data/csvs/filtered.csv"
+    # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
+    # selections = pdb_selections[pdb_name.upper()]
+    # res = parse_one(out_path, pdb_path, selections, use_template=use_template)
+    # print(res)
 
-    csv_in = '../data/nano_csvs/filtered.csv'
-    csv_out = f'../data/nano_csvs/benchmark_actual_nano.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=True)
-
+    # Parse all
+    nano = False
+    if nano:
+        csv_in = '../data/nano_csvs/filtered.csv'
+        out_dock = f'../data/nano_csvs/benchmark_actual.csv'
+        parsed_out = f'../data/nano_csvs/benchmark_actual_parsed.p'
+        use_template = False
+    else:
+        csv_in = '../data/csvs/filtered.csv'
+        use_template = False
+        out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+        parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
+    parse_all_dockinmap(csv_in=out_dock,
+                        parsed_out=parsed_out,
+                        pdb_selections=pdb_selections,
+                        use_template=use_template)
+    # FAB OUTPUT
     # NO TEMPLATE
     # (1, 'Sorry: Unknown charge:\n  "ATOM    140  CA  ALA K 140 .*. I    C "\n                                       ^^\n')
     # (1, 'Sorry: No solution found...you might try with quick=False\n')
@@ -366,28 +398,19 @@ if __name__ == '__main__':
     # (1, 'Sorry: No solution found...you might try with quick=False\n')
     # (1, 'Sorry: No solution found...you might try with quick=False\n')
 
-    # Parse one
-    # datadir_name = "../data/pdb_em"
-    # dirname = "6NQD_0485"
-    # use_template = True
-    # pdb_name, mrc_name = dirname.split("_")
-    # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
-    # out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
-    # out_path = os.path.join(datadir_name, dirname, out_name)
-    # all_systems = "../data/csvs/filtered.csv"
-    # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
-    # selections = pdb_selections[pdb_name.upper()]
-    # res = parse_one(out_path, pdb_path, selections, use_template=use_template)
-    # print(res)
+    # NANO OUTPUT
+    # (1, 'Traceback (most recent call last):\n  File "/home/mallet/bin/phenix-1.20.1-4487/build/../modules/phenix/phenix/command_line/dock_in_map.py", line 7, in <module>\n    run_program(program_class=dock_in_map.Program)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/cctbx_project/iotbx/cli_parser.py", line 79, in run_program\n    task.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/programs/dock_in_map.py", line 699, in run\n    self.dock_in_map = self.run_dock_in_map.run_iter()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 121, in run_iter\n    local_dock_in_map.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 617, in run\n    new_cc=self.get_cc_in_place(model = self.final_model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2293, in get_cc_in_place\n    mam = self.get_original_map_with_model_boxed(model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2269, in get_original_map_with_model_boxed\n    map_data = self.original_map_data.deep_copy() # going to shift it\nAttributeError: \'NoneType\' object has no attribute \'deep_copy\'\n')
+    # (1, 'Traceback (most recent call last):\n  File "/home/mallet/bin/phenix-1.20.1-4487/build/../modules/phenix/phenix/command_line/dock_in_map.py", line 7, in <module>\n    run_program(program_class=dock_in_map.Program)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/cctbx_project/iotbx/cli_parser.py", line 79, in run_program\n    task.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/programs/dock_in_map.py", line 699, in run\n    self.dock_in_map = self.run_dock_in_map.run_iter()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 121, in run_iter\n    local_dock_in_map.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 617, in run\n    new_cc=self.get_cc_in_place(model = self.final_model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2293, in get_cc_in_place\n    mam = self.get_original_map_with_model_boxed(model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2269, in get_original_map_with_model_boxed\n    map_data = self.original_map_data.deep_copy() # going to shift it\nAttributeError: \'NoneType\' object has no attribute \'deep_copy\'\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (1, 'Traceback (most recent call last):\n  File "/home/mallet/bin/phenix-1.20.1-4487/build/../modules/phenix/phenix/command_line/dock_in_map.py", line 7, in <module>\n    run_program(program_class=dock_in_map.Program)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/cctbx_project/iotbx/cli_parser.py", line 79, in run_program\n    task.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/programs/dock_in_map.py", line 699, in run\n    self.dock_in_map = self.run_dock_in_map.run_iter()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 121, in run_iter\n    local_dock_in_map.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 617, in run\n    new_cc=self.get_cc_in_place(model = self.final_model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2293, in get_cc_in_place\n    mam = self.get_original_map_with_model_boxed(model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2269, in get_original_map_with_model_boxed\n    map_data = self.original_map_data.deep_copy() # going to shift it\nAttributeError: \'NoneType\' object has no attribute \'deep_copy\'\n')
+    # (1, 'Sorry: Error in SS definitions, most likely atoms are absent for one of them.\n')
+    # (1, 'Traceback (most recent call last):\n  File "/home/mallet/bin/phenix-1.20.1-4487/build/../modules/phenix/phenix/command_line/dock_in_map.py", line 7, in <module>\n    run_program(program_class=dock_in_map.Program)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/cctbx_project/iotbx/cli_parser.py", line 79, in run_program\n    task.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/programs/dock_in_map.py", line 699, in run\n    self.dock_in_map = self.run_dock_in_map.run_iter()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 121, in run_iter\n    local_dock_in_map.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 593, in run\n    self.run_sequential_models(log = self.log)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 466,
+    # in run_sequential_models\n    local_dock_model.run()\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 617, in run\n    new_cc=self.get_cc_in_place(model = self.final_model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2293, in get_cc_in_place\n    mam = self.get_original_map_with_model_boxed(model)\n  File "/home/mallet/bin/phenix-1.20.1-4487/modules/phenix/phenix/autosol/dock_in_map.py", line 2269, in get_original_map_with_model_boxed\n    map_data = self.original_map_data.deep_copy() # going to shift it\nAttributeError: \'NoneType\' object has no attribute \'deep_copy\'\n')
+    # (1, 'Sorry: Error in SS definitions, most likely atoms are absent for one of them.\n')
+    # (1, 'Sorry: Error in SS definitions, most likely atoms are absent for one of them.\n')
+    # (1, 'Sorry: No solution found...you might try with quick=False\n')
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/7NJ7_12375/output_dock_in_map_actual_nano.pdb"'))
+    # (2, CmdException('failed to open file "/home/mallet/projects/crIA-EM/data/pdb_em/3JBC_5888/output_dock_in_map_actual_nano.pdb"'))
 
-    # Parse all
-    # csv_in = '../data/csvs/filtered.csv'
-    # use_template = False
-    # nano = False
-    # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-    # out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
-    # parse_all_dockinmap(csv_in=out_dock,
-    #                     parsed_out=parsed_out,
-    #                     pdb_selections=pdb_selections,
-    #                     use_template=use_template)
+
