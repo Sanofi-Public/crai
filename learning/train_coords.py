@@ -96,7 +96,7 @@ def coords_loss(prediction, comp, classif_nano=True):
                                         weights=[1, 30],
                                         gamma=4)
     if len(filtered_transforms) == 0:
-        return position_loss, None, None, None, None
+        return position_loss, None, None, None, None, None
 
     # Get the locations of the prediction
     actual_ijks = np.asarray([x[0] for x in filtered_transforms])
