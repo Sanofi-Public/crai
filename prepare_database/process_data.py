@@ -323,6 +323,6 @@ if __name__ == '__main__':
     else:
         for split in ['train', 'val', 'test']:
             for sort in [False, True]:
-                chunk_around(csv_in=f'../data/csvs/{"sorted_" if sort else ""}filtered_{split}.csv',
-                             csv_dump=f'../data/csvs/{"sorted_" if sort else ""}chunked_{split}.csv',
+                chunk_around(csv_in=f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_{split}.csv',
+                             csv_dump=f'../data/nano_csvs/{"sorted_" if sort else ""}chunked_{split}.csv',
                              overwrite=True)

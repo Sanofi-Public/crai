@@ -211,12 +211,11 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
                 model.zero_grad()
 
             if not step % 100:
-                position_dist = metrics['mean_dist']
-
                 step_total = len(loader) * epoch + step
                 eluded_time = time.time() - time_init
                 print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
                 if offset_loss is not None:
+                    position_dist = metrics['mean_dist']
                     to_log = {"loss": loss.item(),
                               "position_loss": position_loss.item(),
                               "offset_loss": offset_loss.item(),
