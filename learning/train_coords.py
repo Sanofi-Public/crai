@@ -199,8 +199,6 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
                                                                                               classif_nano=classif)
-            position_dist = metrics['mean_dist']
-
             if offset_loss is None:
                 loss = position_loss
             else:
@@ -213,6 +211,8 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
                 model.zero_grad()
 
             if not step % 100:
+                position_dist = metrics['mean_dist']
+
                 step_total = len(loader) * epoch + step
                 eluded_time = time.time() - time_init
                 print(f"Epoch : {epoch} ; step : {step} ; loss : {loss.item():.5f} ; time : {eluded_time:.1f}")
@@ -286,11 +286,11 @@ def validate(model, device, loader, classif_nano=True):
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
                                                                                               classif_nano=classif_nano)
-            position_dist = metrics['mean_dist']
-            real_dists = metrics['real_dists']
-            nano_classifs = metrics['nano_classifs']
 
             if offset_loss is not None:
+                position_dist = metrics['mean_dist']
+                real_dists = metrics['real_dists']
+                nano_classifs = metrics['nano_classifs']
                 loss = position_loss + offset_loss + rz_loss + angle_loss + nano_loss
                 losses.append([loss.item(),
                                position_loss.item(),

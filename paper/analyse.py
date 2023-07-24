@@ -18,10 +18,10 @@ from prepare_database.process_data import get_pdb_selection
 
 # Get plots for the extensive validation of a model
 def plot_distance(csv_in='../data/csvs/filtered.csv',
-                  output_file='../data/nano_csvs/benchmark_actual_parsed.p'):
+                  output_pickle='../data/nano_csvs/benchmark_actual_parsed.p'):
     # get resolution :
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
-    dict_res = pickle.load(open(output_file, 'rb'))
+    dict_res = pickle.load(open(output_pickle, 'rb'))
     dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb[:4] in resolutions}
     all_resolutions = []
     all_dists_real = []
@@ -32,7 +32,7 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
         #     print(pdb, elt)
         if elt is not None:
             all_dists_real.extend(elt[1])
-            all_resolutions.extend(resolutions[pdb.upper()])
+            all_resolutions.extend(resolutions[pdb[:4]])
             # bugs = [x > 12 for x in elt[1]]
             # if any(bugs):
             #     print(pdb, resolutions[pdb.upper()][0][0], [x[0] for x in pdb_selections[pdb.upper()]],
@@ -67,9 +67,8 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
     # plt.show()
 
 
-def parse_runtime():
-    output_file = '../data/csvs/benchmark_actual.csv'
-    df_raw = pd.read_csv(output_file, index_col=0)['dock_runtime']
+def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
+    df_raw = pd.read_csv(output_csv, index_col=0)['dock_runtime']
     runtimes = df_raw.values
     print(sum(runtimes < 0))
     runtimes = runtimes[runtimes > 0]
@@ -82,19 +81,24 @@ def parse_runtime():
 
 
 if __name__ == '__main__':
+    # nano = False
     nano = True
+    # sort = False
     sort = True
+    print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
     if nano:
         # NANO
         csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
-        output_file = '../data/nano_csvs/benchmark_actual_parsed.p'
+        output_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
+        output_csv = '../data/nano_csvs/benchmark_actual.csv'
     else:
         csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
         # output_file = '../learning/out_big_train_gamma_last.p'
         # output_file = '../learning/out_big_train_gamma_last_old.p'
         # output_file = '../learning/out_big_train_normalize_210.p'
         # output_file = '../learning/out_big_train_normalize_last.p'
-        output_file = '../data/csvs/benchmark_actual_parsed.p'
+        output_pickle = '../data/csvs/benchmark_actual_parsed.p'
+        output_csv = '../data/csvs/benchmark_actual.csv'
 
-    plot_distance(csv_in=csv_in, output_file=output_file)
-    # parse_runtime()
+    # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
+    parse_runtime(output_csv=output_csv)
