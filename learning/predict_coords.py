@@ -12,27 +12,15 @@ from utils import mrc_utils
 from utils.object_detection import output_to_transforms, transforms_to_pdb
 
 
-def predict_coords(mrc_path, model, process=True, outname=None, outmrc=None, n_objects=None, thresh=0.5,
-                   overwrite=True, crop=0, classif_nano=False, default_nano=False):
+def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None, outmrc=None,
+                   n_objects=None, thresh=0.5, crop=0, classif_nano=False, default_nano=False):
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     mrc = mrc.crop(*(crop,) * 6)
-    if process:
-        # mrc = mrc.resample().normalize()
-        mrc = mrc.resample().normalize(use_max=True)
+    if resample:
+        mrc = mrc.resample()
+    mrc = mrc.normalize(normalize_mode=normalize)
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     with torch.no_grad():
-        # out = model(mrc_grid)
-        # from train_coords import coords_loss
-        # from load_data import CoordComplex
-        # pdb_path = '../data/pdb_em/6NQD_0485/6NQD.cif'
-        # antibody_selection = 'chain C or chain D'
-        # comp_coords = CoordComplex.CoordComplex(mrc_path=mrc_path,
-        #                                         pdb_path=pdb_path,
-        #                                         antibody_selection=antibody_selection,
-        #                                         rotate=False,
-        #                                         crop=0)
-        # comp_coords.mrc.save('../data/pdb_em/6NQD_0485/test_test.mrc')
-        # coords_loss(out, comp_coords)
         out = model(mrc_grid)[0].numpy()
     transforms = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh,
                                       outmrc=outmrc, classif_nano=classif_nano, default_nano=default_nano)
@@ -91,5 +79,6 @@ if __name__ == '__main__':
     crop = 0
     classif_nano = False
     default_nano = False
-    predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc,
+    normalize = 'max'
+    predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc, normalize=normalize,
                    n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=default_nano)

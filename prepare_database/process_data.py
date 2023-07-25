@@ -187,7 +187,7 @@ def do_one_chunking(dirname, datadir_name, pdb_selections, overwrite):
 
         # Now let us compute output files for each unique antibody in the system.
         # We also give it a unique id.
-        mrc = MRCGrid.from_mrc(mrcgz_path, normalize=True)
+        mrc = MRCGrid.from_mrc(mrcgz_path, normalize='centile')
         local_ab_id = 0
         local_rows = []
         for antibody in filtered:

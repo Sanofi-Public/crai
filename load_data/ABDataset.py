@@ -23,7 +23,7 @@ class ABDataset(Dataset):
                  return_sdf=False,
                  rotate=True,
                  full=False,
-                 normalize=True,
+                 normalize=None,
                  crop=0):
 
         self.data_root = data_root

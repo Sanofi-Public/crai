@@ -72,15 +72,14 @@ class MRCGrid:
     so that the shape and origin are aligned
     """
 
-    def __init__(self, data, voxel_size, origin, normalize=False):
+    def __init__(self, data, voxel_size, origin, normalize_mode=None):
         self.data = data
         self.voxel_size = voxel_size
         self.origin = origin
-        if normalize:
-            self.normalize()
+        self.normalize(normalize_mode)
 
     @staticmethod
-    def from_mrc(mrc_file, normalize=False):
+    def from_mrc(mrc_file, normalize=None):
         with mrcfile.open(mrc_file, mode='r') as original_mrc:
             # The mx,my,mz are almost always equal to the data shape, except for 3J30.
             # This does not make a difference.
@@ -108,20 +107,25 @@ class MRCGrid:
                                     original_mrc.header.nxstart))  # nxstart always correspond to 'c'
             shift_array_xyz = np.array([shift_array[reverse_axis_mapping[i]] for i in range(3)])
             origin = original_origin + shift_array_xyz * voxel_size
-        return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize=normalize)
+        return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize_mode=normalize)
 
-    def normalize(self, use_max=False):
+    def normalize(self, normalize_mode='centile'):
         """
         :return:
         """
+        if normalize_mode is None:
+            return self
+
         relued = np.maximum(self.data, np.zeros_like(self.data))
         flat = relued.flatten()
-        if use_max:
+        if normalize_mode == 'max':
             threshold = np.max(flat)
-        else:
+        elif normalize_mode == 'centile':
             above_zero = flat[flat > 0.]
             sorted_above_zero = np.sort(above_zero)
             threshold = sorted_above_zero[int(0.95 * len(sorted_above_zero))]
+        else:
+            raise ValueError("Unsupported normalization")
         relued = relued / threshold
         new_data = np.minimum(relued, np.ones_like(relued))
         self.data = new_data
@@ -284,7 +288,7 @@ class MRCGrid:
                 np.savez(file=outname, data=self.data, voxel_size=self.voxel_size, origin=self.origin)
 
     @staticmethod
-    def from_npz(npz_file, normalize=False):
+    def from_npz(npz_file, normalize=None):
         npz_archive = np.load(npz_file)
         return MRCGrid(data=npz_archive["data"],
                        voxel_size=npz_archive["voxel_size"],
@@ -325,7 +329,7 @@ if __name__ == '__main__':
     # t0 = time.perf_counter()
     # outname = os.path.join(datadir_name, dirname, f"full_cleaned.mrc")
     # mrc = MRCGrid.from_mrc(mrc_file=map_path)
-    # mrc = mrc.resample().normalize(use_max=True)
+    # mrc = mrc.resample().normalize(normalize_mode='max')
     # mrc.save(outname, overwrite=True)
 
     mrc = MRCGrid.from_mrc(mrc_file=map_path)

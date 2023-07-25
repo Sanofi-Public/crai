@@ -18,7 +18,7 @@ class CoordComplex:
        parametrized as translations and rotations
     """
 
-    def __init__(self, mrc_path, pdb_path, antibody_selections, rotate=True, crop=0, cache=True, normalize=False):
+    def __init__(self, mrc_path, pdb_path, antibody_selections, rotate=True, crop=0, cache=True, normalize=None):
         # First get the MRC data, and store the original origin for rotations around it
         self.mrc = mrc_utils.MRCGrid.from_mrc(mrc_path, normalize=normalize)
         self.initial_mrc_origin = self.mrc.origin
