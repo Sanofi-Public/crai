@@ -186,6 +186,7 @@ def dump_log(writer, epoch, to_log, prefix=''):
 
 
 def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
+          loc_weight=1., other_weight=0.2,
           val_loader=None, val_loader_full=None, nano_loader=None,
           writer=None, accumulated_batch=1, save_path=''):
     best_mean_val_loss = 10000.
@@ -202,7 +203,8 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
             if offset_loss is None:
                 loss = position_loss
             else:
-                loss = position_loss + 0.2 * (0.3 * offset_loss + rz_loss + angle_loss + nano_loss)
+                loss = loc_weight * position_loss + \
+                       other_weight * (0.3 * offset_loss + rz_loss + angle_loss + nano_loss)
             loss.backward()
 
             # Accumulated gradients
@@ -345,6 +347,8 @@ if __name__ == '__main__':
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--loc_weight", type=float, default=1.)
+    parser.add_argument("--other_weight", type=float, default=0.2)
     parser.add_argument("--agg_grads", type=int, default=4)
     parser.add_argument("--crop", type=int, default=3)
     args = parser.parse_args()
@@ -413,5 +417,6 @@ if __name__ == '__main__':
 
     # Train
     train(model=model, loader=train_loader, optimizer=optimizer, n_epochs=n_epochs, device=device, classif=classif,
+          loc_weight=args.loc_weight, other_weight=args.other_weight,
           val_loader=val_loader, val_loader_full=val_loader_full, nano_loader=val_loader_nano_full,
           writer=writer, accumulated_batch=accumulated_batch, save_path=save_path)
