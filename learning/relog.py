@@ -32,7 +32,10 @@ def weights_from_name(name):
     return weights
 
 
-def relog(model, device, weights, val_loader, writer):
+def relog(model, model_name, val_loader, gpu=0):
+    writer, _, device = setup_learning(model_name=model_name,
+                                       gpu_number=gpu)
+    weights = weights_from_name(model_name)
     for epoch, weight in weights:
         time_init = time.time()
         model.load_state_dict(torch.load(weight))
@@ -44,7 +47,11 @@ def relog(model, device, weights, val_loader, writer):
         writer.flush()
 
 
-def validate_detailed(model, device, loader, outname):
+def validate_detailed(model, model_name, loader, outname, gpu=0):
+    device = f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu'
+    weights_path = f"../saved_models/{model_name}.pth"
+    model.load_state_dict(torch.load(weights_path))
+    model = model.to(device)
     time_init = time.time()
     losses = list()
     dict_res = {}
@@ -84,24 +91,25 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-m", "--model_name", default='default')
+    parser.add_argument("--nano", action='store_true', default=False)
+    parser.add_argument("--sorted", action='store_true', default=False)
+    parser.add_argument("--split", default='val')
+    parser.add_argument("-norm", "--normalize", default='centile', help='one of None, max, centile')
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
+
     # Setup data
-    rotate = False
-    crop = 0
-    # num_workers = 0
-    num_workers = max(os.cpu_count() - 10, 4) if args.nw is None else args.nw
-    # csv_to_read = "../data/csvs/chunked_val_reduced.csv"
-    csv_to_read = "../data/csvs/chunked_val.csv"
-    val_ab_dataset = ABDataset(csv_to_read=csv_to_read,
-                               rotate=rotate,
-                               crop=crop,
-                               full=True)
-    val_loader = torch.utils.data.DataLoader(dataset=val_ab_dataset,
-                                             collate_fn=lambda x: x[0],
-                                             num_workers=num_workers)
+    def get_loader(sorted=False, split='val', nano=False, normalize='centile', num_workers=4):
+        csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
+        all_system_val = f"../data/{'nano' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
+        ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
+                               rotate=False, crop=0, full=True, normalize=normalize)
+        ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+        return ab_loader
+
+
     # Learning hyperparameters
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
@@ -117,19 +125,13 @@ if __name__ == '__main__':
     #     weights = weights_from_name(name)
     #     relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader)
 
-    writer, _, device = setup_learning(model_name=args.model_name,
-                                       gpu_number=args.gpu)
-    weights = weights_from_name(args.model_name)
-    relog(model=model, device=device, weights=weights, writer=writer, val_loader=val_loader)
+    # loader = get_loader(sorted=args.sorted, nano=args.nano, normalize=args.normalize)
+    # relog(model=model, model_name=args.model_name, val_loader=loader, gpu=0)
 
     # VALIDATE DETAILED
-    # device = f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'
-    # # model_name = "multi_train_339"
-    # # model_name = "multi_train_861"
-    # model_name = "big_train_gamma_last"
-    # # model_name=args.model_name
-    # weights_path = f"../saved_models/{model_name}.pth"
-    # model.load_state_dict(torch.load(weights_path))
-    # model = model.to(device)
-    # outname = f"out_{model_name}.p"
-    # validate_detailed(model=model, device=device, loader=val_loader, outname=outname)
+    loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano, normalize=args.normalize)
+    # Include all information and add hash for simpler bookkeeping
+    outstring = f"out_{args.model_name}_{args.nano}_{args.sorted}" \
+                f"_{args.split}{'_' + args.normalize if args.normalize != max else ''}.p"
+    outname = f"out_{hash(outstring) % 100}_{outstring}"
+    validate_detailed(model=model, model_name=args.model_name, loader=loader, outname=outname, gpu=args.gpu)

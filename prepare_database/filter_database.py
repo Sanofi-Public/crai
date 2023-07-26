@@ -366,7 +366,7 @@ def split_csv(csv_file="../data/csvs/filtered.csv", out_basename='../data/csvs/f
 if __name__ == '__main__':
     pass
 
-    nanobodies = False
+    nanobodies = True
     if not nanobodies:
         mapped = '../data/csvs/mapped.csv'
         resolution = '../data/csvs/resolution.csv'

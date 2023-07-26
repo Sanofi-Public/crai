@@ -56,15 +56,15 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
     all_dists_real[all_dists_real >= 20] = 20
     print("Capped mean : ", np.mean(all_dists_real))
 
-    plt.hist(all_dists_real, bins=10)
-    plt.xlabel("Distance")
-    plt.ylabel("Count")
-    plt.show()
-
-    # plt.scatter(all_resolutions, all_dists_real)
-    # plt.xlabel("Resolution")
-    # plt.ylabel("Distance")
+    # plt.hist(all_dists_real, bins=10)
+    # plt.xlabel("Distance")
+    # plt.ylabel("Count")
     # plt.show()
+
+    plt.scatter(all_resolutions, all_dists_real)
+    plt.xlabel("Resolution")
+    plt.ylabel("Distance")
+    plt.show()
 
 
 def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
@@ -88,11 +88,15 @@ if __name__ == '__main__':
     print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
     if nano:
         # NANO
-        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered.csv' # nano whole : 22.9, 6.3
+        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
         output_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
         output_csv = '../data/nano_csvs/benchmark_actual.csv'
     else:
-        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
+        # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered.csv' # Fab whole : 24.4 , 7.0
+        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
         # output_file = '../learning/out_big_train_gamma_last.p'
         # output_file = '../learning/out_big_train_gamma_last_old.p'
         # output_file = '../learning/out_big_train_normalize_210.p'
@@ -100,5 +104,5 @@ if __name__ == '__main__':
         output_pickle = '../data/csvs/benchmark_actual_parsed.p'
         output_csv = '../data/csvs/benchmark_actual.csv'
 
-    # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
-    parse_runtime(output_csv=output_csv)
+    plot_distance(csv_in=csv_in, output_pickle=output_pickle)
+    # parse_runtime(output_csv=output_csv)
