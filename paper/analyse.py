@@ -23,6 +23,7 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
     dict_res = pickle.load(open(output_pickle, 'rb'))
     dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb[:4] in resolutions}
+
     all_resolutions = []
     all_dists_real = []
     failed = 0
@@ -81,28 +82,28 @@ def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
 
 
 if __name__ == '__main__':
-    # nano = False
-    nano = True
-    # sort = False
-    sort = True
+    nano = False
+    # nano = True
+    sort = False
+    # sort = True
     print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
     if nano:
         # NANO
         # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
         # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered.csv' # nano whole : 22.9, 6.3
         csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        output_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
         output_csv = '../data/nano_csvs/benchmark_actual.csv'
+        output_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
     else:
         # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
         # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered.csv' # Fab whole : 24.4 , 7.0
         csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        # output_file = '../learning/out_big_train_gamma_last.p'
-        # output_file = '../learning/out_big_train_gamma_last_old.p'
-        # output_file = '../learning/out_big_train_normalize_210.p'
-        # output_file = '../learning/out_big_train_normalize_last.p'
-        output_pickle = '../data/csvs/benchmark_actual_parsed.p'
         output_csv = '../data/csvs/benchmark_actual.csv'
+        # output_pickle = '../learning/out_big_train_gamma_last.p'
+        # output_pickle = '../learning/out_big_train_gamma_last_old.p'
+        # output_pickle = '../learning/out_big_train_normalize_210.p'
+        output_pickle = '../learning/out_big_train_normalize_last.p'
+        # output_pickle = '../data/csvs/benchmark_actual_parsed.p'
 
     plot_distance(csv_in=csv_in, output_pickle=output_pickle)
     # parse_runtime(output_csv=output_csv)

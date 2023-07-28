@@ -14,7 +14,8 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.learning_utils import setup_learning
-from learning.train_coords import coords_loss, validate, dump_log
+from learning.train_coords import validate, dump_log
+from learning.loss_and_metrics import coords_loss
 
 
 def weights_from_name(name):
@@ -62,7 +63,8 @@ def validate_detailed(model, model_name, loader, outname, gpu=0):
                 continue
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
-            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp)
+            position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
+                                                                                              classif_nano=False)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             all_dists = metrics['dists']
@@ -83,6 +85,10 @@ def validate_detailed(model, model_name, loader, outname, gpu=0):
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
         pickle.dump(dict_res, open(outname, 'wb'))
+    all_dists_flat = np.concatenate([elt[1] for elt in dict_res.values()])
+    print('Uncapped', np.mean(all_dists_flat))
+    all_dists_flat[all_dists_flat > 20] = 20
+    print('Capped', np.mean(all_dists_flat))
     return losses
 
 
@@ -113,6 +119,7 @@ if __name__ == '__main__':
     # Learning hyperparameters
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
+                                classif_nano=args.nano,
                                 num_convs=3,
                                 max_decode=2,
                                 num_feature_map=32)
