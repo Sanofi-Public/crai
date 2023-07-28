@@ -109,7 +109,7 @@ if __name__ == '__main__':
     # Setup data
     def get_loader(sorted=False, split='val', nano=False, normalize='centile', num_workers=4):
         csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
-        all_system_val = f"../data/{'nano' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
+        all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
         ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
                                rotate=False, crop=0, full=True, normalize=normalize)
         ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
