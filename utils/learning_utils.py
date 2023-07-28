@@ -5,6 +5,8 @@ import torch
 from torch.utils.data import Subset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from geomloss import sinkhorn_divergence
+
 
 def weighted_ce_loss(output, target, weight=None):
     """
@@ -68,6 +70,19 @@ def weighted_focal_loss(output, target, weights=None, gamma=2):
                (1 - target) * output ** gamma * torch.log(1 - output)
 
     return torch.neg(torch.mean(loss))
+
+
+def ot_loss(output, target):
+    output = output / torch.sum(output)
+    target = target / torch.sum(output)
+    grid_shape = output.shape
+    # closest superior power of two
+    n = 2 ** (1 + int(np.log2(max(grid_shape) - 0.5)))
+    pad = torch.nn.ConstantPad3d((0, n - grid_shape[2], 0, n - grid_shape[1], 0, n - grid_shape[0]), 0)
+    output = pad(output)
+    target = pad(target)
+    ot_loss = sinkhorn_divergence(output[None, None, ...], target[None, None, ...], scaling=0.9)
+    return ot_loss
 
 
 def get_split_datasets(dataset,
