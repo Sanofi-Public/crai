@@ -41,7 +41,8 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
             input_tensor = torch.from_numpy(comp.input_tensor[None, ...]).to(device)
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
-                                                                                              classif_nano=classif)
+                                                                                              classif_nano=classif,
+                                                                                              ot_weight=args.otw)
             if offset_loss is None:
                 loss = position_loss
             else:
@@ -188,7 +189,9 @@ if __name__ == '__main__':
     parser.add_argument("--sorted", action='store_true', default=False)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
+
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--otw", type=float, default=1.)
     parser.add_argument("--loc_weight", type=float, default=1.)
     parser.add_argument("--other_weight", type=float, default=0.2)
     parser.add_argument("--agg_grads", type=int, default=4)

@@ -30,7 +30,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     return mean_dist, hr_0, hr_1, position_dists, col_ind
 
 
-def coords_loss(prediction, comp, classif_nano=True):
+def coords_loss(prediction, comp, classif_nano=True, ot_weight=1.):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -77,9 +77,10 @@ def coords_loss(prediction, comp, classif_nano=True):
                                         BCE_target,
                                         weights=[1, 30],
                                         gamma=4)
-    ot_loss_value = ot_loss(prediction[0, 0, ...], BCE_target)
-    # print(ot_loss_value)
-    position_loss += ot_loss_value
+    if ot_weight != 0:
+        ot_loss_value = ot_weight * ot_loss(prediction[0, 0, ...], BCE_target)[0]
+        # print(ot_loss_value)
+        position_loss += ot_loss_value
     if len(filtered_transforms) == 0:
         return position_loss, None, None, None, None, None
 
