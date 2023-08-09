@@ -109,7 +109,7 @@ class MRCGrid:
             origin = original_origin + shift_array_xyz * voxel_size
         return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize_mode=normalize)
 
-    def normalize(self, normalize_mode='centile'):
+    def normalize(self, normalize_mode='max'):
         """
         :return:
         """

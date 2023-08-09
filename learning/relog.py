@@ -101,14 +101,14 @@ if __name__ == '__main__':
     parser.add_argument("--nano", action='store_true', default=False)
     parser.add_argument("--sorted", action='store_true', default=False)
     parser.add_argument("--split", default='val')
-    parser.add_argument("-norm", "--normalize", default='centile', help='one of None, max, centile')
+    parser.add_argument("-norm", "--normalize", default='max', help='one of None, max, centile')
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
 
     # Setup data
-    def get_loader(sorted=False, split='val', nano=False, normalize='centile', num_workers=4):
+    def get_loader(sorted=False, split='val', nano=False, normalize='max', num_workers=4):
         csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
         all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
         ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,

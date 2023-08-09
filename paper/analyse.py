@@ -13,6 +13,7 @@ if __name__ == '__main__':
 from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import mini_hash
 
+
 # chunked = pd.read_csv('data/csvs/chunked.csv', index_col=0).reset_index(drop=True)
 # chunked.to_csv('chunked.csv')
 
@@ -77,6 +78,9 @@ def final_plot(nano=False, sort=False):
     else:
         csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
         benchmark_pickle = '../data/csvs/benchmark_actual_parsed.p'
+
+    outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
+    benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
     # get resolution :
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
     dict_res = pickle.load(open(output_pickle, 'rb'))
@@ -94,25 +98,32 @@ def final_plot(nano=False, sort=False):
             failed += 1
             # print('failed on : ', pdb)
         if pdb in bench_res and bench_res[pdb] is not None:
-            all_dists_real_bench.extend(bench_res[pdb])
+            all_dists_real_bench.extend(bench_res[pdb][1])
         else:
             failed_bench += 1
             # print('failed on : ', pdb)
-    print(f"Failed on {failed}/{len(dict_res)}")
     all_dists_real = np.asarray(all_dists_real)
-    print("Uncapped mean : ", np.mean(all_dists_real))
+    uncapped = np.mean(all_dists_real)
     all_dists_real[all_dists_real >= 20] = 20
-    print("Capped mean : ", np.mean(all_dists_real))
+    capped = np.mean(all_dists_real)
+    print(f"Failed on {failed}/{len(dict_res)}")
+    print(f"Uncapped mean : {uncapped:2f}")
+    print(f"Capped mean {capped:2f}")
 
-    print(f"Bench failed on {failed_bench}/{len(dict_res)}")
     all_dists_real_bench = np.asarray(all_dists_real_bench)
-    print("Uncapped mean : ", np.mean(all_dists_real_bench))
+    bench_uncapped = np.mean(all_dists_real_bench)
     all_dists_real_bench[all_dists_real_bench >= 20] = 20
-    print("Capped mean : ", np.mean(all_dists_real_bench))
+    bench_capped = np.mean(all_dists_real_bench)
+    print(f"Bench failed on {failed_bench}/{len(dict_res)}")
+    print(f"Uncapped mean : {bench_uncapped:2f}")
+    print(f"Capped mean : {bench_capped:2f}")
+    print(f"{capped:.2f}/{uncapped:.2f}/{failed} vs "
+          f"{bench_capped:.2f}/{bench_uncapped:.2f}/{failed_bench}")
 
     plt.rcParams.update({'font.size': 18})
-    plt.hist(all_dists_real, bins=10, legend="cria")
-    plt.hist(all_dists_real_bench, bins=10, legend="dock in map")
+    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["dock in map", "cria"])
+    plt.legend()
     plt.xlabel("Distance")
     plt.ylabel("Count")
     plt.show()

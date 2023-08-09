@@ -185,7 +185,7 @@ if __name__ == '__main__':
     parser.add_argument("--rotate", action='store_false', default=True)
     parser.add_argument("--use_fabs", action='store_false', default=True)
     parser.add_argument("--use_nano", action='store_false', default=True)
-    parser.add_argument("-norm", "--normalize", default='centile', help='one of None, max, centile')
+    parser.add_argument("-norm", "--normalize", default='max', help='one of None, max, centile')
     parser.add_argument("--sorted", action='store_true', default=False)
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
