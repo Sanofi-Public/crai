@@ -28,7 +28,7 @@ def predict_one_ijk(pred_array, margin=4):
     return i, j, k
 
 
-def nms(pred_loc, n_objects=None, thresh=0.5, use_pd=False):
+def nms(pred_loc, n_objects=None, thresh=0.2, use_pd=False):
     """
     From a dense array of predictions, return a set of positions based on a number or a threshold
     """

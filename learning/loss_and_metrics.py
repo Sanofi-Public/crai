@@ -30,7 +30,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     return mean_dist, hr_0, hr_1, position_dists, col_ind
 
 
-def coords_loss(prediction, comp, classif_nano=True, ot_weight=1.):
+def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold=False):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -87,8 +87,18 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1.):
     # Get the locations of the prediction
     actual_ijks = np.asarray([x[0] for x in filtered_transforms])
     prediction_np_loc = prediction_np[0, 0, ...]
-    predicted_ijks_expanded = nms(pred_loc=prediction_np_loc, n_objects=max(5, len(filtered_transforms)))
-    predicted_ijks_expanded = np.asarray(predicted_ijks_expanded)
+    if use_threshold:
+        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc)
+    else:
+        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc, n_objects=max(5, len(filtered_transforms)))
+        predicted_ijks_expanded = np.asarray(predicted_ijks_expanded)
+
+    # This can happen with thresholds
+    if len(predicted_ijks_expanded) == 0:
+        metrics['mean_dist'] = 20
+        metrics['real_dists'] = []
+        metrics['dists'] = []
+        return position_loss, None, None, None, None, None
 
     # As a metric, keep track of the bin distance using linear assignment. First compute it with 5 systems
     mean_dist_expanded, hr_0_expanded, hr_1_expanded, _, _ = compute_metrics_ijks(actual_ijks, predicted_ijks_expanded)

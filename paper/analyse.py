@@ -69,22 +69,23 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
 
 
 def final_plot(nano=False, sort=False):
+    # Get our perfomance
     model_name = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
     outstring = f"{model_name}_{nano}_{sort}_test.p"
     output_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
-    if nano:
-        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        benchmark_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
-    else:
-        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        benchmark_pickle = '../data/csvs/benchmark_actual_parsed.p'
-
-    outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
-    benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
-    # get resolution :
-    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
     dict_res = pickle.load(open(output_pickle, 'rb'))
+
+    # Get benchmark performance
+    benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/benchmark_actual_parsed.p'
+    # outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
+    # benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
+
+    # get resolution :
+    csv_in = f'../data/{"nano_" if nano else ""}csvs/{"sorted_" if sort else ""}filtered_test.csv'
+    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
+
+    #
     all_resolutions = []
     all_dists_real = []
     all_dists_real_bench = []
@@ -98,10 +99,14 @@ def final_plot(nano=False, sort=False):
             failed += 1
             # print('failed on : ', pdb)
         if pdb in bench_res and bench_res[pdb] is not None:
-            all_dists_real_bench.extend(bench_res[pdb][1])
+            bench_dists = list(bench_res[pdb][1])
         else:
+            bench_dists = []
             failed_bench += 1
             # print('failed on : ', pdb)
+        # Complete the list with 20s
+        bench_dists = bench_dists + [20 for _ in range(len(elt[1]) - len(bench_dists))]
+        all_dists_real_bench.extend(bench_dists)
     all_dists_real = np.asarray(all_dists_real)
     uncapped = np.mean(all_dists_real)
     all_dists_real[all_dists_real >= 20] = 20
@@ -121,8 +126,8 @@ def final_plot(nano=False, sort=False):
           f"{bench_capped:.2f}/{bench_uncapped:.2f}/{failed_bench}")
 
     plt.rcParams.update({'font.size': 18})
-    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
-    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["dock in map", "cria"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
+    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["cria", "dock in map"])
     plt.legend()
     plt.xlabel("Distance")
     plt.ylabel("Count")
