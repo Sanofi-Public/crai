@@ -1,4 +1,5 @@
 import os
+import hashlib
 import wget
 
 
@@ -14,3 +15,7 @@ def download_with_overwrite(url, outname, overwrite=False):
             wget.download(url, out=outname)
     else:
         wget.download(url, out=outname)
+
+
+def mini_hash(s):
+    return int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 100

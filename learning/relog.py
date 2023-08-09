@@ -1,22 +1,22 @@
 import os
 import sys
 
-import time
 import glob
-import pickle
 import numpy as np
+import pickle
+import time
 import torch
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from load_data.ABDataset import ABDataset
-from learning.SimpleUnet import SimpleHalfUnetModel
-from utils.learning_utils import setup_learning
-from learning.train_coords import validate, dump_log
 from learning.loss_and_metrics import coords_loss
-
+from learning.SimpleUnet import SimpleHalfUnetModel
+from learning.train_coords import validate, dump_log
+from load_data.ABDataset import ABDataset
+from utils.learning_utils import setup_learning
+from utils.python_utils import mini_hash
 
 def weights_from_name(name):
     hits = glob.glob(f"../saved_models/{name}*")
@@ -140,5 +140,5 @@ if __name__ == '__main__':
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano, normalize=args.normalize)
     # Include all information and add hash for simpler bookkeeping
     outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}.p"
-    outname = f"out_{hash(outstring) % 100}_{outstring}"
+    outname = f"out_{mini_hash(outstring)}_{outstring}"
     validate_detailed(model=model, model_name=args.model_name, loader=loader, outname=outname, gpu=args.gpu)

@@ -11,7 +11,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from prepare_database.process_data import get_pdb_selection
-
+from utils.python_utils import mini_hash
 
 # chunked = pd.read_csv('data/csvs/chunked.csv', index_col=0).reset_index(drop=True)
 # chunked.to_csv('chunked.csv')
@@ -69,8 +69,8 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
 
 def final_plot(nano=False, sort=False):
     model_name = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
-    outstring = f"out_{model_name}_{nano}_{sort}_test.p"
-    output_pickle = f"../learning/{hash(outstring) % 100}_{outstring}"
+    outstring = f"{model_name}_{nano}_{sort}_test.p"
+    output_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
     if nano:
         csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
         benchmark_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
@@ -164,4 +164,4 @@ if __name__ == '__main__':
     final_plot(False, False)
     final_plot(False, True)
     final_plot(True, False)
-    final_plot(True, True)
+    # final_plot(True, True)

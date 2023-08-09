@@ -1,9 +1,9 @@
 import os
 import sys
 
-import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import torch
 
 if __name__ == '__main__':
@@ -13,6 +13,7 @@ if __name__ == '__main__':
 from load_data.ABDataset import ABDataset
 from learning.SimpleUnet import SimpleHalfUnetModel
 from utils.object_detection import nms
+from utils.python_utils import mini_hash
 
 
 def find_thresh(model, model_name, loader, gpu=0, use_pd=False, outname=None):
@@ -116,8 +117,8 @@ if __name__ == '__main__':
 
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano)
     outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
-    outname = f"out_{hash(outstring) % 100}_{outstring}"
-    find_thresh(model=model, model_name=args.model_name, loader=loader, gpu=args.gpu, use_pd=args.pd,outname=outname)
+    outname = f"out_{mini_hash(outstring)}_{outstring}"
+    find_thresh(model=model, model_name=args.model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
     plot_thresh()
 
 # VANILLA NMS
