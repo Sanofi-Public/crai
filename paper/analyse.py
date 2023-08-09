@@ -76,9 +76,9 @@ def final_plot(nano=False, sort=False):
     dict_res = pickle.load(open(output_pickle, 'rb'))
 
     # Get benchmark performance
-    benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/benchmark_actual_parsed.p'
-    # outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
-    # benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
+    # benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/benchmark_actual_parsed.p'
+    outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
+    benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
 
     # get resolution :
@@ -102,6 +102,7 @@ def final_plot(nano=False, sort=False):
             bench_dists = list(bench_res[pdb][1])
         else:
             bench_dists = []
+        if len(bench_dists) == 0:
             failed_bench += 1
             # print('failed on : ', pdb)
         # Complete the list with 20s
@@ -127,11 +128,12 @@ def final_plot(nano=False, sort=False):
 
     plt.rcParams.update({'font.size': 18})
     # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
-    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["cria", "dock in map"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["cria", "dock in map"])
+    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold"])
     plt.legend()
     plt.xlabel("Distance")
     plt.ylabel("Count")
-    plt.show()
+    # plt.show()
 
     # plt.scatter(all_resolutions, all_dists_real)
     # plt.xlabel("Resolution")

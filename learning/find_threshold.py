@@ -87,7 +87,6 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--nano", action='store_true', default=False)
     parser.add_argument("--sorted", action='store_true', default=False)
     parser.add_argument("--pd", action='store_true', default=False)
@@ -116,9 +115,10 @@ if __name__ == '__main__':
                                 num_feature_map=32)
 
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano)
-    outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
+    model_name = f"{'n' if args.nano else 'f'}{'s' if args.sorted else 'r'}_final_last"
+    outstring = f"{model_name}_val_{args.pd}.npy"
     outname = f"out_{mini_hash(outstring)}_{outstring}"
-    find_thresh(model=model, model_name=args.model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
+    find_thresh(model=model, model_name=model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
     plot_thresh()
 
 # VANILLA NMS

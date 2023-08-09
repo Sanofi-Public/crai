@@ -98,7 +98,7 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         metrics['mean_dist'] = 20
         metrics['real_dists'] = []
         metrics['dists'] = []
-        return position_loss, None, None, None, None, None
+        return position_loss, None, None, None, None, metrics
 
     # As a metric, keep track of the bin distance using linear assignment. First compute it with 5 systems
     mean_dist_expanded, hr_0_expanded, hr_1_expanded, _, _ = compute_metrics_ijks(actual_ijks, predicted_ijks_expanded)
