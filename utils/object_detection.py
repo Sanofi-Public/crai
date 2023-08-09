@@ -8,6 +8,8 @@ from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB, REF_PATH_N
 from utils.rotation import vector_to_rotation
 from utils.mrc_utils import MRCGrid
 
+import cripser
+
 
 # Array to predictions as rotation/translation
 def predict_one_ijk(pred_array, margin=4):
@@ -26,23 +28,31 @@ def predict_one_ijk(pred_array, margin=4):
     return i, j, k
 
 
-def nms(pred_loc, n_objects=None, thresh=0.5):
+def nms(pred_loc, n_objects=None, thresh=0.5, use_pd=False):
     """
     From a dense array of predictions, return a set of positions based on a number or a threshold
     """
-    pred_array = pred_loc.copy()
-    ijk_s = []
-    if n_objects is None:
-        while np.max(pred_array) > thresh:
-            i, j, k = predict_one_ijk(pred_array)
-            ijk_s.append((i, j, k))
-            # Avoid fishy situations:
-            if len(ijk_s) > 10:
-                break
+    if use_pd:
+        # Topological persistence diagrams : in a watershed, sort by difference between birth and death values.
+        pd = cripser.computePH(1 - pred_loc)
+        lifetimes = np.clip(pd[:, 2] - pd[:, 1], 0, 1)
+        sorter = np.argsort(-lifetimes)
+        sorted_pd = pd[sorter]
+        ijk_s = np.int_(sorted_pd[:n_objects, 3:6])
     else:
-        for i in range(n_objects):
-            i, j, k = predict_one_ijk(pred_array)
-            ijk_s.append((i, j, k))
+        pred_array = pred_loc.copy()
+        ijk_s = []
+        if n_objects is None:
+            while np.max(pred_array) > thresh:
+                i, j, k = predict_one_ijk(pred_array)
+                ijk_s.append((i, j, k))
+                # Avoid fishy situations:
+                if len(ijk_s) > 10:
+                    break
+        else:
+            for i in range(n_objects):
+                i, j, k = predict_one_ijk(pred_array)
+                ijk_s.append((i, j, k))
     return ijk_s
 
 
