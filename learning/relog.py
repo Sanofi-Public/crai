@@ -139,7 +139,6 @@ if __name__ == '__main__':
     # VALIDATE DETAILED
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano, normalize=args.normalize)
     # Include all information and add hash for simpler bookkeeping
-    outstring = f"out_{args.model_name}_{args.nano}_{args.sorted}" \
-                f"_{args.split}{'_' + args.normalize if args.normalize != max else ''}.p"
+    outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}.p"
     outname = f"out_{hash(outstring) % 100}_{outstring}"
     validate_detailed(model=model, model_name=args.model_name, loader=loader, outname=outname, gpu=args.gpu)

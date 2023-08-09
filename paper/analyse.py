@@ -65,7 +65,61 @@ def plot_distance(csv_in='../data/csvs/filtered.csv',
     plt.scatter(all_resolutions, all_dists_real)
     plt.xlabel("Resolution")
     plt.ylabel("Distance")
+
+
+def final_plot(nano=False, sort=False):
+    model_name = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
+    outstring = f"out_{model_name}_{nano}_{sort}_test.p"
+    output_pickle = f"../learning/{hash(outstring) % 100}_{outstring}"
+    if nano:
+        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
+        benchmark_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
+    else:
+        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
+        benchmark_pickle = '../data/csvs/benchmark_actual_parsed.p'
+    # get resolution :
+    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
+    dict_res = pickle.load(open(output_pickle, 'rb'))
+    bench_res = pickle.load(open(benchmark_pickle, 'rb'))
+    all_resolutions = []
+    all_dists_real = []
+    all_dists_real_bench = []
+    failed = 0
+    failed_bench = 0
+    for pdb, elt in dict_res.items():
+        if elt is not None:
+            all_dists_real.extend(elt[1])
+            all_resolutions.extend(resolutions[pdb[:4]])
+        else:
+            failed += 1
+            # print('failed on : ', pdb)
+        if pdb in bench_res and bench_res[pdb] is not None:
+            all_dists_real_bench.extend(bench_res[pdb])
+        else:
+            failed_bench += 1
+            # print('failed on : ', pdb)
+    print(f"Failed on {failed}/{len(dict_res)}")
+    all_dists_real = np.asarray(all_dists_real)
+    print("Uncapped mean : ", np.mean(all_dists_real))
+    all_dists_real[all_dists_real >= 20] = 20
+    print("Capped mean : ", np.mean(all_dists_real))
+
+    print(f"Bench failed on {failed_bench}/{len(dict_res)}")
+    all_dists_real_bench = np.asarray(all_dists_real_bench)
+    print("Uncapped mean : ", np.mean(all_dists_real_bench))
+    all_dists_real_bench[all_dists_real_bench >= 20] = 20
+    print("Capped mean : ", np.mean(all_dists_real_bench))
+
+    plt.rcParams.update({'font.size': 18})
+    plt.hist(all_dists_real, bins=10, legend="cria")
+    plt.hist(all_dists_real_bench, bins=10, legend="dock in map")
+    plt.xlabel("Distance")
+    plt.ylabel("Count")
     plt.show()
+
+    # plt.scatter(all_resolutions, all_dists_real)
+    # plt.xlabel("Resolution")
+    # plt.ylabel("Distance")
 
 
 def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
@@ -105,5 +159,9 @@ if __name__ == '__main__':
         output_pickle = '../learning/out_big_train_normalize_last.p'
         # output_pickle = '../data/csvs/benchmark_actual_parsed.p'
 
-    plot_distance(csv_in=csv_in, output_pickle=output_pickle)
+    # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
     # parse_runtime(output_csv=output_csv)
+    final_plot(False, False)
+    final_plot(False, True)
+    final_plot(True, False)
+    final_plot(True, True)

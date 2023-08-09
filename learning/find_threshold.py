@@ -115,9 +115,9 @@ if __name__ == '__main__':
                                 num_feature_map=32)
 
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano)
-    outstring = f"out_{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
-    outname = f"{hash(outstring) % 100}_{outstring}"
-    # find_thresh(model=model, model_name=args.model_name, loader=loader, gpu=args.gpu, use_pd=args.pd,outname=outname)
+    outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
+    outname = f"out_{hash(outstring) % 100}_{outstring}"
+    find_thresh(model=model, model_name=args.model_name, loader=loader, gpu=args.gpu, use_pd=args.pd,outname=outname)
     plot_thresh()
 
 # VANILLA NMS
