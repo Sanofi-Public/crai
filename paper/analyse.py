@@ -78,9 +78,9 @@ def final_plot(nano=False, sort=False):
     # Get benchmark performance
     # benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/benchmark_actual_parsed.p'
     # outstring = f"{model_name}_{nano}_{sort}_test.p"
-    # outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
+    outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
     # outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
-    outstring = f"{model_name}_{nano}_{sort}_test_thresh_pd.p"
+    # outstring = f"{model_name}_{nano}_{sort}_test_thresh_pd.p"
     # benchmark_pickle = f"../outfiles/old_ones/out_{mini_hash(outstring)}_{outstring}"
     benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
@@ -110,7 +110,9 @@ def final_plot(nano=False, sort=False):
             bench_dists = []
         if len(bench_dists) == 0:
             failed_bench += 1
-            # print('failed on : ', pdb)
+
+        #########################################
+
         # Complete the list with 20s
         bench_dists = bench_dists + [20 for _ in range(len(elt[1]) - len(bench_dists))]
         all_dists_real_bench.append(np.mean(bench_dists))

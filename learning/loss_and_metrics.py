@@ -27,7 +27,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     position_dists = dist_matrix[row_ind, col_ind]
     mean_dist = float(position_dists.mean())
     hr_0, hr_1 = dists_to_hits(position_dists)
-    return mean_dist, hr_0, hr_1, position_dists, col_ind
+    return mean_dist, hr_0, hr_1, position_dists, row_ind, col_ind
 
 
 def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold=False):
@@ -101,23 +101,30 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         return position_loss, None, None, None, None, metrics
 
     # As a metric, keep track of the bin distance using linear assignment. First compute it with 5 systems
-    mean_dist_expanded, hr_0_expanded, hr_1_expanded, _, _ = compute_metrics_ijks(actual_ijks, predicted_ijks_expanded)
+    mean_dist_expanded, hr_0_expanded, hr_1_expanded, _, _, _ = compute_metrics_ijks(actual_ijks,
+                                                                                     predicted_ijks_expanded)
     metrics['mean_dist_5'] = mean_dist_expanded
     metrics['hr_0_5'] = hr_0_expanded
     metrics['hr_1_5'] = hr_1_expanded
 
     # Then again, with the right amount
-    predicted_ijks = predicted_ijks_expanded[:len(filtered_transforms)]
-    mean_dist, hr_0, hr_1, dists, mapping = compute_metrics_ijks(actual_ijks, predicted_ijks)
+    if use_threshold:
+        predicted_ijks = predicted_ijks_expanded
+    else:
+        predicted_ijks = predicted_ijks_expanded[:len(filtered_transforms)]
+    mean_dist, hr_0, hr_1, dists, row_ind, col_ind = compute_metrics_ijks(actual_ijks, predicted_ijks)
     metrics['mean_dist'] = mean_dist
     metrics['hr_0'] = hr_0
     metrics['hr_1'] = hr_1
     metrics['dists'] = dists
 
+    # This only makes a difference when we overpredicted.
+    # Extract only the right predictions
+    predicted_ijks = predicted_ijks[row_ind]
     actual_distances = []
     for index, (i, j, k) in enumerate(predicted_ijks):
         # Extract the predicted vector at this location
-        ground_truth_translation = filtered_transforms[mapping[index]][1]
+        ground_truth_translation = filtered_transforms[col_ind[index]][1]
         predicted_offset = prediction_np[0, 1:4, i, j, k]
         predicted_position = predicted_offset + np.asarray([bin_x[i], bin_y[j], bin_z[k]])
         distance = np.linalg.norm(ground_truth_translation - predicted_position)

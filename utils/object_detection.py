@@ -55,6 +55,7 @@ def nms(pred_loc, n_objects=None, thresh=0.2, use_pd=False):
             for i in range(n_objects):
                 i, j, k = predict_one_ijk(pred_array)
                 ijk_s.append((i, j, k))
+        ijk_s = np.int_(np.asarray(ijk_s))
     return ijk_s
 
 
