@@ -122,6 +122,11 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         predicted_position = predicted_offset + np.asarray([bin_x[i], bin_y[j], bin_z[k]])
         distance = np.linalg.norm(ground_truth_translation - predicted_position)
         actual_distances.append(distance)
+
+    if use_threshold:
+        overpredictions = len(predicted_ijks_expanded) - len(filtered_transforms)
+        if overpredictions > 0:
+            actual_distances += [20 for _ in range(overpredictions)]
     metrics['real_dists'] = actual_distances
 
     metrics['nano_classifs'] = list()

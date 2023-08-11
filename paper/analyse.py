@@ -72,13 +72,17 @@ def final_plot(nano=False, sort=False):
     # Get our perfomance
     model_name = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
     outstring = f"{model_name}_{nano}_{sort}_test.p"
-    output_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
+    output_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
     dict_res = pickle.load(open(output_pickle, 'rb'))
 
     # Get benchmark performance
     # benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/benchmark_actual_parsed.p'
-    outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
-    benchmark_pickle = f"../learning/out_{mini_hash(outstring)}_{outstring}"
+    # outstring = f"{model_name}_{nano}_{sort}_test.p"
+    # outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
+    # outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
+    outstring = f"{model_name}_{nano}_{sort}_test_thresh_pd.p"
+    # benchmark_pickle = f"../outfiles/old_ones/out_{mini_hash(outstring)}_{outstring}"
+    benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
 
     # get resolution :
@@ -91,10 +95,12 @@ def final_plot(nano=False, sort=False):
     all_dists_real_bench = []
     failed = 0
     failed_bench = 0
-    for pdb, elt in dict_res.items():
+    for pdb, elt in sorted(dict_res.items()):
         if elt is not None:
+            pass
             all_dists_real.extend(elt[1])
-            all_resolutions.extend(resolutions[pdb[:4]])
+            # all_dists_real.append(np.mean(elt[1]))
+            # all_resolutions.extend(resolutions[pdb[:4]])
         else:
             failed += 1
             # print('failed on : ', pdb)
@@ -107,29 +113,45 @@ def final_plot(nano=False, sort=False):
             # print('failed on : ', pdb)
         # Complete the list with 20s
         bench_dists = bench_dists + [20 for _ in range(len(elt[1]) - len(bench_dists))]
-        all_dists_real_bench.extend(bench_dists)
+        all_dists_real_bench.append(np.mean(bench_dists))
+        # all_dists_real_bench.extend(bench_dists)
+        # print(pdb, elt[1], bench_dists)
     all_dists_real = np.asarray(all_dists_real)
     uncapped = np.mean(all_dists_real)
-    all_dists_real[all_dists_real >= 20] = 20
+    # all_dists_real[all_dists_real >= 20] = 20
     capped = np.mean(all_dists_real)
-    print(f"Failed on {failed}/{len(dict_res)}")
-    print(f"Uncapped mean : {uncapped:2f}")
-    print(f"Capped mean {capped:2f}")
 
+    thresh = 10
+    # print(thresh)
+    all_dists_real[all_dists_real >= thresh] = np.nan
+    nan = np.nanmean(all_dists_real)
+    count_nan = np.sum(np.isnan(all_dists_real))
+    # print(f"Failed on {failed}/{len(dict_res)}")
+    # print(f"Uncapped mean : {uncapped:2f}")
+    # print(f"Capped mean {capped:2f}")
+    # print(len(all_dists_real))
     all_dists_real_bench = np.asarray(all_dists_real_bench)
     bench_uncapped = np.mean(all_dists_real_bench)
-    all_dists_real_bench[all_dists_real_bench >= 20] = 20
+    # all_dists_real_bench[all_dists_real_bench >= 20] = 20
     bench_capped = np.mean(all_dists_real_bench)
-    print(f"Bench failed on {failed_bench}/{len(dict_res)}")
-    print(f"Uncapped mean : {bench_uncapped:2f}")
-    print(f"Capped mean : {bench_capped:2f}")
-    print(f"{capped:.2f}/{uncapped:.2f}/{failed} vs "
-          f"{bench_capped:.2f}/{bench_uncapped:.2f}/{failed_bench}")
+    all_dists_real_bench[all_dists_real_bench >= thresh] = np.nan
+    bench_nan = np.nanmean(all_dists_real_bench)
+    bench_count_nan = np.sum(np.isnan(all_dists_real_bench))
+    # print(f"Bench failed on {failed_bench}/{len(dict_res)}")
+    # print(f"Uncapped mean : {bench_uncapped:2f}")
+    # print(f"Capped mean : {bench_capped:2f}")
+    # print(f"{capped:.2f}/{uncapped:.2f}/{failed} vs "
+    #       f"{bench_capped:.2f}/{bench_uncapped:.2f}/{failed_bench}")
+    # print(f"{nan:.2f} {count_nan} {bench_nan:.2f} {bench_count_nan}")
+    print(f"{bench_nan:.2f} {bench_count_nan}")
+    # print()
 
     plt.rcParams.update({'font.size': 18})
-    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
     # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["cria", "dock in map"])
-    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
+    plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold with PD"])
+    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Threshold with PD", "Threshhold"])
     plt.legend()
     plt.xlabel("Distance")
     plt.ylabel("Count")
@@ -158,7 +180,7 @@ if __name__ == '__main__':
     # nano = True
     sort = False
     # sort = True
-    print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
+    # print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
     if nano:
         # NANO
         # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
@@ -171,10 +193,10 @@ if __name__ == '__main__':
         # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered.csv' # Fab whole : 24.4 , 7.0
         csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
         output_csv = '../data/csvs/benchmark_actual.csv'
-        # output_pickle = '../learning/out_big_train_gamma_last.p'
-        # output_pickle = '../learning/out_big_train_gamma_last_old.p'
-        # output_pickle = '../learning/out_big_train_normalize_210.p'
-        output_pickle = '../learning/out_big_train_normalize_last.p'
+        # output_pickle = '../outfiles/out_big_train_gamma_last.p'
+        # output_pickle = '../outfiles/out_big_train_gamma_last_old.p'
+        # output_pickle = '../outfiles/out_big_train_normalize_210.p'
+        output_pickle = '../outfiles/out_big_train_normalize_last.p'
         # output_pickle = '../data/csvs/benchmark_actual_parsed.p'
 
     # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
@@ -182,4 +204,4 @@ if __name__ == '__main__':
     final_plot(False, False)
     final_plot(False, True)
     final_plot(True, False)
-    # final_plot(True, True)
+    final_plot(True, True)

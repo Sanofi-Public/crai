@@ -67,19 +67,31 @@ def line_plot(npy_name, label, color=None):
 def plot_thresh():
     # f"out_{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
     palette = sns.color_palette("Paired")
-    line_plot("out_44_out_ot_loss_last_False_False_val_True.npy",
+    # palette = sns.color_palette(n_colors=8)
+    line_plot("out_87_fr_final_last_val_True.npy",
               "PD", color=palette[0])
-    line_plot("out_82_out_ot_loss_last_False_False_val_False.npy",
+    line_plot("out_96_fr_final_last_val_False.npy",
               "Margin", color=palette[1])
-    line_plot("out_30_out_fs_final_last_False_True_val_True.npy",
+    line_plot("out_59_fs_final_last_val_True.npy",
               "Sorted PD", color=palette[2])
-    line_plot("out_86_out_fs_final_last_False_True_val_False.npy",
+    line_plot("out_84_fs_final_last_val_False.npy",
               "Sorted Margin", color=palette[3])
-    line_plot("out_73_out_nr_final_last_True_False_val_True.npy",
+    line_plot("out_76_nr_final_last_val_True.npy",
               "Nano PD", color=palette[4])
-    line_plot("out_98_out_nr_final_last_True_False_val_False.npy",
+    line_plot("out_98_nr_final_last_val_False.npy",
               "Nano Margin", color=palette[5])
+    line_plot("out_28_ns_final_last_val_True.npy",
+              "Nano Sorted PD", color=palette[6])
+    line_plot("out_32_ns_final_last_val_False.npy",
+              "Nano Sorted Margin", color=palette[7])
+    # Just to see what test looks like
+    # line_plot("out_75_nr_final_last_test_True.npy",
+    #           "Nano PD test", color=palette[6])
+    # line_plot("out_53_nr_final_last_test_False.npy",
+    #           "Nano Margin test", color=palette[7])
     plt.legend()
+    plt.xlabel("Probability threshold")
+    plt.ylabel("Mean error in the number of predictions")
     plt.show()
 
 
@@ -113,12 +125,11 @@ if __name__ == '__main__':
                                 num_convs=3,
                                 max_decode=2,
                                 num_feature_map=32)
-
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano)
     model_name = f"{'n' if args.nano else 'f'}{'s' if args.sorted else 'r'}_final_last"
     outstring = f"{model_name}_val_{args.pd}.npy"
     outname = f"out_{mini_hash(outstring)}_{outstring}"
-    find_thresh(model=model, model_name=model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
+    # find_thresh(model=model, model_name=model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
     plot_thresh()
 
 # VANILLA NMS
