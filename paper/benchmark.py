@@ -303,7 +303,7 @@ if __name__ == '__main__':
     # FIND ALL
     nano = True
     use_template = False
-    csv_in = '../data/{"nano_" if nano else ""}csvs/filtered.csv'
+    csv_in = f'../data/{"nano_" if nano else ""}csvs/filtered.csv'
     csv_out = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}.csv'
     compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
 
