@@ -18,6 +18,7 @@ from load_data.ABDataset import ABDataset
 from utils.learning_utils import setup_learning
 from utils.python_utils import mini_hash
 
+
 def weights_from_name(name):
     hits = glob.glob(f"../saved_models/{name}*")
     weights = [(hit.split('_')[-1].split('.')[0], hit) for hit in hits]
@@ -48,7 +49,7 @@ def relog(model, model_name, val_loader, gpu=0):
         writer.flush()
 
 
-def validate_detailed(model, model_name, loader, outname, gpu=0):
+def validate_detailed(model, model_name, loader, outname, gpu=0, use_threshold=False, use_pd=False):
     device = f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu'
     weights_path = f"../saved_models/{model_name}.pth"
     model.load_state_dict(torch.load(weights_path))
@@ -65,7 +66,9 @@ def validate_detailed(model, model_name, loader, outname, gpu=0):
             prediction = model(input_tensor)
             position_loss, offset_loss, rz_loss, angle_loss, nano_loss, metrics = coords_loss(prediction, comp,
                                                                                               classif_nano=False,
-                                                                                              ot_weight=0)
+                                                                                              ot_weight=0,
+                                                                                              use_threshold=use_threshold,
+                                                                                              use_pd=use_pd)
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             all_dists = metrics['dists']
@@ -92,6 +95,16 @@ def validate_detailed(model, model_name, loader, outname, gpu=0):
     return losses
 
 
+# Setup data
+def get_loader(sorted=False, split='val', nano=False, normalize='max', num_workers=4):
+    csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
+    all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
+    ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
+                           rotate=False, crop=0, full=True, normalize=normalize)
+    ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    return ab_loader
+
+
 if __name__ == '__main__':
     import argparse
 
@@ -99,22 +112,13 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--model_name", default='default')
     parser.add_argument("--nano", action='store_true', default=False)
     parser.add_argument("--sorted", action='store_true', default=False)
+    parser.add_argument("--thresh", action='store_true', default=False)
+    parser.add_argument("--pd", action='store_true', default=False)
     parser.add_argument("--split", default='val')
     parser.add_argument("-norm", "--normalize", default='max', help='one of None, max, centile')
     parser.add_argument("--nw", type=int, default=None)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
-
-
-    # Setup data
-    def get_loader(sorted=False, split='val', nano=False, normalize='max', num_workers=4):
-        csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
-        all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
-        ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
-                               rotate=False, crop=0, full=True, normalize=normalize)
-        ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
-        return ab_loader
-
 
     # Learning hyperparameters
     model = SimpleHalfUnetModel(in_channels=1,
@@ -138,6 +142,8 @@ if __name__ == '__main__':
     # VALIDATE DETAILED
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano, normalize=args.normalize)
     # Include all information and add hash for simpler bookkeeping
-    outstring = f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}.p"
+    outstring = (f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}{'_thresh' if args.thresh else ''}"
+                 f"{'_pd' if args.pd else ''}.p")
     outname = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
-    validate_detailed(model=model, model_name=args.model_name, loader=loader, outname=outname, gpu=args.gpu)
+    validate_detailed(model=model, model_name=args.model_name, loader=loader, outname=outname,
+                      gpu=args.gpu, use_threshold=args.thresh, use_pd=args.pd)

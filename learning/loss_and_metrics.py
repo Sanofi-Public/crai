@@ -30,7 +30,7 @@ def compute_metrics_ijks(actual_ijks, pred_ijks):
     return mean_dist, hr_0, hr_1, position_dists, row_ind, col_ind
 
 
-def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold=False):
+def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold=False, use_pd=False):
     """
     Object detection loss that accounts for finding the right voxel(s) and the right translation/rotation
        at this voxel.
@@ -88,9 +88,11 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
     actual_ijks = np.asarray([x[0] for x in filtered_transforms])
     prediction_np_loc = prediction_np[0, 0, ...]
     if use_threshold:
-        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc)
+        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc, use_pd=use_pd)
     else:
-        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc, n_objects=max(5, len(filtered_transforms)))
+        predicted_ijks_expanded = nms(pred_loc=prediction_np_loc,
+                                      n_objects=max(5, len(filtered_transforms)),
+                                      use_pd=use_pd)
         predicted_ijks_expanded = np.asarray(predicted_ijks_expanded)
 
     # This can happen with thresholds

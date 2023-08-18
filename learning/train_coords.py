@@ -117,7 +117,7 @@ def train(model, loader, optimizer, n_epochs=10, device='cpu', classif=False,
                 model.to(device)
 
 
-def validate(model, device, loader, classif_nano=True):
+def validate(model, device, loader, classif_nano=True, thresh=False, use_pd=False):
     time_init = time.time()
     losses = list()
     all_real_dists = list()
