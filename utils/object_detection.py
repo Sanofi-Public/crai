@@ -119,7 +119,7 @@ def transforms_to_pdb(transforms, out_name=None):
     """
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH_FV, 'ref_fv')
+        p.cmd.load(REF_PATH_FAB, 'ref_fv')
         p.cmd.load(REF_PATH_NANO, 'ref_nano')
         for i, (rmsd, translation, rotation, nano) in enumerate(transforms):
             hit = f"result_{i}"

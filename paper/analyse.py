@@ -239,27 +239,22 @@ def final_plot(nano=False, sort=False, average_systems=False, model_name=None, s
     return {'res': all_resolutions, 'native': all_dists_real, 'bench': all_dists_real_bench}
 
 
-def compare_bench(average_systems=False):
-    ff = final_plot(False, False, average_systems=average_systems)
-    ff_thresh_pd = final_plot(False, False, average_systems=average_systems, suffix='_thresh_pd')
-    ff_actual = final_plot(False, False, average_systems=average_systems, model_name="benchmark_actual_parsed")
-    ff_template = final_plot(False, False, average_systems=average_systems, model_name="benchmark_parsed")
-    ft = final_plot(False, True, average_systems=average_systems)
-    ft_thresh_pd = final_plot(False, True, average_systems=average_systems, suffix='_thresh_pd')
-    ft_actual = final_plot(False, True, average_systems=average_systems, model_name="benchmark_actual_parsed")
-    ft_template = final_plot(False, True, average_systems=average_systems, model_name="benchmark_parsed")
-    # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
-    all_sys = [ff, ff_thresh_pd, ff_actual, ff_template, ft, ft_thresh_pd, ft_actual, ft_template]
-    all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']] for final in all_sys]
-    plt.rcParams.update({'font.size': 18})
-    # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
-    labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
-    plt.hist(all_dists_real[:(len(all_sys) // 2)], bins=6, label=labels)
-    plt.legend()
-    plt.show()
-    plt.hist(all_dists_real[len(all_sys) // 2:], bins=6, label=labels)
-    plt.legend()
-    plt.show()
+def compare_bench(average_systems=True):
+    for fab in [False, True]:
+        for sort in [False, True]:
+            first = final_plot(fab, sort, average_systems=average_systems)
+            thresh_pd = final_plot(fab, sort, average_systems=average_systems, suffix='_thresh_pd')
+            actual = final_plot(fab, sort, average_systems=average_systems, model_name="benchmark_actual_parsed")
+            template = final_plot(fab, sort, average_systems=average_systems, model_name="benchmark_parsed")
+            # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
+            all_sys = [first, thresh_pd, actual, template]
+            all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']] for final in all_sys]
+            plt.rcParams.update({'font.size': 18})
+            # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
+            labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
+            plt.hist(all_dists_real, bins=6, label=labels)
+            plt.legend()
+            plt.show()
 
 
 def do_all(average_systems=False):
@@ -270,7 +265,6 @@ def do_all(average_systems=False):
     all_sys = [ff, ft, tf, tt]
 
     # RESOLUTION/PERFORMANCE
-    all_resolutions = [elt for final in all_sys for elt in final['res']]
     all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
     all_dists_real = np.asarray([elt for final in all_sys for elt in final['native']]).flatten()
     scatter(all_resolutions, all_dists_real, xlabel='Resolution', ylabel='Distance', fit=True)

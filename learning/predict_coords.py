@@ -15,7 +15,7 @@ from utils.object_detection import output_to_transforms, transforms_to_pdb
 
 def crop_large_mrc(mrc, margin=12):
     arr = mrc.data
-    to_find = arr > 0.05
+    to_find = arr > 0.1
     res = np.nonzero(to_find)
     all_min_max = []
     for r, shape in zip(res, to_find.shape):
@@ -99,7 +99,8 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(model_path))
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
     dump_path = os.path.join(datadir_name, dirname, dump_name)
-    out_mrc = dump_path.replace(".pdb", "pred.mrc")
+    # out_mrc = dump_path.replace(".pdb", "pred.mrc")
+    out_mrc = None
     n_objects = None
     thresh = 0.2
     use_pd = True

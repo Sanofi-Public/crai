@@ -241,7 +241,7 @@ def parse_one(outfile, gt_pdb, selections, use_template=False, nano=False):
         gt_transforms = pdbsel_to_transforms(gt_pdb, selections)
         if use_template:
             if nano:
-                selections = [f"chain='{UPPERCASE[i]}'" for i in range(len(selections))]
+                selections = [f"chain '{UPPERCASE[i]}'" for i in range(len(selections))]
             else:
                 fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
                 fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
