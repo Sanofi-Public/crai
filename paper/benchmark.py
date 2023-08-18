@@ -275,16 +275,16 @@ if __name__ == '__main__':
     # print(res)
 
     # test all
-    # nano = True
-    # if nano:
-    #     use_template = False
-    #     csv_in = '../data/nano_csvs/filtered.csv'
-    #     csv_out = f'../data/nano_csvs/benchmark_actual.csv'
-    # else:
-    #     use_template = False
-    #     csv_in = '../data/csvs/filtered.csv'
-    #     csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
+    nano = True
+    if nano:
+        use_template = False
+        csv_in = '../data/nano_csvs/filtered.csv'
+        csv_out = f'../data/nano_csvs/benchmark_actual.csv'
+    else:
+        use_template = False
+        csv_in = '../data/csvs/filtered.csv'
+        csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
 
     # Parse one
     # datadir_name = "../data/pdb_em"

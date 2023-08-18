@@ -12,11 +12,11 @@ def get_template(pdb_path, pymol_sel, crop_sel, nano_sel):
     :param crop_sel:
     """
     # pseudoatom origin, pos=[0,0,0]
+    # pseudoatom ptz, pos=[0,0,20]
     # pseudoatom ptx, pos=[10,0,0]
     # distance /origin, /ptx
     # pseudoatom pty, pos=[0,15,0]
     # distance /origin, /pty
-    # pseudoatom ptz, pos=[0,0,20]
     # distance /origin, /ptz
 
     with pymol2.PyMOL() as p:

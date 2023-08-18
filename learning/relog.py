@@ -69,7 +69,8 @@ def validate_detailed(model, model_name, loader, outname, gpu=0):
             position_dist = metrics['mean_dist']
             real_dists = metrics['real_dists']
             all_dists = metrics['dists']
-            dict_res[name] = all_dists, real_dists
+            probas = metrics['probas']
+            dict_res[name] = all_dists, real_dists, probas
 
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss

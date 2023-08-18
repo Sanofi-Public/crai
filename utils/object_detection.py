@@ -60,7 +60,7 @@ def nms(pred_loc, n_objects=None, thresh=0.2, use_pd=False):
 
 
 def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
-                         outmrc=None, classif_nano=False, default_nano=False):
+                         outmrc=None, classif_nano=False, default_nano=False, use_pd=False):
     """
     First we need to go from grid, complex -> rotation, translation
     Then we call the second one
@@ -81,7 +81,7 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
             mrc_pred.save(outname=outmrc.replace("pred.mrc", "pred_nano.mrc"), data=out_grid[-1], overwrite=True)
 
     # First let's find out the position of the antibody in our prediction
-    ijk_s = nms(pred_loc, n_objects=n_objects, thresh=thresh)
+    ijk_s = nms(pred_loc, n_objects=n_objects, thresh=thresh,use_pd=use_pd)
 
     transforms = list()
     for i, j, k in ijk_s:

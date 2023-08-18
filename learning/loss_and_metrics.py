@@ -120,10 +120,14 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
 
     # This only makes a difference when we overpredicted.
     # Extract only the right predictions
-    predicted_ijks = predicted_ijks[row_ind]
     actual_distances = []
-    for index, (i, j, k) in enumerate(predicted_ijks):
+    predicted_probas = []
+    selected_ijks = predicted_ijks[row_ind]
+    for index, (i, j, k) in enumerate(selected_ijks):
         # Extract the predicted vector at this location
+        predicted_proba = prediction_np[0, 0, i, j, k]
+        predicted_probas.append(predicted_proba)
+
         ground_truth_translation = filtered_transforms[col_ind[index]][1]
         predicted_offset = prediction_np[0, 1:4, i, j, k]
         predicted_position = predicted_offset + np.asarray([bin_x[i], bin_y[j], bin_z[k]])
@@ -131,10 +135,13 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         actual_distances.append(distance)
 
     if use_threshold:
-        overpredictions = len(predicted_ijks_expanded) - len(filtered_transforms)
+        overpredictions = len(predicted_ijks) - len(filtered_transforms)
         if overpredictions > 0:
+            useless_ijks = np.delete(predicted_ijks, row_ind, axis=0)
             actual_distances += [20 for _ in range(overpredictions)]
+            predicted_probas += [prediction_np[0, 0, i, j, k] for (i, j, k) in useless_ijks]
     metrics['real_dists'] = actual_distances
+    metrics['probas'] = predicted_probas
 
     metrics['nano_classifs'] = list()
     offset_losses, rz_losses, angle_losses, nano_losses = [], [], [], []
