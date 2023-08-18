@@ -235,15 +235,19 @@ def compute_all_dockinmap(csv_in, csv_out, datadir_name='../data/pdb_em', use_te
         print(x)
 
 
-def parse_one(outfile, gt_pdb, selections, use_template=False):
+def parse_one(outfile, gt_pdb, selections, use_template=False, nano=False):
     try:
         selections = [x[0] for x in selections]
         gt_transforms = pdbsel_to_transforms(gt_pdb, selections)
         if use_template:
-            fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
-            fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
-            fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fabs)]
-            selections = fvs_selections + fabs_selections
+            if nano:
+                selections = [f"chain='{UPPERCASE[i]}'" for i in range(len(selections))]
+            else:
+                fabs, fvs = get_num_fabs_fvs(gt_pdb, selections)
+                fvs_selections = [f"chain '{UPPERCASE[i]} or chain {LOWERCASE[i]}" for i in range(fvs)]
+                fabs_selections = [f"chain '{UPPERCASE[i + 11]} or chain {LOWERCASE[i + 11]}" for i in range(fabs)]
+                selections = fvs_selections + fabs_selections
+
         predicted_transforms = pdbsel_to_transforms(outfile, selections, cache=False)
         pred_translations = [res[1] for res in predicted_transforms]
         gt_translations = [res[1] for res in gt_transforms]
@@ -266,13 +270,10 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False, 
         datadir_name = "../data/pdb_em"
         dirname = f"{pdb}_{mrc}"
         pdb_path = os.path.join(datadir_name, dirname, f"{pdb}.cif")
-        if nano:
-            out_name = "output_dock_in_map_actual_nano.pdb"
-        else:
-            out_name = "output_dock_in_map.pdb" if use_template else "output_dock_in_map_actual.pdb"
+        out_name = f"output_dock_in_map{'' if use_template else '_actual'}{'_nano' if nano else ''}.pdb"
         out_path = os.path.join(datadir_name, dirname, out_name)
         selections = pdb_selections[pdb]
-        res = parse_one(out_path, pdb_path, selections, use_template=use_template)
+        res = parse_one(out_path, pdb_path, selections, use_template=use_template, nano=nano)
         all_res[dirname] = res
         if not i % 20:
             print(f"Done {i}/{len(df_raw)}")
@@ -301,11 +302,11 @@ if __name__ == '__main__':
     # print(res)
 
     # FIND ALL
-    nano = True
-    use_template = False
-    csv_in = f'../data/{"nano_" if nano else ""}csvs/filtered.csv'
-    csv_out = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}.csv'
-    compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
+    # nano = True
+    # use_template = True
+    # csv_in = f'../data/{"nano_" if nano else ""}csvs/filtered.csv'
+    # csv_out = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    # compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
 
     # Parse one
     # datadir_name = "../data/pdb_em"
