@@ -100,8 +100,6 @@ def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probabilit
 
 
 def final_plot(nano=False, sort=False, average_systems=False, model_name=None, suffix=None):
-    suffix='_pd'
-    average_systems = True
     # Get our perfomance
     model_name_ref = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
     outstring = f"{model_name_ref}_{nano}_{sort}_test.p"
@@ -250,11 +248,11 @@ def compare_bench(average_systems=False):
     ft_thresh_pd = final_plot(False, True, average_systems=average_systems, suffix='_thresh_pd')
     ft_actual = final_plot(False, True, average_systems=average_systems, model_name="benchmark_actual_parsed")
     ft_template = final_plot(False, True, average_systems=average_systems, model_name="benchmark_parsed")
-    all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
+    # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
     all_sys = [ff, ff_thresh_pd, ff_actual, ff_template, ft, ft_thresh_pd, ft_actual, ft_template]
     all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']] for final in all_sys]
     plt.rcParams.update({'font.size': 18})
-    labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
+    # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
     labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
     plt.hist(all_dists_real[:(len(all_sys) // 2)], bins=6, label=labels)
     plt.legend()
@@ -330,10 +328,10 @@ if __name__ == '__main__':
 
     # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
     # parse_runtime(output_csv=output_csv)
-    final_plot(False, False)
-    final_plot(False, True)
-    final_plot(True, False)
-    final_plot(True, True)
+    # final_plot(False, False)
+    # final_plot(False, True)
+    # final_plot(True, False)
+    # final_plot(True, True)
 
     # do_all()
 

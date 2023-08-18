@@ -19,7 +19,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(script_dir, '..'))
 
 from utils.mrc_utils import MRCGrid
-from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB
+from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB, REF_PATH_NANO
 from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import init
 from utils.object_detection import pdbsel_to_transforms
@@ -59,6 +59,23 @@ def copy_templates():
             p.cmd.alter(f'{fab_sel_i} and chain L', f"chain='{LOWERCASE[i + 11]}'")
             p.cmd.alter(f'{fab_sel_i} and chain H', f"chain='{UPPERCASE[i + 11]}'")
             p.cmd.save(fab_save_path, fab_sel_i)
+
+
+def copy_templates_nano():
+    """
+    Stupid idea, the goal is to produce 16 copies of nanobodies
+    """
+
+    with pymol2.PyMOL() as p:
+        p.cmd.feedback("disable", "all", "everything")
+        p.cmd.load(REF_PATH_NANO, 'ref_nano')
+        nano_file_path, _ = os.path.splitext(REF_PATH_NANO)
+        for i in range(16):
+            nano_save_path = f"{nano_file_path}_{i + 1}.pdb"
+            nano_sel_i = f"nano_{i + 1}"
+            p.cmd.copy(nano_sel_i, "ref_nano")
+            p.cmd.alter(f'{nano_sel_i} and chain L', f"chain='{UPPERCASE[i]}'")
+            p.cmd.save(nano_save_path, nano_sel_i)
 
 
 def get_num_fabs_fvs(pdb_path, selections):
@@ -133,21 +150,26 @@ def dock_chains(mrc_path, pdb_path, selections, resolution=4., use_template=Fals
                         to_dock.append(outname)
                 pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual.pdb')
         else:
-            to_dock = []
-            with pymol2.PyMOL() as p:
-                p.cmd.feedback("disable", "all", "everything")
-                p.cmd.load(pdb_path, 'in_pdb')
-                for i, selection in enumerate(selections):
-                    sel = f'in_pdb and ({selection})'
-                    p.cmd.extract("to_align", sel)
-                    coords = p.cmd.get_coords("to_align")
-                    rotated = R.random().apply(coords)
-                    translated = rotated + np.array([10, 20, 30])[None, :]
-                    p.cmd.load_coords(translated, "to_align", state=1)
-                    outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_nano_{i}.pdb')
-                    p.cmd.save(outname, 'to_align')
-                    to_dock.append(outname)
-            pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual_nano.pdb')
+            if use_template:
+                nano_file_path, _ = os.path.splitext(REF_PATH_NANO)
+                to_dock = [f"{nano_file_path}_{i + 1}.pdb" for i in range(len(selections))]
+                pdb_out = os.path.join(dir_path, 'output_dock_in_map_nano.pdb')
+            else:
+                to_dock = []
+                with pymol2.PyMOL() as p:
+                    p.cmd.feedback("disable", "all", "everything")
+                    p.cmd.load(pdb_path, 'in_pdb')
+                    for i, selection in enumerate(selections):
+                        sel = f'in_pdb and ({selection})'
+                        p.cmd.extract("to_align", sel)
+                        coords = p.cmd.get_coords("to_align")
+                        rotated = R.random().apply(coords)
+                        translated = rotated + np.array([10, 20, 30])[None, :]
+                        p.cmd.load_coords(translated, "to_align", state=1)
+                        outname = os.path.join(os.path.dirname(pdb_path), f'to_dock_nano_{i}.pdb')
+                        p.cmd.save(outname, 'to_align')
+                        to_dock.append(outname)
+                pdb_out = os.path.join(dir_path, 'output_dock_in_map_actual_nano.pdb')
 
         if os.path.exists(pdb_out) and not recompute:
             return 5, "Already computed"
@@ -240,7 +262,7 @@ def parse_all_dockinmap(csv_in, parsed_out, pdb_selections, use_template=False, 
     all_res = dict()
     for i, row in df_raw.iterrows():
         pdb, mrc, resolution, dock_runtime = row.values
-        pdb=pdb.upper()
+        pdb = pdb.upper()
         datadir_name = "../data/pdb_em"
         dirname = f"{pdb}_{mrc}"
         pdb_path = os.path.join(datadir_name, dirname, f"{pdb}.cif")
@@ -261,29 +283,28 @@ if __name__ == '__main__':
     pass
     # test templates
     # copy_templates()
+    # copy_templates_nano()
 
     # test one
     # datadir_name = "../data/pdb_em"
     # dirname = "6V4N_21042"
+    # dirname = "8GQ5_34198"
+    # nano = True
+    # use_template = True
     # pdb_name, mrc_name = dirname.split("_")
     # pdb_path = os.path.join(datadir_name, dirname, f"{pdb_name}.cif")
     # resampled_path = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc")
-    # all_systems = "../data/csvs/filtered.csv"
+    # all_systems = f"../data/{'nano_' if nano else ''}csvs/filtered.csv"
     # pdb_selections = get_pdb_selection(csv_in=all_systems, columns=['antibody_selection'])
     # selections = pdb_selections[pdb_name.upper()]
-    # res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, selections=selections)
+    # res = dock_chains(pdb_path=pdb_path, mrc_path=resampled_path, selections=selections, nano=nano, use_template=True)
     # print(res)
 
-    # test all
+    # FIND ALL
     nano = True
-    if nano:
-        use_template = False
-        csv_in = '../data/nano_csvs/filtered.csv'
-        csv_out = f'../data/nano_csvs/benchmark_actual.csv'
-    else:
-        use_template = False
-        csv_in = '../data/csvs/filtered.csv'
-        csv_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    use_template = False
+    csv_in = '../data/{"nano_" if nano else ""}csvs/filtered.csv'
+    csv_out = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}.csv'
     compute_all_dockinmap(csv_in=csv_in, csv_out=csv_out, nano=nano, use_template=use_template)
 
     # Parse one
@@ -300,18 +321,12 @@ if __name__ == '__main__':
     # res = parse_one(out_path, pdb_path, selections, use_template=use_template)
     # print(res)
 
-    # Parse all
-    nano = False
-    if nano:
-        csv_in = '../data/nano_csvs/filtered.csv'
-        out_dock = f'../data/nano_csvs/benchmark_actual_nano.csv'
-        parsed_out = f'../data/nano_csvs/benchmark_actual_parsed.p'
-        use_template = False
-    else:
-        csv_in = '../data/csvs/filtered.csv'
-        use_template = False
-        out_dock = f'../data/csvs/benchmark{"_actual" if not use_template else ""}.csv'
-        parsed_out = f'../data/csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
+    # PARSE ALL
+    nano = True
+    use_template = True
+    csv_in = f'../data/{"nano_" if nano else ""}csvs/filtered.csv'
+    out_dock = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}.csv'
+    parsed_out = f'../data/{"nano_" if nano else ""}csvs/benchmark{"_actual" if not use_template else ""}_parsed.p'
     pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
     parse_all_dockinmap(csv_in=out_dock,
                         parsed_out=parsed_out,
