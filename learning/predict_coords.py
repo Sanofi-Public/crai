@@ -61,12 +61,12 @@ if __name__ == '__main__':
     # dirname = '6BF9_7093'  # this is test set
     # dirname = '8DG9_27419'  # this is test set
     # dirname = '7DCC_30635'  # this is test set
-    # dirname = '6NQD_0485'  # this is test set
+    dirname = '6NQD_0485'  # this is test set
     # dirname = '6VJA_21212'  # this is close Fvs
     # dirname = '7YM8_33924'  # this is test set
     # dirname = '8GNI_34165'  # this is test set
     # dirname = '8HBV_34644'  # this is test set
-    dirname = '8HIJ_34818'  # this is test set
+    # dirname = '8HIJ_34818'  # this is test set
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map"), False
@@ -87,18 +87,14 @@ if __name__ == '__main__':
     # model_name = 'multi_train_339'
     # model_name = 'multi_train_861'
     # model_name = 'big_train_gamma_last'
-    model_name = 'ns_final_last'
+    # model_name = 'fr_final_last'
+    model_name = 'fr_uy_last'
+    # model_name = 'ns_final_last'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,
     #                       )
-    model = SimpleHalfUnetModel(in_channels=1,
-                                model_depth=4,
-                                num_convs=3,
-                                max_decode=2,
-                                classif_nano=True,
-                                num_feature_map=32)
-    model.load_state_dict(torch.load(model_path))
+
     dump_name = f"{model_name}_{'small' if small else 'large'}.pdb"
     dump_path = os.path.join(datadir_name, dirname, dump_name)
     # out_mrc = dump_path.replace(".pdb", "pred.mrc")
@@ -107,12 +103,19 @@ if __name__ == '__main__':
     thresh = 0.2
     use_pd = True
     crop = 0
-    classif_nano = True
+    classif_nano = False
     default_nano = False
     normalize = 'max'
 
     import time
 
+    model = SimpleHalfUnetModel(in_channels=1,
+                                model_depth=4,
+                                num_convs=3,
+                                max_decode=2,
+                                classif_nano=classif_nano,
+                                num_feature_map=32)
+    model.load_state_dict(torch.load(model_path))
     t0 = time.time()
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc, normalize=normalize,
                    n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=default_nano,

@@ -137,7 +137,10 @@ if __name__ == '__main__':
     # relog(model=model, model_name=args.model_name, val_loader=loader, gpu=0)
 
     # VALIDATE DETAILED
-    loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano, normalize=args.normalize)
+    args.model_name="fr_uy_last"
+    args.nw = 1
+    loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano,
+                        normalize=args.normalize, num_workers=args.nw)
     # Include all information and add hash for simpler bookkeeping
     outstring = (f"{args.model_name}_{args.nano}_{args.sorted}_{args.split}{'_thresh' if args.thresh else ''}"
                  f"{'_pd' if args.pd else ''}.p")

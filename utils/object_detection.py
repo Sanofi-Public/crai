@@ -102,6 +102,7 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
         # Finally build the resulting rotation
         uz_to_p = vector_to_rotation(predicted_rz)
         rotation = uz_to_p * Rotation.from_rotvec([0, 0, t])
+        # rotation = uz_to_p * Rotation.from_rotvec([0, t, 0])
         # Assert that the rz with rotation matches predicted_rz
         # rz = rotation.apply([0, 0, 1])
         if classif_nano:

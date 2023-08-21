@@ -140,7 +140,7 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
     return {'res': all_resolutions, 'native': main_results, 'bench': bench_results}
 
 
-def get_results(nano=False, sort=False, average_systems=False, model_name=None, suffix='_pd'):
+def get_results(nano=False, sort=False, average_systems=False, model_name=None, suffix='_pd', keys=('real_dists',)):
     """
     From a set of high level key words, open the right files and parse them
 
@@ -169,7 +169,7 @@ def get_results(nano=False, sort=False, average_systems=False, model_name=None, 
         outstring = f"{model_name}_{nano}_{sort}_test{suffix if suffix is not None else '_pd'}.p"
         benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
-    keys = ('real_dists',)
+
     all_results = parse_dict_res(main_dict=dict_res, bench_dict=bench_res, keys=keys, actual_benchmark=actual_benchmark,
                                  average_systems=average_systems, nano=nano, sort=sort)
     return all_results
@@ -284,7 +284,20 @@ def compute_ablations():
 
 
 def get_angles():
-    get_results(False, False, suffix='_thresh_pd')
+    keys = ('real_dists', 'rz_angle','theta_angle',)
+    # keys = ('real_dists', 'rz_angle', 'rz_norm', 'theta_angle', 'theta_norm',)
+    # res = get_results(False, False, suffix='_thresh_pd', keys=keys)
+    res = get_results(False, False, suffix='_pd', keys=keys, model_name='fr_uy_last')
+    # res = get_results(True, False, suffix='_thresh_pd', keys=keys)
+    # extractor = np.mask_indices([x < 10 for x in res['bench']['real_dists']])
+    extractor = res['bench']['real_dists'] < 10
+
+    for key, arr in res['bench'].items():
+        masked = arr[extractor]
+        print(key, np.mean(masked))
+        plt.hist(masked)
+        plt.show()
+    a = 1
 
     pass
 
@@ -304,11 +317,11 @@ if __name__ == '__main__':
     # # average_systems = False
     # # suffix = ''
     # suffix = '_pd'
-    # suffix = '_thresh_pd'
+    # # suffix = '_thresh_pd'
     # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # resolution_plot()
 
     # compute_ablations()
 
-    # get_angles()
+    get_angles()

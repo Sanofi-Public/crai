@@ -75,11 +75,14 @@ class Rotor:
         return new_tensor, new_origin
 
 
-def vector_to_rotation(rz):
+def vector_to_rotation(rz, use_uy):
     """
     Compute the minimum rotation M turning uz into rz.
     """
-    uz = np.array([0, 0, 1])
+    if use_uy:
+        uz = np.array([0, 1, 0])
+    else:
+        uz = np.array([0, 0, 1])
     cross = np.cross(uz, rz)
     cross = cross / np.linalg.norm(cross)
     angle = np.arccos(np.dot(uz, rz))
@@ -92,14 +95,14 @@ def vector_to_rotation(rz):
     return uz_to_p
 
 
-def rotation_to_supervision(rotation):
+def rotation_to_supervision(rotation, use_uy=False):
     # Let's decompose our rotation into the minimum affecting uz : M = uz_to_p and an angle t rotation around p.
     # rot(p,t) = (uz_to_p)^-1 * rotation
     matrix = rotation.as_matrix()
-    rz = matrix[:, 2]
-    uz_to_p = vector_to_rotation(rz)
+    rz = matrix[:, 1 if use_uy else 2]
+    uz_to_p = vector_to_rotation(rz, use_uy=use_uy)
 
     # Now we can decompose the rotation p -> p' and a rotation around p of angle t.
     rot_pt = uz_to_p.inv() * rotation
     pt = rot_pt.as_rotvec()
-    return rz, pt[2]
+    return rz, pt[1 if use_uy else 2]
