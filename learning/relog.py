@@ -69,12 +69,7 @@ def validate_detailed(model, model_name, loader, outname, gpu=0, use_threshold=F
                                                                                               ot_weight=0,
                                                                                               use_threshold=use_threshold,
                                                                                               use_pd=use_pd)
-            position_dist = metrics['mean_dist']
-            real_dists = metrics['real_dists']
-            all_dists = metrics['dists']
-            probas = metrics['probas']
-            dict_res[name] = all_dists, real_dists, probas
-
+            dict_res[name] = metrics
             if offset_loss is not None:
                 loss = position_loss + offset_loss + rz_loss + angle_loss
                 losses.append([loss.item(),
@@ -83,12 +78,11 @@ def validate_detailed(model, model_name, loader, outname, gpu=0, use_threshold=F
                                rz_loss.item(),
                                angle_loss.item(),
                                nano_loss.item(),
-                               position_dist
                                ])
             if not step % 100:
                 print(f"step : {step} ; loss : {loss.item():.5f} ; time : {time.time() - time_init:.1f}")
         pickle.dump(dict_res, open(outname, 'wb'))
-    all_dists_flat = np.concatenate([elt[1] for elt in dict_res.values()])
+    all_dists_flat = np.concatenate([met['real_dists'] for met in dict_res.values()])
     print('Uncapped', np.mean(all_dists_flat))
     all_dists_flat[all_dists_flat > 20] = 20
     print('Capped', np.mean(all_dists_flat))

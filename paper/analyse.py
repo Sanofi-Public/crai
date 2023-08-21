@@ -14,60 +14,6 @@ from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import mini_hash
 
 
-# chunked = pd.read_csv('data/csvs/chunked.csv', index_col=0).reset_index(drop=True)
-# chunked.to_csv('chunked.csv')
-
-# Get plots for the extensive validation of a model
-def plot_distance(csv_in='../data/csvs/filtered.csv',
-                  output_pickle='../data/nano_csvs/benchmark_actual_parsed.p'):
-    # get resolution :
-    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
-    dict_res = pickle.load(open(output_pickle, 'rb'))
-    dict_res = {pdb: val for (pdb, val) in dict_res.items() if pdb[:4] in resolutions}
-
-    all_resolutions = []
-    all_dists_real = []
-    failed = 0
-    # pdb_selections = get_pdb_selection(csv_in=csv_in, columns=['antibody_selection'])
-    for pdb, elt in dict_res.items():
-        # if pdb in ['7jvc', '6lht']:
-        #     print(pdb, elt)
-        if elt is not None:
-            all_dists_real.extend(elt[1])
-            all_resolutions.extend(resolutions[pdb[:4]])
-            # bugs = [x > 12 for x in elt[1]]
-            # if any(bugs):
-            #     print(pdb, resolutions[pdb.upper()][0][0], [x[0] for x in pdb_selections[pdb.upper()]],
-            #           [f"{x:.1f}" for x in elt[1]])
-        else:
-            failed += 1
-            print('failed on : ', pdb)
-    print(f"Failed on {failed}/{len(dict_res)}")
-    all_dists_real = np.asarray(all_dists_real)
-
-    def hr(distances):
-        print(f"Hits at zero distance : {sum(distances <= 0)}/{len(distances)}")
-        print(f"Hits below one distance : {sum(distances <= 1)}/{len(distances)}")
-        print(f"Hits below six distance : {sum(distances <= 6)}/{len(distances)}")
-
-    hr(all_dists_real)
-
-    plt.rcParams.update({'font.size': 18})
-    all_dists_real = np.asarray(all_dists_real)
-    print("Uncapped mean : ", np.mean(all_dists_real))
-    all_dists_real[all_dists_real >= 20] = 20
-    print("Capped mean : ", np.mean(all_dists_real))
-
-    # plt.hist(all_dists_real, bins=10)
-    # plt.xlabel("Distance")
-    # plt.ylabel("Count")
-    # plt.show()
-
-    plt.scatter(all_resolutions, all_dists_real)
-    plt.xlabel("Resolution")
-    plt.ylabel("Distance")
-
-
 def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probability', ylabel='Real Distance', fit=True):
     # Adding random noise to the data
 
@@ -99,177 +45,6 @@ def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probabilit
     plt.show()
 
 
-def final_plot(nano=False, sort=False, average_systems=False, model_name=None, suffix=None):
-    # Get our perfomance
-    model_name_ref = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
-    outstring = f"{model_name_ref}_{nano}_{sort}_test.p"
-    output_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
-    dict_res = pickle.load(open(output_pickle, 'rb'))
-
-    if model_name is not None and model_name.startswith('benchmark'):
-        # Get benchmark performance : model_name = benchmark_actual_parsed or benchmark_parsed
-        benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/{model_name}.p'
-    else:
-        if model_name is None:
-            model_name = model_name_ref
-        outstring = f"{model_name}_{nano}_{sort}_test{suffix if suffix is not None else ''}.p"
-        # outstring = f"{model_name}_{nano}_{sort}_test_thresh_pd.p"
-        # outstring = f"{model_name}_{nano}_{sort}_test_thresh.p"
-        # outstring = f"{model_name}_{nano}_{sort}_test_pd.p"
-        benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
-    bench_res = pickle.load(open(benchmark_pickle, 'rb'))
-
-    # get resolution :
-    csv_in = f'../data/{"nano_" if nano else ""}csvs/{"sorted_" if sort else ""}filtered_test.csv'
-    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
-    resolutions = {pdb: [res.item() for res in resolution] for pdb, resolution in resolutions.items()}
-
-    all_resolutions = []
-    all_dists_real = []
-    all_dists_real_bench = []
-    all_probas_bench = []
-    failed = 0
-    failed_bench = 0
-    for pdb, elt in sorted(dict_res.items()):
-        if elt is not None:
-            dists = elt[1]
-            res = resolutions[pdb[:4]]
-            if average_systems:
-                all_dists_real.append(np.mean(dists))
-                all_resolutions.append(np.mean(res))
-            else:
-                all_dists_real.extend(dists)
-                all_resolutions.extend(res)
-        else:
-            failed += 1
-            # print('failed on : ', pdb)
-        if pdb in bench_res and bench_res[pdb] is not None:
-            bench_dists = list(bench_res[pdb][1])
-            # bench_probas = list(bench_res[pdb][2])
-        else:
-            bench_dists = []
-            bench_probas = []
-
-        # if (any([bench_dist == 20 for bench_dist in bench_dists]) and
-        #         all([bench_proba > 0.5 for bench_proba in bench_probas])):
-        #     print(pdb, bench_dists, bench_probas)
-        #     pass
-
-        if len(bench_dists) == 0:
-            failed_bench += 1
-
-        #########################################
-
-        # Complete the list with 20s
-        bench_dists = bench_dists + [20 for _ in range(len(elt[1]) - len(bench_dists))]
-        if average_systems:
-            all_dists_real_bench.append(np.mean(bench_dists))
-        else:
-            all_dists_real_bench.extend(bench_dists)
-
-        # bench_probas = bench_probas + [0 for _ in range(len(elt[1]) - len(bench_probas))]
-        # all_probas_bench.extend(bench_probas)
-        # if any([0 < bench_proba < 0.05 for bench_proba in bench_probas]):
-        #     print(pdb, bench_dists, bench_probas)
-        #     pass
-        # print(pdb, elt[1], bench_dists)
-
-    all_dists_real = np.asarray(all_dists_real)
-    all_dists_real_bench = np.asarray(all_dists_real_bench)
-
-    # THRESHOLD CAPPING AND COUNTING
-    thresh = 10
-    # print(thresh)
-    # all_dists_real[all_dists_real >= thresh] = np.nan
-    # nan = np.nanmean(all_dists_real)
-    # count_nan = np.sum(np.isnan(all_dists_real))
-    # print(f"{nan:.2f} {count_nan}")
-    all_dists_real_bench[all_dists_real_bench >= thresh] = np.nan
-    bench_nan = np.nanmean(all_dists_real_bench)
-    bench_count_nan = np.sum(np.isnan(all_dists_real_bench))
-    print(f"{bench_nan:.2f} {bench_count_nan}")
-    print()
-
-    # PROBA VS FAILURE
-    # all_probas_bench = np.asarray(all_probas_bench)
-    # all_dists_real_bench = np.asarray(all_dists_real_bench)
-    # all_dists_real_bench[all_dists_real_bench >= thresh] = thresh
-    # all_dists_real_bench = all_dists_real_bench / 6
-    # all_dists_real_bench = np.exp(-all_dists_real_bench/6)
-    # scatter(all_probas_bench, all_dists_real_bench)
-    # plt.scatter(all_probas_bench, all_dists_real_bench)
-    # plt.xlabel("Proba")
-    # plt.ylabel("Distance")
-    # # plt.ylabel("exp(-distance)")
-    # plt.show()
-    # return
-
-    # # HISTOGRAM PLOTTING
-    # uncapped = np.mean(all_dists_real)
-    # all_dists_real[all_dists_real >= 20] = 20
-    # capped = np.mean(all_dists_real)
-    # bench_uncapped = np.mean(all_dists_real_bench)
-    # all_dists_real_bench[all_dists_real_bench >= 20] = 20
-    # bench_capped = np.mean(all_dists_real_bench)
-    # # print(f"Failed on {failed}/{len(dict_res)}, with {len(all_dists_real)} abs")
-    # # print(f"Uncapped mean : {uncapped:2f}")
-    # # print(f"Capped mean {capped:2f}")
-    # # print(f"Bench failed on {failed_bench}/{len(dict_res)}")
-    # # print(f"Uncapped mean : {bench_uncapped:2f}")
-    # # print(f"Capped mean : {bench_capped:2f}")
-    # # print(f"{capped:.2f}/{uncapped:.2f}/{failed} vs "
-    # #       f"{bench_capped:.2f}/{bench_uncapped:.2f}/{failed_bench}")
-    # plt.rcParams.update({'font.size': 18})
-    # # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["cria", "dock in map"])
-    # # # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold"])
-    # # # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Classic", "Persistence"])
-    # # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Ground truth", "Threshold with PD"])
-    # # # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Threshold with PD", "Threshhold"])
-    # plt.hist([all_dists_real, all_dists_real_bench], bins=6, label=["Rz", "Ry"])
-    # plt.legend()
-    # plt.xlabel("Distance")
-    # plt.ylabel("Count")
-    # plt.show()
-
-    # all_dists_real[all_dists_real >= 10] = 10
-    # plt.scatter(all_resolutions, all_dists_real)
-    # plt.xlabel("Resolution")
-    # plt.ylabel("Distance")
-    # plt.show()
-    return {'res': all_resolutions, 'native': all_dists_real, 'bench': all_dists_real_bench}
-
-
-def compare_bench(average_systems=True):
-    for fab in [False, True]:
-        for sort in [False, True]:
-            first = final_plot(fab, sort, average_systems=average_systems)
-            thresh_pd = final_plot(fab, sort, average_systems=average_systems, suffix='_thresh_pd')
-            actual = final_plot(fab, sort, average_systems=average_systems, model_name="benchmark_actual_parsed")
-            template = final_plot(fab, sort, average_systems=average_systems, model_name="benchmark_parsed")
-            # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
-            all_sys = [first, thresh_pd, actual, template]
-            all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']] for final in all_sys]
-            plt.rcParams.update({'font.size': 18})
-            # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
-            labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
-            plt.hist(all_dists_real, bins=6, label=labels)
-            plt.legend()
-            plt.show()
-
-
-def do_all(average_systems=False):
-    ff = final_plot(False, False, average_systems=average_systems)
-    ft = final_plot(False, True, average_systems=average_systems)
-    tf = final_plot(True, False, average_systems=average_systems)
-    tt = final_plot(True, True, average_systems=average_systems)
-    all_sys = [ff, ft, tf, tt]
-
-    # RESOLUTION/PERFORMANCE
-    all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
-    all_dists_real = np.asarray([elt for final in all_sys for elt in final['native']]).flatten()
-    scatter(all_resolutions, all_dists_real, xlabel='Resolution', ylabel='Distance', fit=True)
-
-
 def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
     df_raw = pd.read_csv(output_csv, index_col=0)['dock_runtime']
     runtimes = df_raw.values
@@ -283,52 +58,257 @@ def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
     plt.show()
 
 
+def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benchmark=False, average_systems=False,
+                   default_missing_value=20, nano=False, sort=False):
+    """
+    Function to handle going from the dict created in relog to ones with a list of outputs for each keys.
+    For instance : real_dist : [2, 4, 20... ]
+
+    We need two dicts as one is merely a reference of how many abs are in each systems.
+    :param main_dict:
+    :param keys:
+    :param bench_dict:
+    :param actual_benchmark:
+    :param average_systems:
+    :param default_missing_value:
+    :param nano:
+    :param sort:
+    :return:
+    """
+    # get resolution :
+    csv_in = f'../data/{"nano_" if nano else ""}csvs/{"sorted_" if sort else ""}filtered_test.csv'
+    resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
+    resolutions = {pdb: [res.item() for res in resolution] for pdb, resolution in resolutions.items()}
+    all_resolutions = []
+
+    main_results = {k: [] for k in keys}
+    bench_results = {k: [] for k in keys}
+    if average_systems:
+        main_results["raw"] = []
+        bench_results["raw"] = []
+
+    failed = 0
+    failed_bench = 0
+    for pdb, metrics in sorted(main_dict.items()):
+        n_abs = len(metrics['real_dists'])
+        res = resolutions[pdb[:4]]
+        if average_systems:
+            all_resolutions.append(np.mean(res))
+        else:
+            all_resolutions.extend(res)
+        for k in keys:
+            metric_value = metrics[k]
+            if average_systems:
+                main_results[k].append(np.mean(metric_value))
+            else:
+                main_results[k].extend(metric_value)
+
+        if bench_dict is not None:
+            temp_res = {k: [] for k in keys}
+            # Analysis of dock in map, then the result is pdb [dist, real_dist, col_ind]
+            if actual_benchmark:
+                # You cannot ask for more than distances to benchmark
+                assert "real_dists" in keys and len(keys) == 1
+                if pdb in bench_dict and bench_dict[pdb] is not None:
+                    bench_dists = bench_dict[pdb][1]
+                    temp_res["real_dists"] = list(bench_dists)
+            # This is just if we are parsing another dict.
+            else:
+                if pdb in bench_dict:
+                    dists = bench_dict[pdb]['real_dists']
+                    if dists is not None and len(dists) > 0:
+                        for k in keys:
+                            temp_res[k] = list(bench_dict[pdb][k])
+            if len(next(iter(temp_res.values()))) == 0:
+                failed_bench += 1
+            for k in keys:
+                underprediction = max(n_abs - len(temp_res[k]), 0)
+                completed_capped = ([min(default_missing_value, val) for val in temp_res[k]] +
+                                    [default_missing_value for _ in range(underprediction)])
+                temp_res[k] = completed_capped
+                if average_systems:
+                    if k == 'real_dists':
+                        bench_results["raw"].append(temp_res[k])
+                    bench_results[k].append(np.mean(temp_res[k]))
+                else:
+                    bench_results[k].extend(temp_res[k])
+    all_resolutions = np.asarray(all_resolutions)
+    for k in keys:
+        main_results[k] = np.asarray(main_results[k])
+        bench_results[k] = np.asarray(bench_results[k])
+    # print("Overpredictions : ", overpredictions)
+    return {'res': all_resolutions, 'native': main_results, 'bench': bench_results}
+
+
+def get_results(nano=False, sort=False, average_systems=False, model_name=None, suffix='_pd'):
+    """
+    From a set of high level key words, open the right files and parse them
+
+    :param nano:
+    :param sort:
+    :param average_systems:
+    :param model_name:
+    :param suffix:
+    :return:
+    """
+    # Get our perfomance
+    model_name_ref = f"{'n' if nano else 'f'}{'s' if sort else 'r'}_final_last"
+    outstring = f"{model_name_ref}_{nano}_{sort}_test_pd.p"
+    output_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
+    dict_res = pickle.load(open(output_pickle, 'rb'))
+
+    # GET BENCHMARK PERFORMANCE
+    if model_name is not None and model_name.startswith('benchmark'):
+        actual_benchmark = True
+        # Get benchmark performance : model_name = benchmark_actual_parsed or benchmark_parsed
+        benchmark_pickle = f'../data/{"nano_" if nano else ""}csvs/{model_name}.p'
+    else:
+        actual_benchmark = False
+        if model_name is None:
+            model_name = model_name_ref
+        outstring = f"{model_name}_{nano}_{sort}_test{suffix if suffix is not None else '_pd'}.p"
+        benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
+    bench_res = pickle.load(open(benchmark_pickle, 'rb'))
+    keys = ('real_dists',)
+    all_results = parse_dict_res(main_dict=dict_res, bench_dict=bench_res, keys=keys, actual_benchmark=actual_benchmark,
+                                 average_systems=average_systems, nano=nano, sort=sort)
+    return all_results
+
+
+def get_hit_rate(res_dict, average_systems=False, thresh=10):
+    """
+    Parse a res_dict to compute HR metric. This requires care in the 'average system' settings
+
+    :param res_dict:
+    :param average_systems:
+    :param thresh:
+    :return:
+    """
+    ref_data = res_dict['native']
+    bench_data = res_dict['bench']
+    if not average_systems:
+        all_dists_real_bench = bench_data['real_dists']
+        all_dists_real_bench[all_dists_real_bench >= thresh] = np.nan
+        bench_dist = np.nanmean(all_dists_real_bench)
+        bench_fails = np.sum(np.isnan(all_dists_real_bench))
+        print(f"{bench_dist:.3f} {bench_fails} {100 * (1 - bench_fails / len(ref_data['real_dists'])):.2f}")
+    else:
+        all_hr = []
+        for system_res in bench_data['raw']:
+            hr = 100 * (sum([x < thresh for x in system_res]) / len(system_res))
+            all_hr.append(hr)
+        # Distance is not meaningful for systems : if one system's mean increases, and go beyond 20, score decreases...
+        print(f"{np.mean(all_hr):.3f}")
+
+
+def compute_hr(nano=False, sort=False, average_systems=False, model_name=None, suffix='_pd', thresh=10):
+    """
+    Merely a wrapper that combines get_results and get_hr
+    :param nano:
+    :param sort:
+    :param average_systems:
+    :param model_name:
+    :param suffix:
+    :param thresh:
+    :return:
+    """
+    all_results = get_results(nano=nano, sort=sort, average_systems=average_systems, model_name=model_name,
+                              suffix=suffix)
+    get_hit_rate(all_results, average_systems=average_systems, thresh=thresh)
+
+    # PROBA VS FAILURE
+    # all_probas_bench = np.asarray(all_probas_bench)
+    # all_dists_real_bench = np.asarray(all_dists_real_bench)
+    # all_dists_real_bench[all_dists_real_bench >= thresh] = thresh
+    # all_dists_real_bench = all_dists_real_bench / 6
+    # all_dists_real_bench = np.exp(-all_dists_real_bench/6)
+    # scatter(all_probas_bench, all_dists_real_bench)
+    # plt.scatter(all_probas_bench, all_dists_real_bench)
+    # plt.xlabel("Proba")
+    # plt.ylabel("Distance")
+    # # plt.ylabel("exp(-distance)")
+    # plt.show()
+    return all_results
+
+
+def compare_bench(average_systems=True):
+    for fab in [False, True]:
+        for sort in [False, True]:
+            first = get_results(fab, sort, average_systems=average_systems, suffix='_pd')
+            thresh_pd = get_results(fab, sort, average_systems=average_systems, suffix='_thresh_pd')
+            actual = get_results(fab, sort, average_systems=average_systems, model_name="benchmark_actual_parsed")
+            template = get_results(fab, sort, average_systems=average_systems, model_name="benchmark_parsed")
+            # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
+            all_sys = [first, thresh_pd, actual, template]
+            all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']['real_dists']] for final in all_sys]
+            plt.rcParams.update({'font.size': 18})
+            # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
+            labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
+            plt.hist(all_dists_real, bins=6, label=labels)
+            plt.legend()
+            plt.show()
+
+
+def compute_all(average_systems=True, suffix='_pd', model_name=None):
+    ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    ft = compute_hr(False, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    tt = compute_hr(True, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
+
+
+def resolution_plot(average_systems=False):
+    ff = get_results(False, False, average_systems=average_systems)
+    ft = get_results(False, True, average_systems=average_systems)
+    tf = get_results(True, False, average_systems=average_systems)
+    tt = get_results(True, True, average_systems=average_systems)
+    all_sys = [ff, ft, tf, tt]
+
+    # RESOLUTION/PERFORMANCE
+    all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
+    all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['native']['real_dists']]
+    all_dists_real = np.asarray(all_dists_real).flatten()
+    scatter(all_resolutions, all_dists_real, xlabel='Resolution', ylabel='Distance', fit=True)
+
+
 def compute_ablations():
     for model_name in ["fr_uy_last", "fab_random_normalize_last"]:
         for suffix in [None, '_thresh_pd']:
             for average in [True, False]:
                 print(model_name, suffix, average)
-                final_plot(False, False, model_name=model_name, suffix=suffix, average_systems=average)
+                compute_hr(False, False, model_name=model_name, suffix=suffix, average_systems=average)
     for model_name in ["fr_final_last"]:
-        for suffix in ["_pd", '_thresh']:
+        for suffix in ["", '_thresh']:
             for average in [True, False]:
                 print(model_name, suffix, average)
-                final_plot(False, False, model_name=model_name, suffix=suffix, average_systems=average)
+                compute_hr(False, False, model_name=model_name, suffix=suffix, average_systems=average)
+
+
+def get_angles():
+    get_results(False, False, suffix='_thresh_pd')
+
+    pass
 
 
 if __name__ == '__main__':
-    nano = False
-    # nano = True
-    sort = False
-    # sort = True
-    # print(f'{"nano" if nano else "fab"}, {"sorted" if sort else "random"}')
-    if nano:
-        # NANO
-        # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_val.csv'
-        # csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered.csv' # nano whole : 22.9, 6.3
-        csv_in = f'../data/nano_csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        output_csv = '../data/nano_csvs/benchmark_actual.csv'
-        output_pickle = '../data/nano_csvs/benchmark_actual_parsed.p'
-    else:
-        # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_val.csv'
-        # csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered.csv' # Fab whole : 24.4 , 7.0
-        csv_in = f'../data/csvs/{"sorted_" if sort else ""}filtered_test.csv'
-        output_csv = '../data/csvs/benchmark_actual.csv'
-        # output_pickle = '../outfiles/out_big_train_gamma_last.p'
-        # output_pickle = '../outfiles/out_big_train_gamma_last_old.p'
-        # output_pickle = '../outfiles/out_big_train_normalize_210.p'
-        output_pickle = '../outfiles/out_big_train_normalize_last.p'
-        # output_pickle = '../data/csvs/benchmark_actual_parsed.p'
-
-    # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
+    pass
+    # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
-    # final_plot(False, False, model_name='nr_final_last', suffix='_thresh_pd')
-    # final_plot(False, False)
-    # final_plot(False, True)
-    # final_plot(True, False)
-    # final_plot(True, True)
 
-    # do_all()
+    # get_results(False, False)
+
+    # compare_bench()
+
+    # # model_name = None
+    # model_name = "benchmark_actual_parsed"
+    # average_systems = True
+    # # average_systems = False
+    # # suffix = ''
+    # suffix = '_pd'
+    # suffix = '_thresh_pd'
+    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
+
+    # resolution_plot()
 
     # compute_ablations()
-    # compare_bench()
+
+    # get_angles()

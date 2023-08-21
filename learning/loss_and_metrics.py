@@ -120,8 +120,6 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
     metrics['hr_1'] = hr_1
     metrics['dists'] = dists
 
-    # This only makes a difference when we overpredicted.
-    # Extract only the right predictions
     actual_distances = []
     predicted_probas = []
     predicted_rz_angle = []
@@ -161,6 +159,8 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         predicted_theta_angle.append(theta_angle)
         predicted_theta_norm.append(theta_norm)
 
+    # This only makes a difference when we overpredicted.
+    # Extract only the right predictions
     if use_threshold:
         overpredictions = len(predicted_ijks) - len(filtered_transforms)
         if overpredictions > 0:
