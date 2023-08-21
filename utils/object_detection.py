@@ -12,7 +12,7 @@ import cripser
 
 
 # Array to predictions as rotation/translation
-def predict_one_ijk(pred_array, margin=2):
+def predict_one_ijk(pred_array, margin=3):
     """
     Zero around a point while respecting border effects
     """
