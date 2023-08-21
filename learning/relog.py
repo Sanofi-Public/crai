@@ -92,6 +92,9 @@ def validate_detailed(model, model_name, loader, outname, gpu=0, use_threshold=F
     print('Uncapped', np.mean(all_dists_flat))
     all_dists_flat[all_dists_flat > 20] = 20
     print('Capped', np.mean(all_dists_flat))
+    losses = np.array(losses)
+    losses = np.mean(losses, axis=0)
+    print(losses)
     return losses
 
 

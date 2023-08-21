@@ -322,6 +322,7 @@ if __name__ == '__main__':
 
     # plot_distance(csv_in=csv_in, output_pickle=output_pickle)
     # parse_runtime(output_csv=output_csv)
+    # final_plot(False, False, model_name='nr_final_last', suffix='_thresh_pd')
     # final_plot(False, False)
     # final_plot(False, True)
     # final_plot(True, False)

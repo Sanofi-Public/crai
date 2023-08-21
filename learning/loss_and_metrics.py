@@ -124,6 +124,10 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
     # Extract only the right predictions
     actual_distances = []
     predicted_probas = []
+    predicted_rz_angle = []
+    predicted_rz_norm = []
+    predicted_theta_angle = []
+    predicted_theta_norm = []
     selected_ijks = predicted_ijks[row_ind]
     for index, (i, j, k) in enumerate(selected_ijks):
         # Extract the predicted vector at this location
@@ -136,14 +140,43 @@ def coords_loss(prediction, comp, classif_nano=True, ot_weight=1., use_threshold
         distance = np.linalg.norm(ground_truth_translation - predicted_position)
         actual_distances.append(distance)
 
+        # Get gt_rotation and metrics on the angles
+        ground_truth_rotation = filtered_transforms[col_ind[index]][2]
+        rz, theta = rotation_to_supervision(ground_truth_rotation)
+        predicted_rz = prediction_np[0, 4:7, i, j, k]
+        rz_norm = np.linalg.norm(predicted_rz)
+        dot_product = np.dot(predicted_rz / rz_norm, rz)
+        rz_angle = np.arccos(dot_product)
+
+        # Following AF2 and to avoid singularities, we frame the prediction of an angle as a regression task in the plane.
+        # We turn our angle into a unit vector of R2, push predicted norm to and penalize dot product to ground truth
+        vec_angle = [np.cos(theta), np.sin(theta)]
+        predicted_theta = prediction_np[0, 7:9, i, j, k]
+        theta_norm = np.linalg.norm(predicted_theta)
+        dot_product = np.dot(predicted_theta / theta_norm, vec_angle)
+        theta_angle = np.arccos(dot_product)
+
+        predicted_rz_angle.append(rz_angle)
+        predicted_rz_norm.append(rz_norm)
+        predicted_theta_angle.append(theta_angle)
+        predicted_theta_norm.append(theta_norm)
+
     if use_threshold:
         overpredictions = len(predicted_ijks) - len(filtered_transforms)
         if overpredictions > 0:
             useless_ijks = np.delete(predicted_ijks, row_ind, axis=0)
             actual_distances += [20 for _ in range(overpredictions)]
             predicted_probas += [prediction_np[0, 0, i, j, k] for (i, j, k) in useless_ijks]
+            predicted_rz_angle += [1000 for _ in range(overpredictions)]
+            predicted_rz_norm += [1000 for _ in range(overpredictions)]
+            predicted_theta_angle += [1000 for _ in range(overpredictions)]
+            predicted_theta_norm += [1000 for _ in range(overpredictions)]
     metrics['real_dists'] = actual_distances
     metrics['probas'] = predicted_probas
+    metrics['rz_angle'] = predicted_rz_angle
+    metrics['rz_norm'] = predicted_rz_norm
+    metrics['theta_angle'] = predicted_theta_angle
+    metrics['theta_norm'] = predicted_theta_norm
 
     metrics['nano_classifs'] = list()
     offset_losses, rz_losses, angle_losses, nano_losses = [], [], [], []

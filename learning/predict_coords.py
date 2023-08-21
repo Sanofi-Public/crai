@@ -29,9 +29,11 @@ def crop_large_mrc(mrc, margin=12):
 
 def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None, outmrc=None,
                    n_objects=None, thresh=0.5, crop=0, classif_nano=False, default_nano=False, use_pd=False):
+    t0 = time.time()
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     if resample:
         mrc = mrc.resample()
+    print('Resample done in : ', time.time() - t0)
     mrc = mrc.normalize(normalize_mode=normalize)
     if crop != 0:
         mrc = mrc.crop(*(crop,) * 6)
@@ -70,7 +72,7 @@ if __name__ == '__main__':
     mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map"), False
     # mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
 
-    mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+    # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
     # fake_out[0, 0, ...] = torch.sigmoid(fake_out[0, 0, ...])
     # align_output(fake_out, mrc)
@@ -108,9 +110,14 @@ if __name__ == '__main__':
     classif_nano = True
     default_nano = False
     normalize = 'max'
+
+    import time
+
+    t0 = time.time()
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc, normalize=normalize,
                    n_objects=n_objects, thresh=thresh, crop=crop, classif_nano=classif_nano, default_nano=default_nano,
                    use_pd=use_pd)
+    print('Whole prediction done in : ', time.time() - t0)
 
     # align nano_2, nano, cycles=0, transform=0, object=aln
     # rms_cur (nano_2 and aln), (nano & aln), matchmaker=-1
