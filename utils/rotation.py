@@ -75,7 +75,7 @@ class Rotor:
         return new_tensor, new_origin
 
 
-def vector_to_rotation(rz, use_uy):
+def vector_to_rotation(rz, use_uy=False):
     """
     Compute the minimum rotation M turning uz into rz.
     """

@@ -83,6 +83,7 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
     # First let's find out the position of the antibody in our prediction
     ijk_s = nms(pred_loc, n_objects=n_objects, thresh=thresh, use_pd=use_pd)
 
+
     transforms = list()
     for i, j, k in ijk_s:
         predicted_vector = out_grid[1:, i, j, k]

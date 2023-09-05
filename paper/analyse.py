@@ -87,10 +87,14 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
         main_results["raw"] = []
         bench_results["raw"] = []
 
-    failed = 0
     failed_bench = 0
     for pdb, metrics in sorted(main_dict.items()):
         n_abs = len(metrics['real_dists'])
+
+        # Try removing an outlier from the computation
+        # if n_abs > 10:
+        #     continue
+
         res = resolutions[pdb[:4]]
         if average_systems:
             all_resolutions.append(np.mean(res))
@@ -126,6 +130,16 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
                 completed_capped = ([min(default_missing_value, val) for val in temp_res[k]] +
                                     [default_missing_value for _ in range(underprediction)])
                 temp_res[k] = completed_capped
+                # JUST USEFUL TO FIND USECASES
+                # if k=='real_dists':
+                #     dists = temp_res[k]
+                #     if (
+                #         any([dist < 10 for dist in dists])
+                #         and any([dist > 10 for dist in dists])
+                #         and res[0] > 3
+                #     ):
+                #         print(pdb, res, dists)
+
                 if average_systems:
                     if k == 'real_dists':
                         bench_results["raw"].append(temp_res[k])
@@ -191,7 +205,9 @@ def get_hit_rate(res_dict, average_systems=False, thresh=10):
         all_dists_real_bench[all_dists_real_bench >= thresh] = np.nan
         bench_dist = np.nanmean(all_dists_real_bench)
         bench_fails = np.sum(np.isnan(all_dists_real_bench))
-        print(f"{bench_dist:.3f} {bench_fails} {100 * (1 - bench_fails / len(ref_data['real_dists'])):.2f}")
+        print(f"Dists : {bench_dist:.3f}, "
+              f"fails : {bench_fails}, "
+              f"HR : {100 * (1 - bench_fails / len(ref_data['real_dists'])):.2f}")
     else:
         all_hr = []
         for system_res in bench_data['raw']:
@@ -262,9 +278,11 @@ def resolution_plot(average_systems=False):
     tf = get_results(True, False, average_systems=average_systems)
     tt = get_results(True, True, average_systems=average_systems)
     all_sys = [ff, ft, tf, tt]
+    # all_sys = [ft]
 
     # RESOLUTION/PERFORMANCE
     all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
+    print([res for res in all_resolutions if res > 5])
     all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['native']['real_dists']]
     all_dists_real = np.asarray(all_dists_real).flatten()
     scatter(all_resolutions, all_dists_real, xlabel='Resolution', ylabel='Distance', fit=True)
@@ -284,22 +302,23 @@ def compute_ablations():
 
 
 def get_angles():
-    keys = ('real_dists', 'rz_angle','theta_angle',)
+    keys = ('real_dists', 'rz_angle', 'theta_angle',)
     # keys = ('real_dists', 'rz_angle', 'rz_norm', 'theta_angle', 'theta_norm',)
-    # res = get_results(False, False, suffix='_thresh_pd', keys=keys)
-    res = get_results(False, False, suffix='_pd', keys=keys, model_name='fr_uy_last')
-    # res = get_results(True, False, suffix='_thresh_pd', keys=keys)
-    # extractor = np.mask_indices([x < 10 for x in res['bench']['real_dists']])
-    extractor = res['bench']['real_dists'] < 10
-
-    for key, arr in res['bench'].items():
-        masked = arr[extractor]
-        print(key, np.mean(masked))
-        plt.hist(masked)
+    res_fab = get_results(False, False, suffix='_thresh_pd', keys=keys)
+    res_nano = get_results(True, False, suffix='_thresh_pd', keys=keys)
+    res_uy = get_results(False, False, suffix='_thresh_pd', keys=keys, model_name='fr_uy_290')
+    results = [res_fab, res_nano, res_uy]
+    labels = ['Fab', 'Nanobodies', 'u_y']
+    for result, label in zip(results, labels):
+        extractor = result['bench']['real_dists'] < 10
+        angles = result['bench']['rz_angle'][extractor] * 180 / 3.14
+        for key, arr in result['bench'].items():
+            masked = arr[extractor]
+            print(key, np.mean(masked) * 180 / 3.14)
+        plt.rcParams.update({'font.size': 18})
+        plt.hist(angles, bins=10)
+        plt.title(f'Result for the {label} model')
         plt.show()
-    a = 1
-
-    pass
 
 
 if __name__ == '__main__':
@@ -307,21 +326,24 @@ if __name__ == '__main__':
     # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
 
-    # get_results(False, False)
+    # get_results(False, False, suffix='_thresh_pd')
+    # SELECT 8GOO_34178, resolution 4.4 as successful prediction
+    # SELECT 8CXI_27058 , resolution 3.4 as partial success
+    # SELECT 7Z85_14543, resolution 3.1 as nano success
+
+    # model_name = None
+    model_name = "benchmark_actual_parsed"
+    # average_systems = True
+    average_systems = False
+    suffix = ''
+    # suffix = '_pd'
+    suffix = '_thresh_pd'
+    compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
-
-    # # model_name = None
-    # model_name = "benchmark_actual_parsed"
-    # average_systems = True
-    # # average_systems = False
-    # # suffix = ''
-    # suffix = '_pd'
-    # # suffix = '_thresh_pd'
-    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # resolution_plot()
 
     # compute_ablations()
 
-    get_angles()
+    # get_angles()
