@@ -333,7 +333,8 @@ def get_angles():
 
     results = [res_fab, res_nano, res_uy]
     labels = ['Fab', 'nAb', '$\overrightarrow{u_y}$']
-    for result, label in zip(results, labels):
+    savenames = ['angle_fab', 'angle_nab', 'angle_u_y']
+    for result, label, savename in zip(results, labels, savenames):
         extractor = result['bench']['real_dists'] < 10
         angles = result['bench']['rz_angle'][extractor] * 180 / 3.14
         for key, arr in result['bench'].items():
@@ -345,7 +346,7 @@ def get_angles():
         plt.title(rf'Result for the {label} model')
         plt.xlabel(rf'Angle difference ($^\circ$)')
         plt.ylabel(rf'Count')
-        plt.savefig(f'../fig_paper/python/{label.lower()}.pdf')
+        plt.savefig(f'../fig_paper/python/{savename}.pdf')
         plt.show()
 
 
@@ -374,4 +375,4 @@ if __name__ == '__main__':
 
     # compute_ablations()
 
-    # get_angles()
+    get_angles()
