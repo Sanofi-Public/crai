@@ -14,37 +14,6 @@ from prepare_database.process_data import get_pdb_selection
 from utils.python_utils import mini_hash
 
 
-def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probability', ylabel='Real Distance', fit=True):
-    # Adding random noise to the data
-
-    proba += noise_strength * np.random.randn(len(proba))
-    distances += noise_strength * np.random.randn(len(distances))
-
-    # Plotting the scatter data with transparency
-    plt.scatter(proba, distances, color='blue', marker='o', alpha=alpha)
-
-    if fit:
-        # Linear fit
-        m, b = np.polyfit(proba, distances, 1)
-        x = np.linspace(proba.min(), proba.max())
-        plt.plot(x, m * x + b, color='red')
-        # plt.plot(all_probas_bench, m * all_probas_bench + b, color='red', label=f'Linear Fit: y={m:.2f}x+{b:.2f}')
-
-        # Calculating R^2 score
-        predicted = m * proba + b
-        from sklearn.metrics import r2_score
-        r2 = r2_score(distances, predicted)
-        plt.text(0.7, 0.9, f'$R^2 = {r2:.2f}$', transform=plt.gca().transAxes)
-        plt.text(0.7, 0.85, f'Fit: y={m:.2f}x+{b:.2f}', transform=plt.gca().transAxes)
-
-    # Rest of the plot decorations
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    # plt.legend(loc='lower left')
-    plt.show()
-
-
 def parse_runtime(output_csv='../data/csvs/benchmark_actual.csv'):
     df_raw = pd.read_csv(output_csv, index_col=0)['dock_runtime']
     runtimes = df_raw.values
@@ -247,6 +216,13 @@ def compute_hr(nano=False, sort=False, average_systems=False, model_name=None, s
     return all_results
 
 
+def compute_all(average_systems=True, suffix='_pd', model_name=None):
+    ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    ft = compute_hr(False, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    tt = compute_hr(True, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
+
+
 def compare_bench(average_systems=True):
     for fab in [False, True]:
         for sort in [False, True]:
@@ -257,19 +233,61 @@ def compare_bench(average_systems=True):
             # all_sys = [ff, ff_actual, ff_template, ft, ft_actual, ft_template]
             all_sys = [first, thresh_pd, actual, template]
             all_dists_real = [[elt if elt < 20 else 20 for elt in final['bench']['real_dists']] for final in all_sys]
-            plt.rcParams.update({'font.size': 18})
+
+            plt.rcParams.update({'font.size': 14})
+            plt.rcParams['text.usetex'] = True
+            labels = [r'\texttt{CrAI}',
+                      r'\texttt{CrAI thresh}',
+                      r'\texttt{dock\_in\_map} GT',
+                      r'\texttt{dock\_in\_map} Template',
+                      ]
             # labels = ['CrIA', 'Dock in map - GT', 'Dock in map - Template']
-            labels = ['CrIA', 'CrIA thresh', 'Dock in map - GT', 'Dock in map - Template']
+            plt.rc('grid', color='grey', alpha=0.5)
+            plt.grid(True)
+
             plt.hist(all_dists_real, bins=6, label=labels)
             plt.legend()
+            ax = plt.gca()
+            ax.set_xlabel('Distance (A)')
+            ax.set_ylabel('Count')
+            plt.savefig(f'../fig_paper/python/{"fab" if fab else "nano"}_{"sorted" if sort else "random"}.pdf')
             plt.show()
 
 
-def compute_all(average_systems=True, suffix='_pd', model_name=None):
-    ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
-    ft = compute_hr(False, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
-    tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
-    tt = compute_hr(True, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
+def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probability', ylabel='Real Distance', fit=True):
+    # Adding random noise to the data
+
+    proba += noise_strength * np.random.randn(len(proba))
+    distances += noise_strength * np.random.randn(len(distances))
+
+    # Rest of the plot decorations
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams['text.usetex'] = True
+    # a= r'\texttt{dock\_in\_map} Template'
+    plt.rc('grid', color='grey', alpha=0.2)
+    plt.grid(True)
+    # Plotting the scatter data with transparency
+    plt.scatter(proba, distances, color='blue', marker='o', alpha=alpha)
+
+    if fit:
+        # Linear fit
+        m, b = np.polyfit(proba, distances, 1)
+        x = np.linspace(proba.min(), proba.max())
+        plt.plot(x, m * x + b, color='red')
+        # plt.plot(all_probas_bench, m * all_probas_bench + b, color='red', label=f'Linear Fit: y={m:.2f}x+{b:.2f}')
+
+        # Calculating R^2 score
+        predicted = m * proba + b
+        from sklearn.metrics import r2_score
+        r2 = r2_score(distances, predicted)
+        plt.text(0.68, 0.86, rf'$y = {m:.2f} x + {b:.2f}$', transform=plt.gca().transAxes)
+        plt.text(0.66, 0.8, rf'$R^2 = {r2:.2f}$', transform=plt.gca().transAxes)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    # plt.legend(loc='lower left')
+    plt.savefig(f'../fig_paper/python/resolution.pdf')
+    plt.show()
 
 
 def resolution_plot(average_systems=False):
@@ -285,7 +303,7 @@ def resolution_plot(average_systems=False):
     print([res for res in all_resolutions if res > 5])
     all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['native']['real_dists']]
     all_dists_real = np.asarray(all_dists_real).flatten()
-    scatter(all_resolutions, all_dists_real, xlabel='Resolution', ylabel='Distance', fit=True)
+    scatter(all_resolutions, all_dists_real, xlabel=r'Resolution (A)', ylabel=r'Distance (A)', fit=True)
 
 
 def compute_ablations():
@@ -307,17 +325,27 @@ def get_angles():
     res_fab = get_results(False, False, suffix='_thresh_pd', keys=keys)
     res_nano = get_results(True, False, suffix='_thresh_pd', keys=keys)
     res_uy = get_results(False, False, suffix='_thresh_pd', keys=keys, model_name='fr_uy_290')
+
+    # Rest of the plot decorations
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams['text.usetex'] = True
+    plt.rc('grid', color='grey', alpha=0.2)
+
     results = [res_fab, res_nano, res_uy]
-    labels = ['Fab', 'Nanobodies', 'u_y']
+    labels = ['Fab', 'nAb', '$\overrightarrow{u_y}$']
     for result, label in zip(results, labels):
         extractor = result['bench']['real_dists'] < 10
         angles = result['bench']['rz_angle'][extractor] * 180 / 3.14
         for key, arr in result['bench'].items():
             masked = arr[extractor]
             print(key, np.mean(masked) * 180 / 3.14)
-        plt.rcParams.update({'font.size': 18})
-        plt.hist(angles, bins=10)
-        plt.title(f'Result for the {label} model')
+
+        plt.hist(angles, bins=np.linspace(0, 180, 19))
+        plt.grid(True)
+        plt.title(rf'Result for the {label} model')
+        plt.xlabel(rf'Angle difference ($^\circ$)')
+        plt.ylabel(rf'Count')
+        plt.savefig(f'../fig_paper/python/{label.lower()}.pdf')
         plt.show()
 
 
@@ -332,13 +360,13 @@ if __name__ == '__main__':
     # SELECT 7Z85_14543, resolution 3.1 as nano success
 
     # model_name = None
-    model_name = "benchmark_actual_parsed"
+    # model_name = "benchmark_actual_parsed"
     # average_systems = True
-    average_systems = False
-    suffix = ''
+    # average_systems = False
+    # suffix = ''
     # suffix = '_pd'
-    suffix = '_thresh_pd'
-    compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
+    # suffix = '_thresh_pd'
+    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
 

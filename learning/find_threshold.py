@@ -16,6 +16,16 @@ from utils.object_detection import nms
 from utils.python_utils import mini_hash
 
 
+# Setup data
+def get_loader(sorted=False, split='val', nano=False, num_workers=4):
+    csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
+    all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
+    ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
+                           rotate=False, crop=0, full=True, normalize='max')
+    ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
+    return ab_loader
+
+
 def find_thresh(model, model_name, loader, gpu=0, use_pd=False, outname=None):
     device = f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu'
     weights_path = f"../saved_models/{model_name}.pth"
@@ -56,46 +66,7 @@ def find_thresh(model, model_name, loader, gpu=0, use_pd=False, outname=None):
     return dict_res
 
 
-def line_plot(npy_name, label, color=None):
-    a = np.load(npy_name)
-    threshs, all_values = a[0, :], a[1, :]
-    all_values = np.clip(all_values, 0, 1)
-    ax = plt.gca()
-    ax.plot(threshs, all_values, label=label, color=color, linewidth=2)
-
-
-def plot_thresh():
-    # f"out_{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
-    palette = sns.color_palette("Paired")
-    # palette = sns.color_palette(n_colors=8)
-    line_plot("out_87_fr_final_last_val_True.npy",
-              "PD", color=palette[0])
-    line_plot("out_96_fr_final_last_val_False.npy",
-              "Margin", color=palette[1])
-    line_plot("out_59_fs_final_last_val_True.npy",
-              "Sorted PD", color=palette[2])
-    line_plot("out_84_fs_final_last_val_False.npy",
-              "Sorted Margin", color=palette[3])
-    line_plot("out_76_nr_final_last_val_True.npy",
-              "Nano PD", color=palette[4])
-    line_plot("out_98_nr_final_last_val_False.npy",
-              "Nano Margin", color=palette[5])
-    line_plot("out_28_ns_final_last_val_True.npy",
-              "Nano Sorted PD", color=palette[6])
-    line_plot("out_32_ns_final_last_val_False.npy",
-              "Nano Sorted Margin", color=palette[7])
-    # Just to see what test looks like
-    # line_plot("out_75_nr_final_last_test_True.npy",
-    #           "Nano PD test", color=palette[6])
-    # line_plot("out_53_nr_final_last_test_False.npy",
-    #           "Nano Margin test", color=palette[7])
-    plt.legend()
-    plt.xlabel("Probability threshold")
-    plt.ylabel("Mean error in the number of predictions")
-    plt.show()
-
-
-if __name__ == '__main__':
+def find_thresh_main():
     import argparse
 
     parser = argparse.ArgumentParser(description='')
@@ -106,18 +77,6 @@ if __name__ == '__main__':
     parser.add_argument("--nw", type=int, default=4)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
-
-
-    # Setup data
-    def get_loader(sorted=False, split='val', nano=False, num_workers=4):
-        csv_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}chunked_{split}.csv"
-        all_system_val = f"../data/{'nano_' if nano else ''}csvs/{'sorted_' if sorted else ''}filtered_{split}.csv"
-        ab_dataset = ABDataset(all_systems=all_system_val, csv_to_read=csv_val,
-                               rotate=False, crop=0, full=True, normalize='max')
-        ab_loader = torch.utils.data.DataLoader(dataset=ab_dataset, collate_fn=lambda x: x[0], num_workers=num_workers)
-        return ab_loader
-
-
     # Learning hyperparameters
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
@@ -129,7 +88,57 @@ if __name__ == '__main__':
     model_name = f"{'n' if args.nano else 'f'}{'s' if args.sorted else 'r'}_final_last"
     outstring = f"{model_name}_val_{args.pd}.npy"
     outname = f"out_{mini_hash(outstring)}_{outstring}"
-    # find_thresh(model=model, model_name=model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
+    find_thresh(model=model, model_name=model_name, loader=loader, gpu=args.gpu, use_pd=args.pd, outname=outname)
+
+
+def line_plot(npy_name, label, color=None):
+    a = np.load(npy_name)
+    threshs, all_values = a[0, :], a[1, :]
+    all_values = np.clip(all_values, 0, 1)
+    ax = plt.gca()
+    ax.plot(threshs, all_values, label=label, color=color, linewidth=2)
+
+
+def plot_thresh():
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams['text.usetex'] = True
+    plt.rc('grid', color='grey', alpha=0.2)
+
+    # f"out_{args.model_name}_{args.nano}_{args.sorted}_{args.split}_{args.pd}.npy"
+    palette = sns.color_palette("Paired")
+    # palette = sns.color_palette(n_colors=8)
+    # line_plot("../outfiles/out_87_fr_final_last_val_True.npy", "PD", color=palette[0])
+    # line_plot("../outfiles/out_96_fr_final_last_val_False.npy", "Margin", color=palette[1])
+    # line_plot("../outfiles/out_59_fs_final_last_val_True.npy", "Sorted PD", color=palette[2])
+    # line_plot("../outfiles/out_84_fs_final_last_val_False.npy", "Sorted Margin", color=palette[3])
+    # line_plot("../outfiles/out_76_nr_final_last_val_True.npy", "Nano PD", color=palette[4])
+    # line_plot("../outfiles/out_98_nr_final_last_val_False.npy", "Nano Margin", color=palette[5])
+    # line_plot("../outfiles/out_28_ns_final_last_val_True.npy", "Nano Sorted PD", color=palette[6])
+    # line_plot("../outfiles/out_32_ns_final_last_val_False.npy", "Nano Sorted Margin", color=palette[7])
+
+    line_plot("../outfiles/out_87_fr_final_last_val_True.npy", None, color=palette[0])
+    line_plot("../outfiles/out_96_fr_final_last_val_False.npy", r"Fab \texttt{random}", color=palette[1])
+    line_plot("../outfiles/out_59_fs_final_last_val_True.npy", None, color=palette[2])
+    line_plot("../outfiles/out_84_fs_final_last_val_False.npy", r"Fab \texttt{sorted}", color=palette[3])
+    line_plot("../outfiles/out_76_nr_final_last_val_True.npy", None, color=palette[4])
+    line_plot("../outfiles/out_98_nr_final_last_val_False.npy", r"nAb \texttt{random}", color=palette[5])
+    line_plot("../outfiles/out_28_ns_final_last_val_True.npy", None, color=palette[6])
+    line_plot("../outfiles/out_32_ns_final_last_val_False.npy", r"nAb \texttt{sorted}", color=palette[7])
+
+    # Just to see what test looks like
+    # line_plot("out_75_nr_final_last_test_True.npy", "Nano PD test", color=palette[6])
+    # line_plot("out_53_nr_final_last_test_False.npy", "Nano Margin test", color=palette[7])
+    plt.legend(loc='lower left', bbox_to_anchor=(0.15, 0.55))
+    plt.xlabel("Probability Threshold")
+    plt.ylabel("Mean Error in the Number of Predictions")
+    plt.grid(True)
+    plt.savefig(f'../fig_paper/python/threshold.pdf')
+    plt.show()
+
+
+if __name__ == '__main__':
+    pass
+    # find_thresh_main()
     plot_thresh()
 
 # VANILLA NMS
