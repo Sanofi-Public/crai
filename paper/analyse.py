@@ -248,7 +248,7 @@ def compare_bench(average_systems=True):
             plt.hist(all_dists_real, bins=6, label=labels)
             plt.legend()
             ax = plt.gca()
-            ax.set_xlabel('Distance (A)')
+            ax.set_xlabel(r'Distance (\AA{})')
             ax.set_ylabel('Count')
             plt.savefig(f'../fig_paper/python/{"fab" if fab else "nano"}_{"sorted" if sort else "random"}.pdf')
             plt.show()
@@ -303,7 +303,7 @@ def resolution_plot(average_systems=False):
     print([res for res in all_resolutions if res > 5])
     all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['native']['real_dists']]
     all_dists_real = np.asarray(all_dists_real).flatten()
-    scatter(all_resolutions, all_dists_real, xlabel=r'Resolution (A)', ylabel=r'Distance (A)', fit=True)
+    scatter(all_resolutions, all_dists_real, xlabel=r'Resolution (\AA{})', ylabel=r'Distance (\AA{})', fit=True)
 
 
 def compute_ablations():
@@ -333,21 +333,62 @@ def get_angles():
 
     results = [res_fab, res_nano, res_uy]
     labels = ['Fab', 'nAb', '$\overrightarrow{u_y}$']
-    savenames = ['angle_fab', 'angle_nab', 'angle_u_y']
-    for result, label, savename in zip(results, labels, savenames):
+
+    # savenames = ['angle_fab', 'angle_nab', 'angle_u_y']
+    # for result, label, savename in zip(results, labels, savenames):
+    #     extractor = result['bench']['real_dists'] < 10
+    #     angles = result['bench']['rz_angle'][extractor] * 180 / 3.14
+    #     for key, arr in result['bench'].items():
+    #         masked = arr[extractor]
+    #         print(key, np.mean(masked) * 180 / 3.14)
+    #
+    #     plt.hist(angles, bins=np.linspace(0, 180, 19))
+    #     plt.grid(True)
+    #     plt.title(rf'Result for the {label} model')
+    #     plt.xlabel(rf'Angle difference ($^\circ$)')
+    #     plt.ylabel(rf'Count')
+    #     plt.savefig(f'../fig_paper/python/{savename}.pdf')
+    #     plt.show()
+
+    bins = np.linspace(0, 180, 10)
+    all_angles = []
+    all_names = []
+    for result, label in zip(results, labels):
         extractor = result['bench']['real_dists'] < 10
         angles = result['bench']['rz_angle'][extractor] * 180 / 3.14
         for key, arr in result['bench'].items():
             masked = arr[extractor]
             print(key, np.mean(masked) * 180 / 3.14)
+        all_angles.extend(angles)
+        all_names.extend([label for _ in range(len(angles))])
 
-        plt.hist(angles, bins=np.linspace(0, 180, 19))
-        plt.grid(True)
-        plt.title(rf'Result for the {label} model')
-        plt.xlabel(rf'Angle difference ($^\circ$)')
-        plt.ylabel(rf'Count')
-        plt.savefig(f'../fig_paper/python/{savename}.pdf')
-        plt.show()
+    import seaborn as sns
+    df = pd.DataFrame({'angles': all_angles,
+                       'Model Name': all_names})
+    hist_kwargs = {
+        "multiple": "dodge",
+        "stat": "percent",
+        "kde": False,
+        "bins": bins,
+        "common_norm": False,
+    }
+    sns.histplot(data=df, x='angles', hue='Model Name', shrink=.9, **hist_kwargs)
+    # sns.histplot(all_angles[0], label=labels[0], **hist_kwargs)
+    # sns.histplot(all_angles[1], label=labels[1], **hist_kwargs)
+    # sns.histplot(all_angles[2], label=labels[2], **hist_kwargs)
+    # plt.hist(all_angles[0], label=labels[0], **hist_kwargs)
+    # plt.hist(all_angles[1], label=labels[1], **hist_kwargs)
+    # plt.hist(all_angles[2], label=labels[2], **hist_kwargs)
+    # bw_method = 1
+    # sns.kdeplot(all_angles[0], label=labels[0], clip=(0, 180), bw_method=bw_method)
+    # sns.kdeplot(all_angles[1], label=labels[1], clip=(0, 180), bw_method=bw_method)
+    # sns.kdeplot(all_angles[2], label=labels[2], clip=(0, 180), bw_method=bw_method)
+    # sns.histplot(all_angles, kde=True, label=labels, bins=np.linspace(0, 180, 19))
+    plt.grid(True)
+    plt.xlabel(rf'Angle difference ($^\circ$)')
+    plt.ylabel(rf'Percent')
+    plt.savefig(f'../fig_paper/python/angles.pdf')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -375,4 +416,4 @@ if __name__ == '__main__':
 
     # compute_ablations()
 
-    get_angles()
+    # get_angles()

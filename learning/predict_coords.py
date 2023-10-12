@@ -1,6 +1,7 @@
 import os
 import sys
 
+import time
 import numpy as np
 import torch
 
@@ -66,16 +67,16 @@ if __name__ == '__main__':
     # dirname = '7YM8_33924'  # this is test set
     # dirname = '8GNI_34165'  # this is test set
     # dirname = '8HBV_34644'  # this is test set
-    # dirname = '8HIJ_34818'  # this is test set
+    dirname = '8HIJ_34818'  # this is test set
 
     # dirname = "8GOO_34178"  # resolution 4.4 as successful prediction
-    dirname = "8CXI_27058"  # resolution 3.4 as partial success
+    # dirname = "8CXI_27058"  # resolution 3.4 as partial success
     # dirname = "7Z85_14543"  # resolution 3.1 as nano success
 
     pdb_name, mrc_name = dirname.split("_")
     # mrc_path, small = os.path.join(datadir_name, dirname, "resampled_0_2.mrc"), True
-    # mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map"), False
-    mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
+    mrc_path, small = os.path.join(datadir_name, dirname, f"emd_{mrc_name}.map"), False
+    # mrc_path, small = os.path.join(datadir_name, dirname, "full_crop_resampled_2.mrc"), False
 
     # mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     # fake_out = torch.randn((1, 9, 23, 28, 19))
@@ -92,10 +93,10 @@ if __name__ == '__main__':
     # model_name = 'multi_train_339'
     # model_name = 'multi_train_861'
     # model_name = 'big_train_gamma_last'
-    model_name = 'fr_final_last'
+    # model_name = 'fr_final_last'
     # model_name = 'nr_final_last'
     # model_name = 'fr_uy_last'
-    # model_name = 'ns_final_last'
+    model_name = 'ns_final_last'
     model_path = os.path.join('../saved_models', f"{model_name}.pth")
     # model = HalfUnetModel(out_channels_decoder=128,
     #                       num_feature_map=24,
@@ -109,11 +110,9 @@ if __name__ == '__main__':
     thresh = 0.2
     use_pd = True
     crop = 0
-    classif_nano = False
+    classif_nano = True
     default_nano = False
     normalize = 'max'
-
-    import time
 
     model = SimpleHalfUnetModel(in_channels=1,
                                 model_depth=4,
@@ -121,8 +120,6 @@ if __name__ == '__main__':
                                 max_decode=2,
                                 classif_nano=classif_nano,
                                 num_feature_map=32)
-    print(model)
-    gre
     model.load_state_dict(torch.load(model_path))
     t0 = time.time()
     predict_coords(mrc_path=mrc_path, model=model, outname=dump_path, outmrc=out_mrc, normalize=normalize,

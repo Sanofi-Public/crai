@@ -104,15 +104,15 @@ class DecoderBlock(nn.Module):
             # This is the size expected at this depth.
             # The input and output for deconv will be twice that, so after concat we get three times that
             feat_map_channels = self.num_feat_maps * 2 ** depth
-            deconv = ConvTranspose(in_channels=feat_map_channels * 2, out_channels=feat_map_channels * 2)
-            self.module_dict[f"deconv_{depth}"] = deconv
-            conv = ConvBlock(in_channels=feat_map_channels * 3,
+            self.deconv = ConvTranspose(in_channels=feat_map_channels * 2, out_channels=feat_map_channels * 2)
+            self.module_dict[f"deconv_{depth}"] = self.deconv
+            self.conv = ConvBlock(in_channels=feat_map_channels * 3,
                                   out_channels=feat_map_channels,
                                   num_convs=num_convs)
-            self.module_dict[f"block_{depth}"] = conv
+            self.module_dict[f"block_{depth}"] = self.conv
             if depth == max_decode:
-                final_conv = ConvBlock(in_channels=feat_map_channels, out_channels=out_channels)
-                self.module_dict["final_conv"] = final_conv
+                self.final_conv = ConvBlock(in_channels=feat_map_channels, out_channels=out_channels)
+                self.module_dict["final_conv"] = self.final_conv
 
     def forward(self, x, downsampling_features):
         """
