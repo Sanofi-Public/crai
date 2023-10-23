@@ -11,6 +11,7 @@ conda install -c schrodinger pymol
 #conda install pytorch=1.13 pytorch-cuda=11.7 -c pytorch -c nvidia # For cuda support
 conda install pytorch=1.13 cpuonly -c pytorch # For cpu 
 pip install wget requests pandas tqdm mrcfile scikit-learn scipy mmtf-python matplotlib tensorboard
+pip install -U git+https://github.com/shizuo-kaji/CubicalRipser_3dim
 ```
 
 Then, clone the project and go to the root of the project :

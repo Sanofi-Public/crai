@@ -56,6 +56,7 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
         main_results["raw"] = []
         bench_results["raw"] = []
 
+    per_pdb_results = {}
     failed_bench = 0
     for pdb, metrics in sorted(main_dict.items()):
         n_abs = len(metrics['real_dists'])
@@ -108,13 +109,19 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
                 #         and res[0] > 3
                 #     ):
                 #         print(pdb, res, dists)
-
+                per_pdb_results[pdb] = temp_res[k]
                 if average_systems:
                     if k == 'real_dists':
                         bench_results["raw"].append(temp_res[k])
                     bench_results[k].append(np.mean(temp_res[k]))
                 else:
                     bench_results[k].extend(temp_res[k])
+
+    # To get failed systems
+    for pdb, values in per_pdb_results.items():
+        if any([value > 10 for value in values]):
+            pass
+            # print(pdb)
     all_resolutions = np.asarray(all_resolutions)
     for k in keys:
         main_results[k] = np.asarray(main_results[k])
@@ -217,9 +224,9 @@ def compute_hr(nano=False, sort=False, average_systems=False, model_name=None, s
 
 
 def compute_all(average_systems=True, suffix='_pd', model_name=None):
-    ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    # ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
     ft = compute_hr(False, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
-    tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    # tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
     tt = compute_hr(True, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
 
 
@@ -401,14 +408,14 @@ if __name__ == '__main__':
     # SELECT 8CXI_27058 , resolution 3.4 as partial success
     # SELECT 7Z85_14543, resolution 3.1 as nano success
 
-    # model_name = None
+    model_name = None
     # model_name = "benchmark_actual_parsed"
     # average_systems = True
-    # average_systems = False
+    average_systems = False
     # suffix = ''
     # suffix = '_pd'
-    # suffix = '_thresh_pd'
-    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
+    suffix = '_thresh_pd'
+    compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
 
@@ -417,3 +424,34 @@ if __name__ == '__main__':
     # compute_ablations()
 
     # get_angles()
+
+# Failed Fabs
+# 7XDA_33140
+# 7XJ6_33220
+# 7YVN_34133
+# 7YVO_34134
+# 7YVP_34135
+# 8CXI_27058
+# 8D0Z_27113
+# 8DEF_27392
+# 8DWW_27763
+# 8DWX_27765
+# 8DWY_27767
+# 8E8L_27943
+# 8E8R_27947
+# 8E8X_27949
+# 8H07_34410
+# 8HEC_34687
+#
+# Failed Nanos
+# 7YC5_33734
+# 7YM8_33924
+# 7YMH_33928
+# 8EQB_28536
+# 8G8W_29857
+# 8GNI_34165
+# 8GNJ_34166
+# 8GQ5_34198
+# 8GW8_34305
+# 8HMP_34902
+# 8J1N_35928
