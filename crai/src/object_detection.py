@@ -1,14 +1,18 @@
 import os
-import pickle
+from Bio.PDB import PDBParser
+from Bio.PDB.Structure import Structure
+from Bio.PDB.Model import Model
+from Bio.PDB.PDBIO import PDBIO
 import numpy as np
-import pymol2
 from scipy.spatial.transform import Rotation
 
-from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB, REF_PATH_NANO
-from utils.rotation import vector_to_rotation
-from utils.mrc_utils import MRCGrid
+script_dir = os.path.dirname(os.path.realpath(__file__))
+REF_PATH_FV = os.path.join(script_dir, 'data', f'reference_fv.pdb')
+REF_PATH_FAB = os.path.join(script_dir, 'data', f'reference_fab.pdb')
+REF_PATH_NANO = os.path.join(script_dir, 'data', f'reference_nano.pdb')
 
-import cripser
+from rotation import vector_to_rotation
+from mrc_utils import MRCGrid
 
 
 # Array to predictions as rotation/translation
@@ -34,6 +38,7 @@ def nms(pred_loc, n_objects=None, thresh=0.2, use_pd=False):
     """
     if use_pd:
         # Topological persistence diagrams : in a watershed, sort by difference between birth and death values.
+        import cripser
         pd = cripser.computePH(1 - pred_loc)
         lifetimes = np.clip(pd[:, 2] - pd[:, 1], 0, 1)
         sorter = np.argsort(-lifetimes)
@@ -114,86 +119,45 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
 
 
 # rotation/translation to pdbs
-def transforms_to_pdb(transforms, out_name=None):
+def transforms_to_pdb_biopython(transforms, out_name=None):
     """
     Take our template and apply the learnt rotation to it.
     """
-    with pymol2.PyMOL() as p:
-        p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH_FAB, 'ref_fv')
-        p.cmd.load(REF_PATH_NANO, 'ref_nano')
-        for i, (rmsd, translation, rotation, nano) in enumerate(transforms):
-            hit = f"result_{i}"
-            if nano:
-                p.cmd.copy(hit, "ref_nano")
-            else:
-                p.cmd.copy(hit, "ref_fv")
-            coords_ref = p.cmd.get_coords(hit)
-            p.cmd.alter(hit, f"chain='{i}'")
-            rotated = rotation.apply(coords_ref)
-            new_coords = rotated + translation[None, :]
-            p.cmd.load_coords(new_coords, hit, state=1)
-        if out_name is not None:
-            to_save = ' or '.join([f"result_{i}" for i in range(len(transforms))])
-            p.cmd.save(out_name, to_save)
-    return new_coords
+    parser = PDBParser()
+    structure_fv = parser.get_structure("fv", REF_PATH_FV)
+    structure_nano = parser.get_structure("nano", REF_PATH_NANO)
 
-
-# pdb, sel -> rotation/translation
-def pdbsel_to_transforms(pdb_path, antibody_selections, cache=True, recompute=False):
-    """
-    We want to get the transformation to insert the template at the right spot.
-    Pymol "align" returns the solid transform as R (x + t), so to avoid getting huge translations (centering first)
-       we have to align the template onto the query, so that it outputs the translation to reach the com
-       and the right rotation.
-    Therefore, the returned matrix has columns that transform the templates and the largest loss weight should be
-    on the last row
-
-    
-    :param pdb_path:
-    :param antibody_selections: list of sels to proceed with
-    :param cache: to avoid recomputations
-    :return:
-    """
-    transforms = []
-    if isinstance(antibody_selections, str):
-        antibody_selections = [antibody_selections]
-    for antibody_selection in antibody_selections:
-        first_chain = antibody_selection.split()[1]
-        dump_align_name = os.path.join(os.path.dirname(pdb_path), f"pymol_chain{first_chain}.p")
-        need_recompute = not (cache and os.path.exists(dump_align_name)) or recompute
-        if need_recompute:
-            # Compute ground truth alignment i.e. the matrix to transform uz in p
-            with pymol2.PyMOL() as p:
-                p.cmd.feedback("disable", "all", "everything")
-                p.cmd.load(pdb_path, 'in_pdb')
-                sel = f'in_pdb and ({antibody_selection})'
-                p.cmd.extract("to_align", sel)
-                residues_to_align = len(p.cmd.get_model("to_align").get_residues())
-                nano = False
-                if residues_to_align < 165:
-                    p.cmd.load(REF_PATH_NANO, 'ref')
-                    nano = True
-                elif residues_to_align < 300:
-                    # len_fv = len(p.cmd.get_model("ref").get_residues())  # len_fv=237, len_fab=446
-                    p.cmd.load(REF_PATH_FV, 'ref')
-                else:
-                    p.cmd.load(REF_PATH_FAB, 'ref')
-                coords_ref = p.cmd.get_coords("ref")
-
-                # Now perform the alignment. The com of the aligned template is the object detection objective
-                result_align = p.cmd.align(mobile="ref", target="to_align")
-                rmsd = result_align[0]
-
-                # We retrieve the parameters of the transformation, notably the rotation
-                transformation_matrix = p.cmd.get_object_matrix('ref')
-                transformation_matrix = np.asarray(transformation_matrix).reshape((4, 4))
-                translation = transformation_matrix[:3, 3]
-                rotation = transformation_matrix[:3, :3]
-                rotation = Rotation.from_matrix(rotation)
-            if cache:
-                pickle.dump((rmsd, translation, rotation, nano), open(dump_align_name, 'wb'))
+    coords_fv = np.stack([atom.coord for atom in structure_fv.get_atoms()])
+    coords_nano = np.stack([atom.coord for atom in structure_nano.get_atoms()])
+    res_structure = Structure('result')
+    res_model = Model('result_model')
+    res_structure.add(res_model)
+    last_chain = 0
+    for i, (rmsd, translation, rotation, nano) in enumerate(transforms):
+        if nano:
+            new_model = structure_nano[0].copy()
+            coords_ref = coords_nano
         else:
-            rmsd, translation, rotation, nano = pickle.load(open(dump_align_name, 'rb'))
-        transforms.append((rmsd, translation, rotation, nano))
-    return transforms
+            new_model = structure_fv[0].copy()
+            coords_ref = coords_fv
+
+        for chain in new_model:
+            chain.id = str(last_chain)
+            last_chain += 1
+
+        rotated = rotation.apply(coords_ref)
+        new_coords = rotated + translation[None, :]
+        for atom, new_coord in zip(new_model.get_atoms(), new_coords):
+            atom.set_coord(new_coord)
+
+        for chain in new_model:
+            res_model.add(chain)
+
+    if out_name is not None:
+        io = PDBIO()
+        io.set_structure(res_structure)
+        io.save(out_name)
+
+
+if __name__ == '__main__':
+    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 0), (0, 0, 0, 0)], out_name='test.pdb')
