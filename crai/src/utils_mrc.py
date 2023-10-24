@@ -6,7 +6,7 @@ import numpy as np
 import scipy
 import subprocess
 
-from rotation import Rotor
+from utils_rotation import Rotor
 
 
 def load_mrc(mrc, mode='r'):

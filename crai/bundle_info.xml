@@ -1,0 +1,57 @@
+<BundleInfo name="ChimeraX-crai"
+	    version="0.1" package="crai"
+  	    minSessionVersion="1" maxSessionVersion="1">
+
+  <!-- Additional information about bundle source -->
+  <Author>Vincent Mallet</Author>
+  <Email>vincent.mallet96@gmail.com</Email>
+  <URL>crai.com</URL>
+
+  <!-- Synopsis is a one-line description
+       Description is a full multi-line description -->
+  <Synopsis>
+    This tool takes a density as input and returns the predicted position of Fabs/Fvs or VHHs (as templates)
+  </Synopsis>
+  <Description>
+    This tool is based on the preprint Finding Antibodies in Cryo-EM densities with CrAI
+    (https://www.biorxiv.org/content/10.1101/2023.09.27.559736v1).
+    It uses a deep learning model and an object detection formulation to place Fabs or VHHs into a density.
+    Importantly, the tool works on low resolutions and large maps with a reasonable runtime (seconds, minutes
+    for large maps).
+  </Description>
+
+  <!-- Categories is a list where this bundle should appear -->
+  <Categories>
+    <Category name="EM"/>
+  </Categories>
+
+  <!-- DataFiles is a list of additional files to include in bundle -->
+  <DataFiles>
+    <DataFile>data/reference_fab.pdb</DataFile>
+    <DataFile>data/reference_fv.pdb</DataFile>
+    <DataFile>data/reference_nano.pdb</DataFile>
+    <DataFile>data/ns_final_last.pth</DataFile>
+  </DataFiles>
+
+  <!-- Dependencies on other ChimeraX/Python packages -->
+  <Dependencies>
+    <Dependency name="ChimeraX-Core" version="~=1.1"/>
+<!--   TODO <Dependency name="cripser"/>-->
+    <Dependency name="torch"/>
+    <Dependency name="scipy"/>
+    <Dependency name="numpy"/>
+    <Dependency name="biopython"/>
+    <Dependency name="mrcfile"/>
+  </Dependencies>
+
+  <Classifiers>
+    <!-- Development Status should be compatible with bundle version number -->
+    <PythonClassifier>Development Status - Alpha </PythonClassifier>
+    <PythonClassifier>License :: MIT</PythonClassifier>
+    <!-- ChimeraX classifiers describe supplied functionality -->
+    <!-- Register two commands for printing the center of mass
+	 and selecting/coloring atom(s) nearest the center of mass of atoms -->
+    <ChimeraXClassifier>ChimeraX :: Command :: crai :: General :: Predict antibodies in density</ChimeraXClassifier>
+  </Classifiers>
+
+</BundleInfo>

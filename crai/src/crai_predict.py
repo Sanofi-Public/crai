@@ -1,6 +1,7 @@
 from chimerax.core.commands import CmdDesc
-from chimerax.core.commands import StringArg
+from chimerax.core.commands import StringArg, IntArg
 from chimerax.core.commands import run
+# from chimerax.core.session import Session
 
 import os
 import sys
@@ -12,9 +13,9 @@ import torch
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir))
 
-import mrc_utils
+import utils_mrc
 from SimpleUnet import SimpleHalfUnetModel
-from object_detection import output_to_transforms, transforms_to_pdb_biopython
+from utils_object_detection import output_to_transforms, transforms_to_pdb_biopython
 
 
 def crop_large_mrc(mrc, margin=12):
@@ -32,10 +33,10 @@ def crop_large_mrc(mrc, margin=12):
 
 
 def predict_coords(mrc_path, resample=True, normalize='max', outname=None, outmrc=None,
-                   n_objects=None, thresh=0.5, crop=0, classif_nano=False, default_nano=False, use_pd=False):
+                   n_objects=None, thresh=0.2, crop=0, default_nano=False, use_pd=False):
     t0 = time.time()
     print('Loading data')
-    mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
+    mrc = utils_mrc.MRCGrid.from_mrc(mrc_path)
     if resample:
         mrc = mrc.resample()
     mrc = mrc.normalize(normalize_mode=normalize)
@@ -62,13 +63,22 @@ def predict_coords(mrc_path, resample=True, normalize='max', outname=None, outmr
 
     print('Post-processing...')
     transforms = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh, outmrc=outmrc,
-                                      classif_nano=classif_nano, default_nano=default_nano, use_pd=use_pd)
+                                      classif_nano=True, default_nano=default_nano, use_pd=use_pd)
     transforms_to_pdb_biopython(transforms=transforms, out_name=outname)
     print('Done ! Output saved in ', outname)
     return outname
 
 
-def crai(session, map_path, outname=None):
+def crai(session, map_path, outname=None, use_pd=False, n_objects=None):
+    """
+
+    :param session:
+    :param map_path:
+    :param outname:
+    :param test_arg:
+    :return:
+    """
+    # Args management
     if outname is None:
         default_outname = map_path.replace(".mrc", "_predicted.pdb").replace(".map", "_predicted.pdb")
         if not os.path.exists(default_outname):
@@ -76,9 +86,15 @@ def crai(session, map_path, outname=None):
         else:
             print("Default name not available, one could not save the prediction. Please add an outname.")
             return None
-    outname = predict_coords(map_path, outname=outname)
+    outname = predict_coords(map_path, outname=outname, use_pd=use_pd, n_objects=n_objects)
+
     run(session, f"open {outname}")
 
 
+
+
 crai_desc = CmdDesc(required=[("map_path", StringArg)],
-                    optional=[("outname", StringArg)])
+                    optional=[("outname", StringArg),
+                              # ("use_pd", StringArg),
+                              ("n_objects", IntArg),
+                              ])

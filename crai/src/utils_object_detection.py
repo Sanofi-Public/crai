@@ -11,8 +11,8 @@ REF_PATH_FV = os.path.join(script_dir, 'data', f'reference_fv.pdb')
 REF_PATH_FAB = os.path.join(script_dir, 'data', f'reference_fab.pdb')
 REF_PATH_NANO = os.path.join(script_dir, 'data', f'reference_nano.pdb')
 
-from rotation import vector_to_rotation
-from mrc_utils import MRCGrid
+from utils_rotation import vector_to_rotation
+from utils_mrc import MRCGrid
 
 
 # Array to predictions as rotation/translation
