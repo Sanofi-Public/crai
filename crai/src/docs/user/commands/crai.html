@@ -1,0 +1,37 @@
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../userdocs.css"/>
+    <title>Command: crai</title>
+</head>
+<body>
+
+<a name="top"></a>
+<a href="../index.html">
+    <img width="60px" src="../ChimeraX-docs-icon.svg" alt="ChimeraX docs icon"
+         class="clRight" title="User Guide Index"/></a>
+
+<h3><a href="../index.html#commands">Command</a>: crai</h3>
+<h3 class="usage"><a href="usageconventions.html">Usage</a>:
+    <br><b>crai</b>
+    &nbsp;<a><i>map_path</i></a>
+    [&nbsp;<b>outname</b>&nbsp; path to a map file | #x numeric id of a volume object&nbsp;]
+    [&nbsp;<b>n_objects</b>&nbsp;<i>int count</i>&nbsp;]
+    [&nbsp;<b>use_pd</b>&nbsp;True&nbsp;|&nbsp;False&nbsp;]
+</h3>
+
+<a name="Description"/>
+This command enable prediction of the antibodies present in a cryo EM density.
+Simply input the density you want to make or the id of the object (with its preceeding '#' character).
+An output name can be additionally provided otherwise a default name will be provided.
+The number of antibodies is automatically infered, but can also be specified by the user.
+By default, the algorithm uses persistence diagram, but this can be deactivated by appending 'use_pd False'.
+<br>
+The methods powering this tools are published in our
+<a href=“https://www.biorxiv.org/content/10.1101/2023.09.27.559736v1”>article</a>, and the
+corresponding repository can be found <a href=“https://github.com/Vincentx15”>here</a>.
+</p>
+
+<hr>
+<address>Vincent Mallet, Ecole Polytechnique, Nov 2023</address>
+</body>
+</html>

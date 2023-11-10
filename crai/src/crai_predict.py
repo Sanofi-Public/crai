@@ -123,4 +123,4 @@ crai_desc = CmdDesc(required=[("map_path", StringArg)],
                     optional=[("outname", StringArg),
                               ("use_pd", StringArg),
                               ("n_objects", IntArg),
-                              ])
+                              ],)
