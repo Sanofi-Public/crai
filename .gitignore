@@ -7,7 +7,7 @@ archive_logs/
 load_data/*.mrc
 load_data/*.pdb
 logs/
-old_logs/
+archive_logs/old_logs/
 prepare_database/result_mapping.p
 prepare_database/rotated.mrc
 saved_models/

@@ -91,10 +91,8 @@ def crai(session, map_path, outname=None, use_pd=False, n_objects=None):
     run(session, f"open {outname}")
 
 
-
-
 crai_desc = CmdDesc(required=[("map_path", StringArg)],
                     optional=[("outname", StringArg),
-                              # ("use_pd", StringArg),
+                              ("use_pd", StringArg),
                               ("n_objects", IntArg),
                               ])

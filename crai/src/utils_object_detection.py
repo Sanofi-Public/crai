@@ -3,7 +3,9 @@ from Bio.PDB import PDBParser
 from Bio.PDB.Structure import Structure
 from Bio.PDB.Model import Model
 from Bio.PDB.PDBIO import PDBIO
+# from Bio.PDB.mmcifio import MMCIFIO
 import numpy as np
+import string
 from scipy.spatial.transform import Rotation
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -14,6 +16,8 @@ REF_PATH_NANO = os.path.join(script_dir, 'data', f'reference_nano.pdb')
 from utils_rotation import vector_to_rotation
 from utils_mrc import MRCGrid
 
+UPPERCASE = string.ascii_uppercase
+LOWERCASE = string.ascii_lowercase
 
 # Array to predictions as rotation/translation
 def predict_one_ijk(pred_array, margin=3):
@@ -37,8 +41,14 @@ def nms(pred_loc, n_objects=None, thresh=0.2, use_pd=False):
     From a dense array of predictions, return a set of positions based on a number or a threshold
     """
     if use_pd:
+        try:
+            import cripser
+        except ImportError:
+            print("Package cripser could not be installed so persistence diagrams are unavailable. "
+                  "Defaulting to the use of margins.")
+            use_pd = False
+    if use_pd:
         # Topological persistence diagrams : in a watershed, sort by difference between birth and death values.
-        import cripser
         pd = cripser.computePH(1 - pred_loc)
         lifetimes = np.clip(pd[:, 2] - pd[:, 1], 0, 1)
         sorter = np.argsort(-lifetimes)
@@ -117,7 +127,6 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
         transforms.append((0, translation, rotation, nano))
     return transforms
 
-
 # rotation/translation to pdbs
 def transforms_to_pdb_biopython(transforms, out_name=None):
     """
@@ -142,11 +151,12 @@ def transforms_to_pdb_biopython(transforms, out_name=None):
             coords_ref = coords_fv
 
         for chain in new_model:
-            chain.id = str(last_chain)
+            chain.id = UPPERCASE[last_chain] if not nano else LOWERCASE[last_chain]
             last_chain += 1
 
         rotated = rotation.apply(coords_ref)
         new_coords = rotated + translation[None, :]
+        # new_coords = coords_ref
         for atom, new_coord in zip(new_model.get_atoms(), new_coords):
             atom.set_coord(new_coord)
 
@@ -154,10 +164,11 @@ def transforms_to_pdb_biopython(transforms, out_name=None):
             res_model.add(chain)
 
     if out_name is not None:
+        # io = MMCIFIO()
         io = PDBIO()
         io.set_structure(res_structure)
         io.save(out_name)
 
 
 if __name__ == '__main__':
-    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 0), (0, 0, 0, 0)], out_name='test.pdb')
+    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 1), (0, 0, 0, 0)], out_name='test.pdb')
