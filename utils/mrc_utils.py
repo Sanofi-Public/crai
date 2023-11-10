@@ -261,6 +261,19 @@ class MRCGrid:
                               voxel_size=new_voxel_size)
         return cropped_mrc
 
+    def crop_large_mrc(self, margin=12):
+        arr = self.data
+        to_find = arr > 0.1
+        res = np.nonzero(to_find)
+        all_min_max = []
+        for r, shape in zip(res, to_find.shape):
+            min_i, max_i = np.min(r), np.max(r)
+            min_i, max_i = max(0, min_i - margin), min(max_i + margin, shape)
+            all_min_max.append(min_i)
+            # The max_i is computed from the end
+            all_min_max.append(shape - max_i)
+        return self.crop(*all_min_max)
+
     def random_crop(self, margin=4):
         """
         Cut the box with random left and right cuts, up to a margin

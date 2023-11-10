@@ -49,9 +49,9 @@
     <PythonClassifier>Development Status - Alpha </PythonClassifier>
     <PythonClassifier>License :: MIT</PythonClassifier>
     <!-- ChimeraX classifiers describe supplied functionality -->
-    <!-- Register two commands for printing the center of mass
-	 and selecting/coloring atom(s) nearest the center of mass of atoms -->
-    <ChimeraXClassifier>ChimeraX :: Command :: crai :: General :: Predict antibodies in density</ChimeraXClassifier>
+    <ChimeraXClassifier>
+      ChimeraX :: Command :: crai :: General :: Predict antibodies in cryo-EM densities
+    </ChimeraXClassifier>
   </Classifiers>
 
 </BundleInfo>

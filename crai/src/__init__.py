@@ -1,5 +1,4 @@
 from chimerax.core.toolshed import BundleAPI
-# import cripser
 
 # Subclass from chimerax.core.toolshed.BundleAPI and
 # override the method for registering commands,

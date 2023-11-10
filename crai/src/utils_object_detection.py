@@ -3,8 +3,9 @@ from Bio.PDB import PDBParser
 from Bio.PDB.Structure import Structure
 from Bio.PDB.Model import Model
 from Bio.PDB.PDBIO import PDBIO
-# from Bio.PDB.mmcifio import MMCIFIO
+from Bio.PDB.mmcifio import MMCIFIO
 import numpy as np
+import pathlib
 import string
 from scipy.spatial.transform import Rotation
 
@@ -18,6 +19,7 @@ from utils_mrc import MRCGrid
 
 UPPERCASE = string.ascii_uppercase
 LOWERCASE = string.ascii_lowercase
+
 
 # Array to predictions as rotation/translation
 def predict_one_ijk(pred_array, margin=3):
@@ -127,8 +129,9 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
         transforms.append((0, translation, rotation, nano))
     return transforms
 
+
 # rotation/translation to pdbs
-def transforms_to_pdb_biopython(transforms, out_name=None):
+def transforms_to_pdb_biopython(transforms, outname=None):
     """
     Take our template and apply the learnt rotation to it.
     """
@@ -163,12 +166,15 @@ def transforms_to_pdb_biopython(transforms, out_name=None):
         for chain in new_model:
             res_model.add(chain)
 
-    if out_name is not None:
-        # io = MMCIFIO()
-        io = PDBIO()
+    if outname is not None:
+        suffix = pathlib.Path(outname).suffix
+        if suffix == '.pdb':
+            io = PDBIO()
+        else:
+            io = MMCIFIO()
         io.set_structure(res_structure)
-        io.save(out_name)
+        io.save(outname)
 
 
 if __name__ == '__main__':
-    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 1), (0, 0, 0, 0)], out_name='test.pdb')
+    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 1), (0, 0, 0, 0)], outname='test.pdb')
