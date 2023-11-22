@@ -67,7 +67,7 @@ def get_outname(session, map_path, outname=None):
         return outname
 
     if map_path.startswith("#"):
-        default_outname = "crai_predicted.pdb"
+        default_outname = "crai_prediction.pdb"
     else:
         default_outname = map_path.replace(".mrc", "_predicted.pdb").replace(".map", "_predicted.pdb")
     if not os.path.exists(default_outname):
@@ -101,7 +101,7 @@ def predict_coords(session, mrc, outname=None, outmrc=None, n_objects=None, thre
     return outname
 
 
-def crai(session, map_path, outname=None, use_pd=False, n_objects=None):
+def crai(session, map_path, outname=None, use_pd=True, n_objects=None):
     """
 
     :param session:

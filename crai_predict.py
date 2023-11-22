@@ -14,8 +14,10 @@ from learning.predict_coords import predict_coords
 from learning.SimpleUnet import SimpleHalfUnetModel
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument("--input", required=True,
-                    help='Path to the input files. Should be either a .map or .mrc file, or a directory')
+parser.add_argument("--input",
+                    help='Path to the input files. Should be either a .map or .mrc file, or a directory',
+                    # required=True,
+                    default="crai/src/data/7LO8_resampled.mrc")
 parser.add_argument("--output", default=None,
                     help="Optional : Path to the output."
                          " If nothing is provided, this will create a file named {MRC_FILE}_predicted.pdb."
