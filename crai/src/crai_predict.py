@@ -20,28 +20,31 @@ from SimpleUnet import SimpleHalfUnetModel
 from utils_object_detection import output_to_transforms, transforms_to_pdb_biopython
 
 
-def get_mrc(map_path, resample=True, crop=0, normalize='max', session=None):
-    t0 = time.time()
-    print('Loading data')
-    # Get it from chimerax
-    if map_path.startswith("#"):
-        # #1.1 =>(1,1) which is what's keyed by session._models.
-        as_tuple = tuple([int(x) for x in map_path[1:].split('.')])
-        if not as_tuple in session.models._models:
-            print(f"Could not find queried model {map_path}")
-            return None
-        queried = session.models._models[as_tuple]
-        if not isinstance(queried, Volume):
-            print(f"Expected the id to refer to map data, got {queried}")
-            return None
-        # Chimerax also has this transposition
-        queried_data = queried.full_matrix().transpose((2, 1, 0))
-        mrc = utils_mrc.MRCGrid(data=queried_data,
-                                voxel_size=queried.data.step,
-                                origin=queried.data.origin,
-                                )
+def get_mrc_from_input(session, map_path):
+    # If it's a path, open it in Chimerax and get its id.
+    if not map_path.startswith("#"):
+        output_run = run(session, f"open {map_path}")
+        map_id = output_run[0].id_string
     else:
-        mrc = utils_mrc.MRCGrid.from_mrc(map_path)
+        map_id = map_path[1:]
+
+    # #1.1 =>(1,1) which is what's keyed by session._models.
+    as_tuple = tuple([int(x) for x in map_id.split('.')])
+    if not as_tuple in session.models._models:
+        raise ValueError(f"Could not find queried model {map_path}")
+    queried = session.models._models[as_tuple]
+    if not isinstance(queried, Volume):
+        raise ValueError(f"Expected the id to refer to map data, got {queried}")
+    # Chimerax also has this transposition
+    queried_data = queried.full_matrix().transpose((2, 1, 0))
+    mrc = utils_mrc.MRCGrid(data=queried_data,
+                            voxel_size=queried.data.step,
+                            origin=queried.data.origin,
+                            )
+    return map_id, mrc
+
+
+def clean_mrc(mrc, resample=True, crop=0, normalize='max'):
     if resample:
         mrc = mrc.resample()
     mrc = mrc.normalize(normalize_mode=normalize)
@@ -49,7 +52,6 @@ def get_mrc(map_path, resample=True, crop=0, normalize='max', session=None):
         mrc = mrc.crop(*(crop,) * 6)
     else:
         mrc = mrc.crop_large_mrc()
-    print('Data loaded in : ', time.time() - t0)
     return mrc
 
 
@@ -101,7 +103,7 @@ def predict_coords(session, mrc, outname=None, outmrc=None, n_objects=None, thre
     return outnames
 
 
-def crai(session, map_path, outname=None, use_pd=True, n_objects=None, split_pred=True):
+def crai(session, map_path, outname=None, use_pd=True, n_objects=None, split_pred=True, fit_in_map=True):
     """
 
     :param session:
@@ -110,15 +112,23 @@ def crai(session, map_path, outname=None, use_pd=True, n_objects=None, split_pre
     :param test_arg:
     :return:
     """
-    # run(session, f"open src/data/7LO8_resampled.mrc")
-    mrc = get_mrc(map_path=map_path, session=session)
+
+    t0 = time.time()
+    print('Loading data')
+    map_id, mrc = get_mrc_from_input(map_path=map_path, session=session)
+    mrc = clean_mrc(mrc)
+    print(map_id)
+    print('Data loaded in : ', time.time() - t0)
+
     outname = get_outname(outname=outname, map_path=map_path, session=session)
     if outname is None or mrc is None:
         return None
     outnames = predict_coords(mrc=mrc, outname=outname, use_pd=use_pd, n_objects=n_objects, session=session,
                               split_pred=split_pred)
     for outname in outnames:
-        run(session, f"open {outname}")
+        ab = run(session, f"open {outname}")
+        if fit_in_map:
+            run(session, f"fit #{ab[0].id_string} inmap #{map_id}")
 
 
 crai_desc = CmdDesc(required=[("map_path", StringArg)],
@@ -126,5 +136,5 @@ crai_desc = CmdDesc(required=[("map_path", StringArg)],
                               ("use_pd", BoolArg),
                               ("n_objects", IntArg),
                               ("split_pred", BoolArg),
+                              ("fit_in_map", BoolArg),
                               ], )
-
