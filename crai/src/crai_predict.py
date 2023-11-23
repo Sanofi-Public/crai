@@ -1,5 +1,5 @@
 from chimerax.core.commands import CmdDesc
-from chimerax.core.commands import StringArg, IntArg
+from chimerax.core.commands import StringArg, IntArg, BoolArg
 from chimerax.core.commands import run
 from chimerax.map.volume import Volume
 
@@ -78,7 +78,7 @@ def get_outname(session, map_path, outname=None):
 
 
 def predict_coords(session, mrc, outname=None, outmrc=None, n_objects=None, thresh=0.2, default_nano=False,
-                   use_pd=False):
+                   use_pd=True, split_pred=True):
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
     print('Loading model...')
     model_path = os.path.join(script_dir, "data/ns_final_last.pth")
@@ -96,12 +96,12 @@ def predict_coords(session, mrc, outname=None, outmrc=None, n_objects=None, thre
     print('Post-processing...')
     transforms = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh, outmrc=outmrc,
                                       classif_nano=True, default_nano=default_nano, use_pd=use_pd)
-    transforms_to_pdb_biopython(transforms=transforms, outname=outname)
-    print('Done ! Output saved in ', outname)
-    return outname
+    outnames = transforms_to_pdb_biopython(transforms=transforms, outname=outname, split_pred=split_pred)
+    print('Done ! Output saved in ', outnames[0])
+    return outnames
 
 
-def crai(session, map_path, outname=None, use_pd=True, n_objects=None):
+def crai(session, map_path, outname=None, use_pd=True, n_objects=None, split_pred=True):
     """
 
     :param session:
@@ -115,12 +115,16 @@ def crai(session, map_path, outname=None, use_pd=True, n_objects=None):
     outname = get_outname(outname=outname, map_path=map_path, session=session)
     if outname is None or mrc is None:
         return None
-    predict_coords(mrc=mrc, outname=outname, use_pd=use_pd, n_objects=n_objects, session=session)
-    run(session, f"open {outname}")
+    outnames = predict_coords(mrc=mrc, outname=outname, use_pd=use_pd, n_objects=n_objects, session=session,
+                              split_pred=split_pred)
+    for outname in outnames:
+        run(session, f"open {outname}")
 
 
 crai_desc = CmdDesc(required=[("map_path", StringArg)],
                     optional=[("outname", StringArg),
-                              ("use_pd", StringArg),
+                              ("use_pd", BoolArg),
                               ("n_objects", IntArg),
-                              ],)
+                              ("split_pred", BoolArg),
+                              ], )
+

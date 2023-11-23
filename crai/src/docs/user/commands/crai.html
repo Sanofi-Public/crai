@@ -16,17 +16,18 @@
     &nbsp;<b>map_path</b> <i>&nbsp;path to a map file | #x numeric id of a volume object]</i>
     [&nbsp;<b>outname</b>&nbsp;<i>name of the output file</i>]
     [&nbsp;<b>n_objects</b>&nbsp;<i>expected count of antibodies in the density (exactly that many will we output)</i>]
-    [&nbsp;<b>use_pd</b>&nbsp;<i><b>True</b>&nbsp;|&nbsp;False&nbsp;: whether to use persistence diagrams</i>]
+    [&nbsp;<b>use_pd</b>&nbsp;<i><b>True</b>|False: whether to use persistence diagrams</i>]
+    [ <b>split_pred</b><i><b>True</b>|False: whether to use split output in several pdbs, one for each Ab.</i>]
 </h3>
 
 <a name="Description"/>
 This command enable prediction of the antibodies present in a cryo EM density.
 Simply input the density you want to make or the id of the object (with its preceeding '#' character).
 An output name can be additionally provided otherwise a default name will be provided.
-The number of antibodies is automatically infered, but can also be specified by the user.
+The number of antibodies is automatically inferred, but can also be specified by the user.
 By default, the algorithm uses persistence diagram, but this can be deactivated by appending 'use_pd False'.
 <br>
-The methods powering this tools are published in our
+The methods powering this tool are published in our
 <a href=“https://www.biorxiv.org/content/10.1101/2023.09.27.559736v1”>article</a>, and the
 corresponding repository can be found <a href=“https://github.com/Vincentx15”>here</a>.
 </p>
