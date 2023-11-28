@@ -175,7 +175,7 @@ def transforms_to_pdb_biopython(transforms, outname, split_pred=True):
         predicted_models.append(new_model)
 
     # Now, either save all structures at once or in split files.
-    if not split_pred:
+    if not split_pred or len(predicted_models) == 1:
         predicted_models = [[chain for model in predicted_models for chain in model]]
         outnames = [outname]
     else:
