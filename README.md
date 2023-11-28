@@ -15,7 +15,7 @@ pip install wget requests pandas tqdm mrcfile scikit-learn scipy mmtf-python mat
 
 Then, clone the project and go to the root of the project :
 ```shell
-git clone https://github.com/Vincentx15/crIA-EM.git
+git clone https://github.com/Sanofi-GitHub/crai
 cd crIA-EM
 ```
 
