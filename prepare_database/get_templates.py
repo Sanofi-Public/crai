@@ -74,7 +74,8 @@ def get_template(pdb_path, pymol_sel, crop_sel, nano_sel):
 
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-name = 'reference'
+# name = 'reference'
+name = 'new_reference'
 REF_PATH_FV = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fv.pdb')
 REF_PATH_FAB = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_fab.pdb')
 REF_PATH_NANO = os.path.join(script_dir, '..', 'data', 'templates', f'{name}_nano.pdb')

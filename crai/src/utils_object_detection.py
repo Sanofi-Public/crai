@@ -10,9 +10,8 @@ import string
 from scipy.spatial.transform import Rotation
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-REF_PATH_FV = os.path.join(script_dir, 'data', f'reference_fv.pdb')
-REF_PATH_FAB = os.path.join(script_dir, 'data', f'reference_fab.pdb')
-REF_PATH_NANO = os.path.join(script_dir, 'data', f'reference_nano.pdb')
+REF_PATH_FV = os.path.join(script_dir, 'data', f'new_ref_fv.pdb')
+REF_PATH_NANO = os.path.join(script_dir, 'data', f'new_ref_nano.pdb')
 
 from utils_rotation import vector_to_rotation
 from utils_mrc import MRCGrid

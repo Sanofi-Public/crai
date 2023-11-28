@@ -28,9 +28,8 @@
   <!-- DataFiles is a list of additional files to include in bundle -->
   <DataFiles>
     <DataFile>docs/user/commands/crai.html</DataFile>
-    <DataFile>data/reference_fab.pdb</DataFile>
-    <DataFile>data/reference_fv.pdb</DataFile>
-    <DataFile>data/reference_nano.pdb</DataFile>
+    <DataFile>data/new_ref_fv.pdb</DataFile>
+    <DataFile>data/new_ref_nano.pdb</DataFile>
     <DataFile>data/ns_final_last.pth</DataFile>
   </DataFiles>
 
