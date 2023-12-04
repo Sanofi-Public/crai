@@ -14,30 +14,6 @@ from utils.pymol_utils import get_protein_coords
 from utils.rotation import Rotor
 
 
-def load_mrc(mrc, mode='r'):
-    """
-    returns an mrc from either a mrc or a mrc filename
-    :param mrc:
-    :param mode:
-    :return:
-    """
-    if isinstance(mrc, str):
-        # Buggy support for compressed maps
-        if mrc[-3:] == ".gz":
-            uncompressed_name = mrc[:-3]
-            shell_cmd = f"gunzip -c {mrc} > {uncompressed_name}"
-            subprocess.call(shell_cmd, shell=True)
-            mrc = mrcfile.open(uncompressed_name, mode=mode)
-            os.remove(uncompressed_name)
-            return mrc
-        mrc = mrcfile.open(mrc, mode=mode)
-        return mrc
-    elif isinstance(mrc, mrcfile.mrcfile.MrcFile):
-        return mrc
-    else:
-        raise ValueError("Wrong input to the MRC loading function")
-
-
 def save_canonical_mrc(outname, data, voxel_size, origin, overwrite=False):
     """
     Save a mrc with well-behaved axis
@@ -80,6 +56,12 @@ class MRCGrid:
 
     @staticmethod
     def from_mrc(mrc_file, normalize=None):
+        uncompressed_name = None
+        if mrc_file[-3:] == ".gz":
+            uncompressed_name = mrc_file[:-3]
+            shell_cmd = f"gunzip -c {mrc_file} > {uncompressed_name}"
+            subprocess.call(shell_cmd, shell=True)
+            mrc_file = uncompressed_name
         with mrcfile.open(mrc_file, mode='r') as original_mrc:
             # The mx,my,mz are almost always equal to the data shape, except for 3J30.
             # This does not make a difference.
@@ -107,6 +89,8 @@ class MRCGrid:
                                     original_mrc.header.nxstart))  # nxstart always correspond to 'c'
             shift_array_xyz = np.array([shift_array[reverse_axis_mapping[i]] for i in range(3)])
             origin = original_origin + shift_array_xyz * voxel_size
+        if uncompressed_name is not None:
+            os.remove(uncompressed_name)
         return MRCGrid(data=data, voxel_size=voxel_size, origin=origin, normalize_mode=normalize)
 
     def normalize(self, normalize_mode='max'):
