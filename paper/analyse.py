@@ -49,6 +49,7 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
     resolutions = get_pdb_selection(csv_in=csv_in, columns=['resolution'])
     resolutions = {pdb: [res.item() for res in resolution] for pdb, resolution in resolutions.items()}
     all_resolutions = []
+    all_pdb_ids = []
 
     main_results = {k: [] for k in keys}
     bench_results = {k: [] for k in keys}
@@ -67,8 +68,10 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
 
         res = resolutions[pdb[:4]]
         if average_systems:
+            all_pdb_ids.append(pdb)
             all_resolutions.append(np.mean(res))
         else:
+            all_pdb_ids.extend([pdb for _ in range(len(res))])
             all_resolutions.extend(res)
         for k in keys:
             metric_value = metrics[k]
@@ -118,16 +121,15 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
                     bench_results[k].extend(temp_res[k])
 
     # To get failed systems
-    for pdb, values in per_pdb_results.items():
+    for pdb, values in sorted(per_pdb_results.items()):
         if any([value > 10 for value in values]):
             pass
-            # print(pdb)
     all_resolutions = np.asarray(all_resolutions)
     for k in keys:
         main_results[k] = np.asarray(main_results[k])
         bench_results[k] = np.asarray(bench_results[k])
     # print("Overpredictions : ", overpredictions)
-    return {'res': all_resolutions, 'native': main_results, 'bench': bench_results}
+    return {'res': all_resolutions, 'native': main_results, 'bench': bench_results, 'pdbs': all_pdb_ids}
 
 
 def get_results(nano=False, sort=False, average_systems=False, model_name=None, suffix='_pd', keys=('real_dists',)):
@@ -298,10 +300,11 @@ def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probabilit
 
 
 def resolution_plot(average_systems=False):
-    ff = get_results(False, False, average_systems=average_systems)
-    ft = get_results(False, True, average_systems=average_systems)
-    tf = get_results(True, False, average_systems=average_systems)
-    tt = get_results(True, True, average_systems=average_systems)
+    suffix = '_thresh_pd'
+    ff = get_results(False, False, suffix=suffix, average_systems=average_systems)
+    ft = get_results(False, True, suffix=suffix, average_systems=average_systems)
+    tf = get_results(True, False, suffix=suffix, average_systems=average_systems)
+    tt = get_results(True, True, suffix=suffix, average_systems=average_systems)
     all_sys = [ff, ft, tf, tt]
     # all_sys = [ft]
 
@@ -403,19 +406,31 @@ if __name__ == '__main__':
     # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
 
-    # get_results(False, False, suffix='_thresh_pd')
+    ours = get_results(False, False, suffix='_thresh_pd', average_systems=True)
     # SELECT 8GOO_34178, resolution 4.4 as successful prediction
     # SELECT 8CXI_27058 , resolution 3.4 as partial success
     # SELECT 7Z85_14543, resolution 3.1 as nano success
+    bench = get_results(False, False, model_name="benchmark_actual_parsed", average_systems=True)
+    pdbs = ours['pdbs']
+    res = ours['res']
+    ours = ours['bench']['raw']
+    bench = bench['bench']['raw']
+    argsort = np.argsort(res)
+    with open('chiara_fab.txt', 'w') as f:
+        for i in argsort:
+            line = "Resolution :" + str(res[i]) + " id :" + str(pdbs[i]) + \
+                   " ours : " + str(ours[i]) + " bench :" + str(bench[i]) + "\n"
+            print(line)
+            f.writelines(line)
 
-    model_name = None
+    # model_name = None
     # model_name = "benchmark_actual_parsed"
     # average_systems = True
-    average_systems = False
+    # average_systems = False
     # suffix = ''
     # suffix = '_pd'
-    suffix = '_thresh_pd'
-    compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
+    # suffix = '_thresh_pd'
+    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
 
