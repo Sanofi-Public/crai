@@ -299,20 +299,64 @@ def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probabilit
     plt.show()
 
 
-def resolution_plot(average_systems=False):
+def resolution_plot(average_systems=True):
     suffix = '_thresh_pd'
-    ff = get_results(False, False, suffix=suffix, average_systems=average_systems)
-    ft = get_results(False, True, suffix=suffix, average_systems=average_systems)
-    tf = get_results(True, False, suffix=suffix, average_systems=average_systems)
-    tt = get_results(True, True, suffix=suffix, average_systems=average_systems)
+    # model_name = "benchmark_actual_parsed"
+    model_name = None
+    ff = get_results(False, False, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    ft = get_results(False, True, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    tf = get_results(True, False, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    tt = get_results(True, True, model_name=model_name, suffix=suffix, average_systems=average_systems)
     all_sys = [ff, ft, tf, tt]
     # all_sys = [ft]
 
     # RESOLUTION/PERFORMANCE
-    all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
-    print([res for res in all_resolutions if res > 5])
-    all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['native']['real_dists']]
-    all_dists_real = np.asarray(all_dists_real).flatten()
+    if average_systems:
+        all_dists_real = [individual if individual < 10 else 10
+                          for systems in all_sys
+                          for system in systems['bench']['raw']
+                          for individual in system]
+        all_resolutions = [resolution
+                          for systems in all_sys
+                          for system, resolution in zip(systems['bench']['raw'], systems['res'])
+                          for _ in system]
+        print([res for res in all_resolutions if res > 5])
+        all_dists_real = np.asarray(all_dists_real).flatten()
+    else:
+        all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
+        print([res for res in all_resolutions if res > 5])
+        all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['bench']['raw']]
+        all_dists_real = np.asarray(all_dists_real).flatten()
+    scatter(all_resolutions, all_dists_real, xlabel=r'Resolution (\AA{})', ylabel=r'Distance (\AA{})', fit=True)
+
+    suffix = '_thresh_pd'
+    model_name = "benchmark_actual_parsed"
+    # model_name = None
+    ff = get_results(False, False, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    ft = get_results(False, True, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    tf = get_results(True, False, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    tt = get_results(True, True, model_name=model_name, suffix=suffix, average_systems=average_systems)
+    all_sys = [ff, ft, tf, tt]
+    # all_sys = [ft]
+
+    # RESOLUTION/PERFORMANCE
+    if average_systems:
+        all_dists_real = [individual if individual < 10 else 10
+                          for systems in all_sys
+                          for system in systems['bench']['raw']
+                          for individual in system]
+        all_resolutions = [resolution
+                          for systems in all_sys
+                          for system, resolution in zip(systems['bench']['raw'], systems['res'])
+                          for _ in system]
+        print([res for res in all_resolutions if res > 5])
+        all_dists_real = np.asarray(all_dists_real).flatten()
+    else:
+        all_resolutions = np.asarray([elt for final in all_sys for elt in final['res']]).flatten()
+        print([res for res in all_resolutions if res > 5])
+        all_dists_real = [elt if elt < 10 else 10 for final in all_sys for elt in final['bench']['raw']]
+        all_dists_real = np.asarray(all_dists_real).flatten()
+
     scatter(all_resolutions, all_dists_real, xlabel=r'Resolution (\AA{})', ylabel=r'Distance (\AA{})', fit=True)
 
 
@@ -406,22 +450,27 @@ if __name__ == '__main__':
     # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
 
-    ours = get_results(False, False, suffix='_thresh_pd', average_systems=True)
+    ours = get_results(True, False, suffix='_thresh_pd', average_systems=True)
     # SELECT 8GOO_34178, resolution 4.4 as successful prediction
     # SELECT 8CXI_27058 , resolution 3.4 as partial success
     # SELECT 7Z85_14543, resolution 3.1 as nano success
-    bench = get_results(False, False, model_name="benchmark_actual_parsed", average_systems=True)
-    pdbs = ours['pdbs']
+    # bench = get_results(False, False, model_name="benchmark_actual_parsed", average_systems=True)
+    # pdbs = ours['pdbs']
     res = ours['res']
-    ours = ours['bench']['raw']
-    bench = bench['bench']['raw']
-    argsort = np.argsort(res)
-    with open('chiara_fab.txt', 'w') as f:
-        for i in argsort:
-            line = "Resolution :" + str(res[i]) + " id :" + str(pdbs[i]) + \
-                   " ours : " + str(ours[i]) + " bench :" + str(bench[i]) + "\n"
-            print(line)
-            f.writelines(line)
+    # plt.hist(res)
+    # plt.show()
+    # print(np.mean(res))
+    # print(res)
+    # ours = ours['bench']['raw']
+    # bench = bench['bench']['raw']
+    # print(sorted([len(x) for x in bench]))
+    # argsort = np.argsort(res)
+    # with open('chiara_fab.txt', 'w') as f:
+    #     for i in argsort:
+    #         line = "Resolution :" + str(res[i]) + " id :" + str(pdbs[i]) + \
+    #                " ours : " + str(ours[i]) + " bench :" + str(bench[i]) + "\n"
+    #         print(line)
+    #         f.writelines(line)
 
     # model_name = None
     # model_name = "benchmark_actual_parsed"
@@ -434,7 +483,7 @@ if __name__ == '__main__':
 
     # compare_bench()
 
-    # resolution_plot()
+    resolution_plot()
 
     # compute_ablations()
 
