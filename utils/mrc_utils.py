@@ -59,8 +59,10 @@ class MRCGrid:
         uncompressed_name = None
         if mrc_file[-3:] == ".gz":
             uncompressed_name = mrc_file[:-3]
-            shell_cmd = f"gunzip -c {mrc_file} > {uncompressed_name}"
-            subprocess.call(shell_cmd, shell=True)
+            shell_cmd = f"gunzip -c {mrc_file}".split()
+            res = subprocess.run(shell_cmd, capture_output=True)
+            with open(uncompressed_name, 'wb') as f:
+                f.write(res.stdout)
             mrc_file = uncompressed_name
         with mrcfile.open(mrc_file, mode='r') as original_mrc:
             # The mx,my,mz are almost always equal to the data shape, except for 3J30.

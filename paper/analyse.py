@@ -450,11 +450,11 @@ if __name__ == '__main__':
     # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
 
-    ours = get_results(True, False, suffix='_thresh_pd', average_systems=True)
+    ours = get_results(True, False, suffix='_thresh_pd', average_systems=False)
     # SELECT 8GOO_34178, resolution 4.4 as successful prediction
     # SELECT 8CXI_27058 , resolution 3.4 as partial success
     # SELECT 7Z85_14543, resolution 3.1 as nano success
-    # bench = get_results(False, False, model_name="benchmark_actual_parsed", average_systems=True)
+    bench = get_results(True, True, model_name="benchmark_actual_parsed", average_systems=True)
     # pdbs = ours['pdbs']
     res = ours['res']
     # plt.hist(res)
@@ -462,8 +462,8 @@ if __name__ == '__main__':
     # print(np.mean(res))
     # print(res)
     # ours = ours['bench']['raw']
-    # bench = bench['bench']['raw']
-    # print(sorted([len(x) for x in bench]))
+    bench = bench['bench']['raw']
+    print(sorted([len(x) for x in bench]))
     # argsort = np.argsort(res)
     # with open('chiara_fab.txt', 'w') as f:
     #     for i in argsort:
@@ -483,7 +483,7 @@ if __name__ == '__main__':
 
     # compare_bench()
 
-    resolution_plot()
+    # resolution_plot()
 
     # compute_ablations()
 

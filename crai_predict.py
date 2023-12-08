@@ -2,6 +2,7 @@ import os
 import sys
 
 import argparse
+import string
 import time
 import torch
 from tqdm import tqdm
@@ -29,11 +30,14 @@ parser.add_argument("--predict_dir", action='store_true', default=False,
                          "be provided as input.")
 args = parser.parse_args()
 
-# Avoid injection
-if ' ' not in args.input and ';' not in args.input:
+# Define allowed characters
+allowed_chars = set(string.ascii_letters + string.digits + '._-')
+
+# Check each character in the input to avoid injection
+if all(char in allowed_chars for char in args.input):
     sanitized_input = args.input
 else:
-    raise ValueError("Input file name cannot contain spaces and semi colons")
+    raise ValueError("Input contains invalid characters")
 
 # GET MODEL
 model_path = os.path.join(script_dir, 'saved_models/ns_final_last.pth')
