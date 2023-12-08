@@ -31,7 +31,7 @@ parser.add_argument("--predict_dir", action='store_true', default=False,
 args = parser.parse_args()
 
 # Define allowed characters
-allowed_chars = set(string.ascii_letters + string.digits + '._-')
+allowed_chars = set(string.ascii_letters + string.digits + '._-/')
 
 # Check each character in the input to avoid injection
 if all(char in allowed_chars for char in args.input):
