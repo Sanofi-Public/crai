@@ -173,7 +173,7 @@ def transforms_to_pdb_biopython(transforms, outname, split_pred=True):
 
         rotated = rotation.apply(coords_ref)
         new_coords = rotated + translation[None, :]
-        new_coords = coords_ref
+        # new_coords = coords_ref
         for atom, new_coord in zip(new_model.get_atoms(), new_coords):
             atom.set_coord(new_coord)
         predicted_models.append(new_model)
