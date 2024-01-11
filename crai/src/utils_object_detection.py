@@ -163,13 +163,17 @@ def transforms_to_pdb_biopython(transforms, outname, split_pred=True):
             new_model = structure_fv[0].copy()
             coords_ref = coords_fv
 
-        for chain in new_model:
-            chain.id = UPPERCASE[last_chain] if not nano else LOWERCASE[last_chain]
-            last_chain += 1
+        # This can cause problems for Fvs the situation of trying to rename A,B => B,C
+        # because it creates a temporary state trying to do A,B => B,B...
+        # Thus, we do it in the opposite order.
+        new_ids = [last_chain + k for k in range(len(new_model))]
+        last_chain += len(new_model)
+        for chain, new_id in zip(reversed(list(new_model)), reversed(new_ids)):
+            chain.id = UPPERCASE[new_id] if not nano else LOWERCASE[new_id]
 
         rotated = rotation.apply(coords_ref)
         new_coords = rotated + translation[None, :]
-        # new_coords = coords_ref
+        new_coords = coords_ref
         for atom, new_coord in zip(new_model.get_atoms(), new_coords):
             atom.set_coord(new_coord)
         predicted_models.append(new_model)
@@ -192,4 +196,7 @@ def transforms_to_pdb_biopython(transforms, outname, split_pred=True):
 
 
 if __name__ == '__main__':
-    transforms_to_pdb_biopython(transforms=[(0, 0, 0, 1), (0, 0, 0, 0)], outname='test.pdb', split_pred=False)
+    transforms_to_pdb_biopython(transforms=[
+        (0, 0, 0, 1),
+        (0, 0, 0, 0),
+    ], outname='test.pdb', split_pred=False)
