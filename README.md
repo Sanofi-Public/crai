@@ -1,6 +1,42 @@
-# crIA-EM
+# CrAI
+
+This is the accompanying code for the paper "Finding Antibodies in Cryo-EM densities with CrAI" by Vincent Mallet, Chiara Rapisarda, Hervé Minoux and Maks Ovsjanikov.
+The goal of this tool is to predict the position and orientation of antibodies in Cryo-EM densities.
 
 ## Installation
+
+### ChimeraX
+
+The easiest way to use the tool is through ChimeraX, as our tool is packaged as a ChimeraX bundle.
+The Chimerax toolshed is a [hosted repository](https://cxtoolshed.rbvi.ucsf.edu/) of bundles wheels.
+To install the tool, simply type in the ChimeraX command line :
+
+```shell
+# Chimerax command line
+toolshed install crai
+```
+
+**This might not work,** if it did, you can skip the following.
+At the time of writing, the tool is not yet registered, so the bundle can be installed by using the copy on this repository instead.
+On the system command line type :
+
+```shell
+# system command line
+git clone https://github.com/Sanofi-GitHub/crai
+cd crIA-EM
+chimerax --nogui --cmd "toolshed install ChimeraX_crai-0.1-py3-none-any.whl; exit"
+```
+
+The tool should now be installed in Chimerax.
+Once installed, the tool can be used from the Chimerax Command line. 
+Examples below include :
+```shell
+# Chimerax command line
+help crai
+crai #1 outname YOURNAME.pdb
+```
+
+### Command line usage
 
 The first thing you will need is a computing environment :
 
@@ -27,32 +63,7 @@ python crai_predict.py --in PATH_TO_MAP.map  # Single prediction
 python crai_predict.py --in PATH_TO_DIR --predict_dir  # Directory prediction
 ```
 
+## Contact
 
-## Data processing explanation
-
-### Listing and downloading systems
-First step is to get the antibody density:pdb mapping. To do so, we first get all systems information from SabDab.
-Then we removed model with number >0 : just one system had more than one : 7mt{a,b}.
-Then we queried the PDB to get corresponding density ids and removed maps for which we have no maps : 1qgc.pdb.
-Finally, we downloaded the maps and pdbs in folders named pdbid_emdbid.
-
-### Mrc format
-The mrcfile package helps to deal with cryo-EM maps, which is a bit convoluted. 
-Instead of having the data aligned with the PDB xyz axis, there is an axis mapping tying the data array with the xyz space.
-There is a data origin, voxel size (in xyz space) as well as a shift array that is called nxstart but operates in src space.
-To standardize those, we introduce an MRCGrid class that is straightforward to work with. (done in mrc_utils.py)
-It just has an XYZ array with a single origin in xyz space. 
-
-### Processing systems
-Once we have downloaded our raw data, we want to refine our maps. 
-They often contain unused regions.
-For this reason, we start by creating a carved version that represents the mrc file cut around the PDB file.
-Then we resample our maps to have a given resolution for our dataset.
-We do this for all the maps in our dataset, so that we have regularly sampled densities around our PDB files.
-
-### Loading our data
-Once we have all of our data in this standard way, we are ready to process it, and use it in a learning pipeline.
-We load the mrc, then put the corresponding PDB in the same grid and split it into AB/AG/Void channels.
-
-
-
+If you encounter difficulties installing or using the tool, please open an issue on GitHub or contact me directly
+at the following email address : vincent.mallet96 at gmail.com

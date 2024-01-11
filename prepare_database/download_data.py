@@ -108,9 +108,7 @@ def get_database(mapping, root='../data/pdb_em', overwrite=False):
         download_one_mrc(emd_id=em_id, outdir=dir_to_build, overwrite=overwrite)
 
 
-if __name__ == '__main__':
-    max_systems = None
-    nanobodies = True
+def run_all(nanobodies=True, max_systems=None):
     if not nanobodies:
         in_tsv = '../data/csvs/fabs.tsv'
         csv_pdb = '../data/csvs/cleaned.csv'
@@ -128,3 +126,9 @@ if __name__ == '__main__':
     # download_one_mrc()
     # download_one_mmtf()
     get_database(pdb_em_mapping)
+
+
+if __name__ == '__main__':
+    max_systems = None
+    run_all(nanobodies=True)
+    run_all(nanobodies=False)

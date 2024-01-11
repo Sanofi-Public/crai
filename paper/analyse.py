@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pickle
+import seaborn as sns
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -123,6 +124,7 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
     # To get failed systems
     for pdb, values in sorted(per_pdb_results.items()):
         if any([value > 10 for value in values]):
+            # print(pdb, values)
             pass
     all_resolutions = np.asarray(all_resolutions)
     for k in keys:
@@ -160,6 +162,10 @@ def get_results(nano=False, sort=False, average_systems=False, model_name=None, 
             model_name = model_name_ref
         outstring = f"{model_name}_{nano}_{sort}_test{suffix if suffix is not None else '_pd'}.p"
         benchmark_pickle = f"../outfiles/out_{mini_hash(outstring)}_{outstring}"
+        # To use the mixed models for Fabs too.
+        # model_name = f"n{'s' if sort else 'r'}_final_last"
+        # outstring = f"{model_name}_{nano}_{sort}_test{suffix if suffix is not None else '_pd'}.p"
+        # benchmark_pickle = f"../outfiles/new_out_{mini_hash(outstring)}_{outstring}"
     bench_res = pickle.load(open(benchmark_pickle, 'rb'))
 
     all_results = parse_dict_res(main_dict=dict_res, bench_dict=bench_res, keys=keys, actual_benchmark=actual_benchmark,
@@ -226,9 +232,9 @@ def compute_hr(nano=False, sort=False, average_systems=False, model_name=None, s
 
 
 def compute_all(average_systems=True, suffix='_pd', model_name=None):
-    # ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    ff = compute_hr(False, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
     ft = compute_hr(False, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
-    # tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
+    tf = compute_hr(True, False, average_systems=average_systems, suffix=suffix, model_name=model_name)
     tt = compute_hr(True, True, average_systems=average_systems, suffix=suffix, model_name=model_name)
 
 
@@ -276,13 +282,14 @@ def scatter(proba, distances, alpha=0.3, noise_strength=0.02, xlabel='Probabilit
     plt.rc('grid', color='grey', alpha=0.2)
     plt.grid(True)
     # Plotting the scatter data with transparency
-    plt.scatter(proba, distances, color='blue', marker='o', alpha=alpha)
+    sns_colors = sns.color_palette('colorblind', as_cmap=True)
+    plt.scatter(proba, distances, color=sns_colors[0], marker='o', alpha=alpha)
 
     if fit:
         # Linear fit
         m, b = np.polyfit(proba, distances, 1)
         x = np.linspace(proba.min(), proba.max())
-        plt.plot(x, m * x + b, color='red')
+        plt.plot(x, m * x + b, color=sns_colors[1])
         # plt.plot(all_probas_bench, m * all_probas_bench + b, color='red', label=f'Linear Fit: y={m:.2f}x+{b:.2f}')
 
         # Calculating R^2 score
@@ -317,9 +324,9 @@ def resolution_plot(average_systems=True):
                           for system in systems['bench']['raw']
                           for individual in system]
         all_resolutions = [resolution
-                          for systems in all_sys
-                          for system, resolution in zip(systems['bench']['raw'], systems['res'])
-                          for _ in system]
+                           for systems in all_sys
+                           for system, resolution in zip(systems['bench']['raw'], systems['res'])
+                           for _ in system]
         print([res for res in all_resolutions if res > 5])
         all_dists_real = np.asarray(all_dists_real).flatten()
     else:
@@ -346,9 +353,9 @@ def resolution_plot(average_systems=True):
                           for system in systems['bench']['raw']
                           for individual in system]
         all_resolutions = [resolution
-                          for systems in all_sys
-                          for system, resolution in zip(systems['bench']['raw'], systems['res'])
-                          for _ in system]
+                           for systems in all_sys
+                           for system, resolution in zip(systems['bench']['raw'], systems['res'])
+                           for _ in system]
         print([res for res in all_resolutions if res > 5])
         all_dists_real = np.asarray(all_dists_real).flatten()
     else:
@@ -378,15 +385,18 @@ def get_angles():
     # keys = ('real_dists', 'rz_angle', 'rz_norm', 'theta_angle', 'theta_norm',)
     res_fab = get_results(False, False, suffix='_thresh_pd', keys=keys)
     res_nano = get_results(True, False, suffix='_thresh_pd', keys=keys)
-    res_uy = get_results(False, False, suffix='_thresh_pd', keys=keys, model_name='fr_uy_290')
+    # res_uy = get_results(False, False, suffix='_thresh_pd', keys=keys, model_name='fr_uy_290')
 
     # Rest of the plot decorations
     plt.rcParams.update({'font.size': 14})
     plt.rcParams['text.usetex'] = True
     plt.rc('grid', color='grey', alpha=0.2)
 
-    results = [res_fab, res_nano, res_uy]
-    labels = ['Fab', 'nAb', '$\overrightarrow{u_y}$']
+    # results = [res_fab, res_nano, res_uy]
+    # labels = ['Fab', 'nAb', '$\overrightarrow{u_y}$']
+
+    results = [res_fab, res_nano]
+    labels = ['Fab', 'nAb']
 
     # savenames = ['angle_fab', 'angle_nab', 'angle_u_y']
     # for result, label, savename in zip(results, labels, savenames):
@@ -416,7 +426,6 @@ def get_angles():
         all_angles.extend(angles)
         all_names.extend([label for _ in range(len(angles))])
 
-    import seaborn as sns
     df = pd.DataFrame({'angles': all_angles,
                        'Model Name': all_names})
     hist_kwargs = {
@@ -450,40 +459,47 @@ if __name__ == '__main__':
     # output_csv = '../data/csvs/benchmark_actual.csv'
     # parse_runtime(output_csv=output_csv)
 
-    ours = get_results(True, False, suffix='_thresh_pd', average_systems=False)
-    # SELECT 8GOO_34178, resolution 4.4 as successful prediction
-    # SELECT 8CXI_27058 , resolution 3.4 as partial success
-    # SELECT 7Z85_14543, resolution 3.1 as nano success
-    bench = get_results(True, True, model_name="benchmark_actual_parsed", average_systems=True)
-    # pdbs = ours['pdbs']
+    # # SELECT 8GOO_34178, resolution 4.4 as successful prediction
+    # # SELECT 8CXI_27058 , resolution 3.4 as partial success
+    # # SELECT 7Z85_14543, resolution 3.1 as nano success
+    sort = False
+    nano = False
+    ours = get_results(nano=nano, sort=sort, suffix='_thresh_pd', average_systems=True)
+    bench = get_results(nano=nano, sort=sort, model_name="benchmark_actual_parsed", average_systems=True)
+    pdbs = ours['pdbs']
     res = ours['res']
     # plt.hist(res)
     # plt.show()
     # print(np.mean(res))
     # print(res)
-    # ours = ours['bench']['raw']
+    ours = ours['bench']['raw']
     bench = bench['bench']['raw']
-    print(sorted([len(x) for x in bench]))
-    # argsort = np.argsort(res)
+    # Buggy one with 16 fabs is an outlier :
+    # print(sorted([len(x) for x in bench]))
+    argsort = np.argsort(res)
     # with open('chiara_fab.txt', 'w') as f:
     #     for i in argsort:
+    #         # if float(res[i])<5: continue
     #         line = "Resolution :" + str(res[i]) + " id :" + str(pdbs[i]) + \
     #                " ours : " + str(ours[i]) + " bench :" + str(bench[i]) + "\n"
-    #         print(line)
-    #         f.writelines(line)
+    #         # if str(pdbs[i]) == "7YAI_33713":
+    #         #     print("yes")
+    #         print(line.strip())
+    #         # f.writelines(line)
+    # a = 1
 
-    # model_name = None
+    model_name = None
     # model_name = "benchmark_actual_parsed"
-    # average_systems = True
+    average_systems = True
     # average_systems = False
     # suffix = ''
     # suffix = '_pd'
-    # suffix = '_thresh_pd'
+    suffix = '_thresh_pd'
     # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
 
-    # resolution_plot()
+    resolution_plot()
 
     # compute_ablations()
 

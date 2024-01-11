@@ -40,8 +40,9 @@ else:
     raise ValueError("Input contains invalid characters")
 
 # GET MODEL
+classif_nano = True
 model_path = os.path.join(script_dir, 'saved_models/ns_final_last.pth')
-model = SimpleHalfUnetModel(classif_nano=True, num_feature_map=32)
+model = SimpleHalfUnetModel(classif_nano=classif_nano, num_feature_map=32)
 model.load_state_dict(torch.load(model_path))
 
 # FILENAMES
@@ -53,7 +54,7 @@ if args.predict_dir:
         in_mrc = os.path.join(sanitized_input, file)
         output = in_mrc.replace(".mrc", "_predicted.pdb").replace(".map", "_predicted.pdb")
         predict_coords(mrc_path=in_mrc, outname=output, model=model,
-                       n_objects=args.n_objects, thresh=0.2, classif_nano=True, use_pd=True)
+                       n_objects=args.n_objects, thresh=0.2, classif_nano=classif_nano, use_pd=True)
     print('Whole prediction done in : ', time.time() - t0)
 else:
     in_mrc = sanitized_input
@@ -61,5 +62,5 @@ else:
         args.output = in_mrc.replace(".mrc", "_predicted.pdb").replace(".map", "_predicted.pdb")
     t0 = time.time()
     predict_coords(mrc_path=in_mrc, outname=args.output, model=model,
-                   n_objects=args.n_objects, thresh=0.2, classif_nano=True, use_pd=True)
+                   n_objects=args.n_objects, thresh=0.2, classif_nano=classif_nano, use_pd=True)
     print('Whole prediction done in : ', time.time() - t0)

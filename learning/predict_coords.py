@@ -15,6 +15,12 @@ from utils.object_detection import output_to_transforms, transforms_to_pdb
 
 
 def crop_large_mrc(mrc, margin=12):
+    """
+    Remove empty parts (values below 0.1) on the side of the mrc data, with a safety margin
+    :param mrc:
+    :param margin:
+    :return:
+    """
     arr = mrc.data
     to_find = arr > 0.1
     res = np.nonzero(to_find)

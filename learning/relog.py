@@ -137,7 +137,7 @@ if __name__ == '__main__':
     # relog(model=model, model_name=args.model_name, val_loader=loader, gpu=0)
 
     # VALIDATE DETAILED
-    args.model_name="fr_uy_last"
+    # args.model_name="fr_uy_last"
     args.nw = 1
     loader = get_loader(sorted=args.sorted, split=args.split, nano=args.nano,
                         normalize=args.normalize, num_workers=args.nw)
