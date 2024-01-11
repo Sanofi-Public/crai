@@ -1,11 +1,15 @@
 import os
 
 import numpy as np
+import string
+
 import torch
 from torch.utils.data import Subset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from geomloss import sinkhorn_divergence
+
+ALLOWED_CHARS = set(string.ascii_letters + string.digits + '._-/')
 
 
 def weighted_ce_loss(output, target, weight=None):
@@ -139,10 +143,15 @@ def get_split_dataloaders(dataset,
 
 
 def setup_learning(model_name, gpu_number):
-    # Setup learning
+    # Check each character in the input to avoid injection
+    if all(char in ALLOWED_CHARS for char in model_name):
+        sanitized_input = model_name
+    else:
+        raise ValueError("Input contains invalid characters")
+
     os.makedirs("../saved_models", exist_ok=True)
     os.makedirs("../logs", exist_ok=True)
-    writer = SummaryWriter(log_dir=f"../logs/{model_name}")
-    save_path = os.path.join("../saved_models", model_name)
+    writer = SummaryWriter(log_dir=f"../logs/{sanitized_input}")
+    save_path = os.path.join("../saved_models", sanitized_input)
     device = f'cuda:{gpu_number}' if torch.cuda.is_available() else 'cpu'
     return writer, save_path, device
