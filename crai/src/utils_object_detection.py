@@ -183,8 +183,10 @@ def transforms_to_pdb_biopython(transforms, outname, split_pred=True):
         predicted_models = [[chain for model in predicted_models for chain in model]]
         outnames = [outname]
     else:
-        out_stem, out_suff = pathlib.Path(outname).stem, pathlib.Path(outname).suffix
-        outnames = [f"{out_stem}_{i}{out_suff}" for i in range(len(predicted_models))]
+        out_stem = pathlib.Path(outname).stem
+        out_suff = pathlib.Path(outname).suffix
+        out_parent = pathlib.Path(outname).parent
+        outnames = [out_parent / f"{out_stem}_{i}{out_suff}" for i in range(len(predicted_models))]
     for outname, model in zip(outnames, predicted_models):
         res_structure = Structure('result')
         res_model = Model('result_model')
