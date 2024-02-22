@@ -34,7 +34,7 @@ def crop_large_mrc(mrc, margin=12):
     return all_min_max
 
 
-def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None, outmrc=None,
+def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None, outmrc=None, device='cpu',
                    n_objects=None, thresh=0.5, crop=0, classif_nano=False, default_nano=False, use_pd=False):
     t0 = time.time()
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
@@ -48,8 +48,13 @@ def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None
         all_min_max = crop_large_mrc(mrc)
         mrc = mrc.crop(*all_min_max)
     mrc_grid = torch.from_numpy(mrc.data[None, None, ...])
+    if device != 'cpu':
+        assert isinstance(device, int)
+        device = f'cuda:{device}' if torch.cuda.is_available() else 'cpu'
+        model = model.to(device)
+        mrc_grid = mrc_grid.to(device)
     with torch.no_grad():
-        out = model(mrc_grid)[0].numpy()
+        out = model(mrc_grid)[0].cpu().numpy()
     transforms = output_to_transforms(out, mrc, n_objects=n_objects, thresh=thresh,
                                       outmrc=outmrc, classif_nano=classif_nano, default_nano=default_nano,
                                       use_pd=use_pd)
