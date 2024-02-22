@@ -129,7 +129,7 @@ def transforms_to_pdb(transforms, out_name=None, split_pred=False):
     last_chain = 0
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
-        p.cmd.load(REF_PATH_FAB, 'ref_fv')
+        p.cmd.load(REF_PATH_FV, 'ref_fv')
         p.cmd.load(REF_PATH_NANO, 'ref_nano')
         # Grouped chains
         all_predicted_chains = []
