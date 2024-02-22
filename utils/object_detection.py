@@ -1,7 +1,9 @@
 import os
 import pickle
 import numpy as np
+import pathlib
 import pymol2
+import string
 from scipy.spatial.transform import Rotation
 
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_FAB, REF_PATH_NANO
@@ -9,6 +11,9 @@ from utils.rotation import vector_to_rotation
 from utils.mrc_utils import MRCGrid
 
 import cripser
+
+UPPERCASE = string.ascii_uppercase
+LOWERCASE = string.ascii_lowercase
 
 
 # Array to predictions as rotation/translation
@@ -117,28 +122,46 @@ def output_to_transforms(out_grid, mrc, n_objects=None, thresh=0.5,
 
 
 # rotation/translation to pdbs
-def transforms_to_pdb(transforms, out_name=None):
+def transforms_to_pdb(transforms, out_name=None, split_pred=False):
     """
     Take our template and apply the learnt rotation to it.
     """
+    last_chain = 0
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH_FAB, 'ref_fv')
         p.cmd.load(REF_PATH_NANO, 'ref_nano')
+        # Grouped chains
+        all_predicted_chains = []
         for i, (rmsd, translation, rotation, nano) in enumerate(transforms):
             hit = f"result_{i}"
             if nano:
                 p.cmd.copy(hit, "ref_nano")
+                nano_chain = LOWERCASE[last_chain]
+                p.cmd.alter(hit + ' and chain H', f"chain='{nano_chain}'")
+                all_predicted_chains.append(nano_chain)
+                last_chain += 1
             else:
                 p.cmd.copy(hit, "ref_fv")
+                fv_chains = UPPERCASE[last_chain], UPPERCASE[last_chain + 1]
+                p.cmd.alter(hit + ' and chain A', f"chain='{fv_chains[0]}'")
+                p.cmd.alter(hit + ' and chain B', f"chain='{fv_chains[1]}'")
+                all_predicted_chains.append(fv_chains)
+                last_chain += 2
             coords_ref = p.cmd.get_coords(hit)
-            p.cmd.alter(hit, f"chain='{i}'")
             rotated = rotation.apply(coords_ref)
             new_coords = rotated + translation[None, :]
             p.cmd.load_coords(new_coords, hit, state=1)
         if out_name is not None:
-            to_save = ' or '.join([f"result_{i}" for i in range(len(transforms))])
-            p.cmd.save(out_name, to_save)
+            if not split_pred:
+                to_save = ' or '.join([f"result_{i}" for i in range(len(transforms))])
+                p.cmd.save(out_name, to_save)
+            else:
+                out_stem, out_suff = pathlib.Path(out_name).stem, pathlib.Path(out_name).suffix
+                out_parent = pathlib.Path(out_name).parent
+                for i in range(len(transforms)):
+                    outname_i = out_parent / f"{out_stem}_{i}{out_suff}"
+                    p.cmd.save(outname_i, f"result_{i}")
     return new_coords
 
 

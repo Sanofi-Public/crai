@@ -25,6 +25,8 @@ parser.add_argument("--output", default=None,
                          " Ignored when ran on a directory.")
 parser.add_argument("--n_objects", type=int, default=None,
                     help="Optional : If the number of antibodies is known, it can be provided here.")
+parser.add_argument("--split_pred", action='store_true', default=False,
+                    help="Optional : If we want to have separate pdb files for separate predictions.")
 parser.add_argument("--predict_dir", action='store_true', default=False,
                     help="Optional : Use if you want to run on every .map or .mrc files in a certain dir, that should "
                          "be provided as input.")
@@ -61,6 +63,6 @@ else:
     if args.output is None:
         args.output = in_mrc.replace(".mrc", "_predicted.pdb").replace(".map", "_predicted.pdb")
     t0 = time.time()
-    predict_coords(mrc_path=in_mrc, outname=args.output, model=model,
+    predict_coords(mrc_path=in_mrc, outname=args.output, model=model, split_pred=args.split_pred,
                    n_objects=args.n_objects, thresh=0.2, classif_nano=classif_nano, use_pd=True)
     print('Whole prediction done in : ', time.time() - t0)
