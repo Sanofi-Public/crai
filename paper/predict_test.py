@@ -22,7 +22,7 @@ from learning.SimpleUnet import SimpleHalfUnetModel
 from learning.predict_coords import predict_coords
 from utils.mrc_utils import MRCGrid
 from paper.benchmark import PHENIX_DOCK_IN_MAP
-from prepare_database.get_templates import REF_PATH_FV, REF_PATH_NANO
+from prepare_database.get_templates import REF_PATH_FV, REF_PATH_NANO, REF_PATH_FAB
 
 
 def mwe():
@@ -71,6 +71,7 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
         p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH_FV, "ref_fv")
         p.cmd.load(REF_PATH_NANO, "ref_nano")
+        p.cmd.load(REF_PATH_FAB, 'ref_fab')
         for step, ((pdb, mrc, resolution), selections) in enumerate(pdb_selections.items()):
             # if pdb != "8C7H":
             #     continue
@@ -103,7 +104,20 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
 
                 # To get COM consistence, we need to save the Fv part only
                 if not nano:
-                    rmsd = p.cmd.align(mobile="ref_fv", target="to_align")[0]
+                    residues_to_align = len(p.cmd.get_model("to_align").get_residues())
+                    fab = residues_to_align > 300
+                    # For fabs, first align the whole fab and then the Fv to its Fab,
+                    # this drastically reduces the rmsd
+                    if fab:
+                        rmsd1 = p.cmd.align(mobile="ref_fab", target="to_align")[0]
+                        rmsd2 = p.cmd.align(mobile="ref_fv", target="ref_fab")[0]
+                        rmsd = rmsd1 + rmsd2
+                        # if rmsd > 3:
+                        #     print(pdb, rmsd1, rmsd2, fab, residues_to_align)
+                    else:
+                        rmsd = p.cmd.align(mobile="ref_fv", target="to_align")[0]
+                        # if rmsd > 3:
+                        #     print(pdb, rmsd, fab, residues_to_align)
                     outpath_gt_fv = os.path.join(new_dir_path, f'gt_fv_{i}.pdb')
                     p.cmd.save(outpath_gt_fv, "ref_fv")
 
