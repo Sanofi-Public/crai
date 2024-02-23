@@ -64,8 +64,8 @@ def parse_dict_res(main_dict, keys=('real_dists',), bench_dict=None, actual_benc
         n_abs = len(metrics['real_dists'])
 
         # Try removing an outlier from the computation
-        # if n_abs > 10:
-        #     continue
+        if n_abs > 10:
+            continue
 
         res = resolutions[pdb[:4]]
         if average_systems:
@@ -462,21 +462,22 @@ if __name__ == '__main__':
     # # SELECT 8GOO_34178, resolution 4.4 as successful prediction
     # # SELECT 8CXI_27058 , resolution 3.4 as partial success
     # # SELECT 7Z85_14543, resolution 3.1 as nano success
-    sort = False
-    nano = False
-    ours = get_results(nano=nano, sort=sort, suffix='_thresh_pd', average_systems=True)
-    bench = get_results(nano=nano, sort=sort, model_name="benchmark_actual_parsed", average_systems=True)
-    pdbs = ours['pdbs']
-    res = ours['res']
+    sort = True
+    nano = True
+    # suffix = '_thresh_pd'
+    # ours = get_results(nano=nano, sort=sort, suffix=suffix, average_systems=True)
+    # bench = get_results(nano=nano, sort=sort, model_name="benchmark_actual_parsed", average_systems=True)
+    # pdbs = ours['pdbs']
+    # res = ours['res']
     # plt.hist(res)
     # plt.show()
     # print(np.mean(res))
     # print(res)
-    ours = ours['bench']['raw']
-    bench = bench['bench']['raw']
+    # ours = ours['bench']['raw']
+    # bench = bench['bench']['raw']
     # Buggy one with 16 fabs is an outlier :
     # print(sorted([len(x) for x in bench]))
-    argsort = np.argsort(res)
+    # argsort = np.argsort(res)
     # with open('chiara_fab.txt', 'w') as f:
     #     for i in argsort:
     #         # if float(res[i])<5: continue
@@ -490,21 +491,22 @@ if __name__ == '__main__':
 
     model_name = None
     # model_name = "benchmark_actual_parsed"
-    average_systems = True
+    average_systems = False
     # average_systems = False
     # suffix = ''
     # suffix = '_pd'
     suffix = '_thresh_pd'
-    # compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
+    compute_all(model_name=model_name, average_systems=average_systems, suffix=suffix)
 
     # compare_bench()
 
-    resolution_plot()
+    # resolution_plot()
 
     # compute_ablations()
 
     # get_angles()
 
+# This is on Fabs
 # Failed Fabs
 # 7XDA_33140
 # 7XJ6_33220
@@ -522,7 +524,7 @@ if __name__ == '__main__':
 # 8E8X_27949
 # 8H07_34410
 # 8HEC_34687
-#
+
 # Failed Nanos
 # 7YC5_33734
 # 7YM8_33924
