@@ -36,12 +36,13 @@ def crop_large_mrc(mrc, margin=12):
 
 def predict_coords(mrc_path, model, resample=True, normalize='max', outname=None, split_pred=False, outmrc=None,
                    device='cpu', n_objects=None, thresh=0.5, crop=0, classif_nano=False,
-                   default_nano=False, use_pd=False):
+                   default_nano=False, use_pd=False, verbose=True):
     t0 = time.time()
     mrc = mrc_utils.MRCGrid.from_mrc(mrc_path)
     if resample:
         mrc = mrc.resample()
-    print('Resample done in : ', time.time() - t0)
+    if verbose:
+        print('Resample done in : ', time.time() - t0)
     mrc = mrc.normalize(normalize_mode=normalize)
     if crop != 0:
         mrc = mrc.crop(*(crop,) * 6)
