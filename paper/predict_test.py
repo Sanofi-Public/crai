@@ -278,8 +278,6 @@ def string_rep(sorted_split=None, nano=None, mixed=None, num=None):
 
 
 if __name__ == '__main__':
-    # TODO : Get a two step RMSD for fabs to avoid misalignments
-    # TODO : dockim
     # TODO : understand why n<10 sometimes
     # mwe()
 
