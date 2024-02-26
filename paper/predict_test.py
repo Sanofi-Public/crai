@@ -20,8 +20,6 @@ if __name__ == '__main__':
 
 from learning.SimpleUnet import SimpleHalfUnetModel
 from learning.predict_coords import predict_coords
-from utils.mrc_utils import MRCGrid
-from paper.benchmark import PHENIX_DOCK_IN_MAP
 from prepare_database.get_templates import REF_PATH_FV, REF_PATH_NANO, REF_PATH_FAB
 
 

@@ -1,17 +1,24 @@
 import os
 import sys
 
+import functools
+import multiprocessing
 import numpy as np
 import pickle
 import pymol2
 import string
 from scipy.spatial.transform import Rotation
+import subprocess
+import time
+from tqdm import tqdm
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
 from paper.predict_test import get_pdbsels, string_rep
+from utils.mrc_utils import MRCGrid
+from utils.python_utils import init
 
 PHENIX_DOCK_IN_MAP = f"{os.environ['HOME']}/bin/phenix-1.20.1-4487/build/bin/phenix.dock_in_map"
 UPPERCASE = string.ascii_uppercase
@@ -40,7 +47,8 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
             # => we get 3 copies of each
             # We cannot afford n_copies*len(selections) to go over 13 for fabs (since we only have 26 uppercase)
             # 5x2, 4x3, 3x4, 4x3, 2x5, 2x6 works but fails for more systems (we don't have the issue)
-            n_copies = 10 // (len(selections)) + 10 % 1 != 0
+            n_copies = 10 // (len(selections)) + (10 % len(selections) != 0)
+            # print(n_copies, n_copies * len(selections))
             last_chain = 0
             pdb_chain_mapping = {}
             for i, selection in enumerate(selections):
@@ -92,6 +100,96 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
     pickle.dump(all_pdb_chain_mapping, open(outname_mapping, 'wb'))
 
 
+def dock_one(pdb_paths, mrc_path, resolution, out_path, recompute=False):
+    """
+    Run dock in map on input_pdbs.
+    The mrc file is supposed to be a custom one in mrc format.
+    Thus, we open it and get its origin as it is not correctly read by phenix.
+    Then we feed dock_in_map with the right number of fabs and fvs and use dock in map to store them.
+    """
+
+    mrc_path = os.path.abspath(mrc_path)
+    pdb_paths = [os.path.abspath(pdb_path) for pdb_path in pdb_paths]
+    _, mrc_extension = os.path.splitext(mrc_path)
+    assert mrc_extension == '.mrc'
+
+    try:
+        t0 = time.time()
+        # GET THE PDB TO DOCK
+        if os.path.exists(out_path) and not recompute:
+            return 5, "Already computed"
+
+        # NOW WE CAN DOCK IN MAP
+        cmd = f'{PHENIX_DOCK_IN_MAP} {" ".join(pdb_paths)} {mrc_path} pdb_out={out_path} resolution={resolution}'
+        # print(len(pdb_paths), os.path.basename(pdb_paths[-1]), cmd)
+        # return 0, 1
+        res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
+        returncode = res.returncode
+        if returncode > 0:
+            return returncode, res.stderr.decode()
+
+        # FINALLY WE NEED TO OFFSET THE RESULT BECAUSE OF CRAPPY PHENIX
+        mrc_origin = MRCGrid.from_mrc(mrc_file=mrc_path).origin
+        with pymol2.PyMOL() as p:
+            p.cmd.load(out_path, 'docked')
+            new_coords = p.cmd.get_coords('docked') + np.asarray(mrc_origin)[None, :]
+            p.cmd.load_coords(new_coords, "docked", state=1)
+            p.cmd.save(out_path, 'docked')
+        time_tot = time.time() - t0
+        return res.returncode, time_tot
+    except TimeoutError as e:
+        return 1, e
+    except Exception as e:
+        return 2, e
+
+
+def make_predictions_dockim(nano=False, test_path="../data/testset/"):
+    """
+    Make predictions with all combinations of rotated units.
+    :param nano:
+    :param test_path:
+    :return:
+    """
+    pdb_selections = pickle.load(open(os.path.join(test_path, f'pdb_sels{"_nano" if nano else ""}.p'), 'rb'))
+    outname_mapping = os.path.join(test_path, f'dockim_chain_map{"_nano" if nano else ""}.p')
+    all_pdb_chain_mapping = pickle.load(open(outname_mapping, 'rb'))
+
+    # Prepare input list
+    dockim_inputs = list()
+    for step, ((pdb, mrc, resolution), selections) in enumerate(pdb_selections.items()):
+        pdb_dir = os.path.join(test_path, f'{pdb}_{mrc}')
+        in_mrc = os.path.join(pdb_dir, "full_crop_resampled_2.mrc")
+        input_pdbs = list()
+        # Start with 0,0 then 1,0 then 0,1 and so on to have all unit at n_pred=num_gt
+        for n_pred, (i, k) in enumerate(sorted(all_pdb_chain_mapping[pdb].keys(), key=lambda x: x[1])):
+            # Maximum 10 predictions
+            if n_pred >= 10:
+                continue
+            new_input = os.path.join(pdb_dir, f'rotated_{"nano_" if nano else ""}{i}_{k}.pdb')
+            out_path = os.path.join(pdb_dir, f'dockim_pred{"_nano" if nano else ""}_{n_pred}.pdb')
+            input_pdbs.append(new_input)
+            dockim_inputs.append((tuple(input_pdbs), in_mrc, resolution, out_path))
+
+    # Parallel computation
+    l = multiprocessing.Lock()
+    pool = multiprocessing.Pool(processes=40, initializer=init, initargs=(l,), )
+    dock = functools.partial(dock_one, recompute=False)
+    results = pool.starmap(dock, tqdm(dockim_inputs, total=len(dockim_inputs)))
+
+    # Parse results
+    all_results = []
+    all_errors = []
+    for i, (return_code, runtime) in enumerate(results):
+        if return_code == 0:
+            all_results.append(runtime)
+        else:
+            all_results.append(-return_code)
+            all_errors.append((return_code, runtime))
+    for x in all_errors:
+        print(x)
+    pickle.dump((all_results, all_errors), open('results_timing_dockim.p', 'wb'))
+
+
 if __name__ == '__main__':
     # GET DATA
     for sorted_split in [True, False]:
@@ -102,6 +200,9 @@ if __name__ == '__main__':
             print('Getting data for ', string_rep(sorted_split=sorted_split, nano=nano))
             get_systems(csv_in=csv_in, nano=nano, test_path=test_path)
             # Now let us get the prediction in all cases
+
             print('Making predictions for :', string_rep(nano=nano))
-            # make_predictions(nano=nano, test_path=test_path, use_mixed_model=mixed, gpu=1)
+            make_predictions_dockim(nano=nano, test_path=test_path)
+
+            # print('Getting hit rates for :', string_rep(nano=nano))
             # get_hit_rates(nano=nano, test_path=test_path, use_mixed_model=mixed)
