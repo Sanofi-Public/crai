@@ -37,10 +37,11 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
             if pdb in ['7PIJ', '7SK5', '7WPD', '7XOD', '7ZLJ', '8HIK']:
                 continue
 
-        if test_path == '../data/testset_random':
+        if test_path == '../data/testset':
             # Misclassified nano in sorted
             if pdb == '7YC5':
                 continue
+
 
         gt_hits_thresh = np.array(gt_hits_thresh)
         hits_thresh = np.array(hits_thresh)
@@ -66,9 +67,6 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
             # Not so much with Fabs, some are close but further than 10, others are just missed.
             # 100% yes with nano
 
-            # On Random, some are weird/wrong:
-            # 7E9O, pymol align fails but all 3 hits are good
-            # same for 6CNJ, 7DNK, 7MW2... actually all full zeros can be explained like that.
             # more_would_help = hits_thresh[-1] > found_hits
             # print(pdb, num_pred, num_gt, found_hits, hits_thresh[num_gt - 1], hits_thresh, more_would_help)
             underpreds_list.append((pdb, underpreds))
@@ -86,8 +84,8 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
         [num_gt for _, num_gt in all_hr.values()]))
     # print('sys : ',hit_rate_sys)
     # print('ab : ', hit_rate_ab)
-    print(hit_rate_sys)
-    print(hit_rate_ab)
+    print(f"{hit_rate_sys:.1f}")
+    print(f"{hit_rate_ab:.1f}")
 
 
 def plot_pr_curve(nano=False, test_path='../data/testset', use_mixed_model=True):
@@ -170,12 +168,13 @@ if __name__ == '__main__':
     #           'Num in both:', len(nab_pdb.intersection(fab_pdb)))
     #     print(sorted(nab_pdb.intersection(fab_pdb)))
 
+    for sorted_split in [True]:
     # for sorted_split in [True, False]:
-    for sorted_split in [False]:
         test_path = f'../data/testset{"" if sorted_split else "_random"}'
         for nano in [False]:
         # for nano in [False, True]:
-            for mixed in [False, True]:
+            # for mixed in [False, True]:
+            for mixed in [True]:
                 if nano and not mixed:
                     continue
                 # for num_setting in [False]:

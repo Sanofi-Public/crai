@@ -44,10 +44,8 @@ def mwe():
             print(coords.shape)
 
 
-def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
-                pdb_em_path="../data/pdb_em/",
-                test_path="../data/testset/",
-                nano=False):
+def get_pdbsels(csv_in='../data/csvs/sorted_filtered_test.csv',
+                out_name=None):
     """
     The goal is to organize the test set in a clean repo with only necessary files
     :param csv_in:
@@ -58,7 +56,6 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
     """
     # group mrc by pdb
     df = pd.read_csv(csv_in, index_col=0, dtype={'mrc': 'str'})
-    os.makedirs(test_path, exist_ok=True)
     pdb_selections = defaultdict(list)
     df = df[['pdb', 'mrc', 'resolution', 'antibody_selection']]
     for i, row in df.iterrows():
@@ -66,7 +63,18 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
         pdb_selections[(pdb.upper(), mrc, resolution)].append(selection)
     # Remove outlier systems with over 10 abs (actually just one)
     pdb_selections = {key: val for key, val in pdb_selections.items() if len(val) < 10}
-    pickle.dump(pdb_selections, open(os.path.join(test_path, f'pdb_sels{"_nano" if nano else ""}.p'), 'wb'))
+    if out_name is not None:
+        pickle.dump(pdb_selections, open(out_name, 'wb'))
+    return pdb_selections
+
+
+def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
+                pdb_em_path="../data/pdb_em/",
+                test_path="../data/testset/",
+                nano=False):
+    os.makedirs(test_path, exist_ok=True)
+    out_name_pdbsels = os.path.join(test_path, f'pdb_sels{"_nano" if nano else ""}.p')
+    pdb_selections = get_pdbsels(csv_in=csv_in, out_name=out_name_pdbsels)
     with pymol2.PyMOL() as p:
         p.cmd.feedback("disable", "all", "everything")
         p.cmd.load(REF_PATH_FV, "ref_fv")
@@ -93,8 +101,6 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
 
             # Get gt and rotated pdbs
             p.cmd.load(new_pdb_path, 'in_pdb')
-            # for dockim comparison, we want to get more copies
-            n_copies = 10 // (len(selections)) + 1
             for i, selection in enumerate(selections):
                 outpath_gt = os.path.join(new_dir_path, f'gt_{"nano_" if nano else ""}{i}.pdb')
                 sel = f'in_pdb and ({selection})'
@@ -126,14 +132,6 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
                     rmsd = p.cmd.align(mobile="ref_nano", target="to_align")[0]
                     outpath_gt_nano = os.path.join(new_dir_path, f'gt_nano_{i}.pdb')
                     p.cmd.save(outpath_gt_nano, "ref_nano")
-
-                # print(pdb, selection, n_copies, coords.shape)
-                for k in range(n_copies):
-                    rotated = Rotation.random().apply(coords)
-                    translated = rotated + np.array([10, 20, 30])[None, :]
-                    p.cmd.load_coords(translated, "to_align", state=1)
-                    outpath_rotated = os.path.join(new_dir_path, f'rotated_{"nano_" if nano else ""}{i}_{k}.pdb')
-                    p.cmd.save(outpath_rotated, 'to_align')
                 p.cmd.delete("to_align")
             p.cmd.delete("in_pdb")
 
@@ -186,55 +184,6 @@ def make_predictions(nano=False, gpu=0, test_path="../data/testset/", use_mixed_
     else:
         pickle_name = f'num_pred_fab.p'
     pickle.dump(pred_number, open(os.path.join(test_path, pickle_name), 'wb'))
-
-
-def make_predictions_dockim(nano=False, test_path="../data/testset/"):
-    """
-    Now let's make predictions for this test set with ns_final model.
-    :param nano:
-    :param gpu:
-    :param test_path:
-    :return:
-    """
-    pdb_selections = pickle.load(open(os.path.join(test_path, f'pdb_sels{"_nano" if nano else ""}.p'), 'rb'))
-
-    time_init = time.time()
-    for step, ((pdb, mrc, resolution), selections) in enumerate(pdb_selections.items()):
-        if not pdb == '7WP6':
-            continue
-        if not step % 20:
-            print(f"Done {step} / {len(pdb_selections)} in {time.time() - time_init}")
-        pdb_dir = os.path.join(test_path, f'{pdb}_{mrc}')
-        in_mrc = os.path.join(pdb_dir, "full_crop_resampled_2.mrc")
-        base_name = os.path.join(pdb_dir, f'rotated_{"nano_" if nano else ""}')
-        input_dockim_to_dock = list(sorted(glob.glob(base_name + '*.pdb')))
-        pdb_out = os.path.join(pdb_dir, f'dockim_pred{"_nano" if nano else ""}.pdb')
-        try:
-            t0 = time.time()
-            # GET THE PDB TO DOCK
-            if os.path.exists(pdb_out):
-                return 5, "Already computed"
-            # NOW WE CAN DOCK IN MAP
-            cmd = f'{PHENIX_DOCK_IN_MAP} {" ".join(input_dockim_to_dock)} {in_mrc} pdb_out={pdb_out} resolution={resolution}'
-            res = subprocess.run(cmd.split(), capture_output=True, timeout=5. * 3600)
-            returncode = res.returncode
-            if returncode > 0:
-                return returncode, res.stderr.decode()
-
-            # FINALLY WE NEED TO OFFSET THE RESULT BECAUSE OF CRAPPY PHENIX
-            mrc_origin = MRCGrid.from_mrc(mrc_file=in_mrc).origin
-            with pymol2.PyMOL() as p:
-                p.cmd.load(pdb_out, 'docked')
-                new_coords = p.cmd.get_coords('docked') + np.asarray(mrc_origin)[None, :]
-                p.cmd.load_coords(new_coords, "docked", state=1)
-                p.cmd.save(pdb_out, 'docked')
-            time_tot = time.time() - t0
-            return res.returncode, time_tot
-        except TimeoutError as e:
-            return 1, e
-        except Exception as e:
-            print(e)
-            return 2, e
 
 
 def compute_matching_hungarian(actual_pos, pred_pos, thresh=10):
@@ -348,5 +297,4 @@ if __name__ == '__main__':
                     continue
                 print('Making predictions for :', string_rep(nano=nano, mixed=mixed))
                 make_predictions(nano=nano, test_path=test_path, use_mixed_model=mixed, gpu=1)
-                # make_predictions_dockim(nano=nano)
                 get_hit_rates(nano=nano, test_path=test_path, use_mixed_model=mixed)
