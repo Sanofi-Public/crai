@@ -36,7 +36,11 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
             new_dir_path = os.path.join(test_path, f'{pdb}_{mrc}')
             new_pdb_path = os.path.join(new_dir_path, f"{pdb}.cif")
             p.cmd.load(new_pdb_path, 'in_pdb')
-            n_copies = 10 // (len(selections)) + 1
+            # Using 10%1 avoids choosing an arbitrary number like 3 copies of A and B and 2 of C and D (10=3+3+2+2)
+            # => we get 3 copies of each
+            # We cannot afford n_copies*len(selections) to go over 13 for fabs (since we only have 26 uppercase)
+            # 5x2, 4x3, 3x4, 4x3, 2x5, 2x6 works but fails for more systems (we don't have the issue)
+            n_copies = 10 // (len(selections)) + 10 % 1 != 0
             last_chain = 0
             pdb_chain_mapping = {}
             for i, selection in enumerate(selections):
@@ -49,8 +53,6 @@ def get_systems(csv_in='../data/csvs/sorted_filtered_test.csv',
                 # print(pdb, selection, n_copies, coords.shape)
                 # Make rotated copies of abs
                 for k in range(n_copies):
-                    if last_chain>10:
-                        print(pdb, last_chain, selections)
                     rotated = Rotation.random().apply(coords)
                     translated = rotated + np.array([10, 20, 30])[None, :]
                     p.cmd.load_coords(translated, "to_align", state=1)
