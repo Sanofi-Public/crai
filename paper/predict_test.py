@@ -221,7 +221,20 @@ def get_hit_rates(nano=False, test_path="../data/testset/", use_mixed_model=True
 
             pdb_dir = os.path.join(test_path, f'{pdb}_{mrc}')
 
-            # First get the (sorted) list of predicted com
+            # First get the list of GT com
+            gt_com = []
+            for i in range(len(selections)):
+                # We use the Fv GT in the vase of Fabs
+                gt_name = os.path.join(pdb_dir, f'gt_{"nano_" if nano else "fv_"}{i}.pdb')
+                p.cmd.load(gt_name, 'gt')
+                gt_coords = p.cmd.get_coords('gt')
+                com = np.mean(gt_coords, axis=0)
+                gt_com.append(com)
+                p.cmd.delete('gt')
+            max_com = np.max(np.stack(gt_com), axis=0)
+            default_coords = tuple(max_com + 1000)
+
+            # Now get the (sorted) list of predicted com
             predicted_com = []
             for i in range(10):
                 # for i in range(len(selections)):
@@ -233,24 +246,13 @@ def get_hit_rates(nano=False, test_path="../data/testset/", use_mixed_model=True
                     # Not sure why but sometimes fail to produce 10 systems.
                     # Still gets 5-6 for small systems. Maybe the grid is too small.
                     # print(out_name)
-                    predicted_com.append((0, 0, 0))
+                    predicted_com.append(default_coords)
                     continue
                 p.cmd.load(out_name, 'crai_pred')
                 predictions = p.cmd.get_coords(f'crai_pred')
                 com = np.mean(predictions, axis=0)
                 predicted_com.append(com)
                 p.cmd.delete('crai_pred')
-
-            # Now get the list of GT com
-            gt_com = []
-            for i in range(len(selections)):
-                # We use the Fv GT in the vase of Fabs
-                gt_name = os.path.join(pdb_dir, f'gt_{"nano_" if nano else "fv_"}{i}.pdb')
-                p.cmd.load(gt_name, 'gt')
-                gt_coords = p.cmd.get_coords('gt')
-                com = np.mean(gt_coords, axis=0)
-                gt_com.append(com)
-                p.cmd.delete('gt')
 
             hits_thresh = compute_matching_hungarian(gt_com, predicted_com)
             gt_hits_thresh = list(range(1, len(gt_com) + 1)) + [len(gt_com)] * (len(predicted_com) - len(gt_com))
