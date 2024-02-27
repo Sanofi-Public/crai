@@ -12,7 +12,7 @@ if __name__ == '__main__':
 from paper.predict_test import string_rep
 
 
-def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_mixed_model=True):
+def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_mixed_model=True, dockim=False):
     """
     Compute the HR metric in the sense of the paper (using the actual number of prediction)
     :param nano:
@@ -20,7 +20,10 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
     :return:
     """
     if use_mixed_model or nano:
-        all_res_path = os.path.join(test_path, f'all_res{"_nano" if nano else ""}.p')
+        if not dockim:
+            all_res_path = os.path.join(test_path, f'all_res{"_nano" if nano else ""}.p')
+        else:
+            all_res_path = os.path.join(test_path, f'all_res_dockim{"_nano" if nano else ""}.p')
         num_pred_path = os.path.join(test_path, f'num_pred{"_nano" if nano else ""}.p')
     else:
         all_res_path = os.path.join(test_path, f'all_res_fab.p')
@@ -41,7 +44,6 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
             # Misclassified nano in sorted
             if pdb == '7YC5':
                 continue
-
 
         gt_hits_thresh = np.array(gt_hits_thresh)
         hits_thresh = np.array(hits_thresh)
@@ -169,10 +171,14 @@ if __name__ == '__main__':
     #     print(sorted(nab_pdb.intersection(fab_pdb)))
 
     for sorted_split in [True]:
-    # for sorted_split in [True, False]:
+        # for sorted_split in [True, False]:
         test_path = f'../data/testset{"" if sorted_split else "_random"}'
-        for nano in [False]:
         # for nano in [False, True]:
+        for nano in [False]:
+            print('Results HR for :', string_rep(sorted_split=sorted_split,
+                                                 nano=nano,
+                                                 dockim=True))
+            compute_hr(test_path=test_path, nano=nano, num_setting=True, dockim=True)
             # for mixed in [False, True]:
             for mixed in [True]:
                 if nano and not mixed:

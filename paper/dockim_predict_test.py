@@ -221,7 +221,6 @@ def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
                 gt_com.append(com)
                 p.cmd.delete('gt')
             max_com = np.max(np.stack(gt_com), axis=0)
-            default_coords = tuple(max_com + 1000)
 
             # With dockim, we cannot sort, so we have to compute the hits separately for all 10 predictions
             hits_thresh = []
@@ -241,6 +240,8 @@ def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
                     predicted_com = []
                     for pymol_sel in pymol_chain_sels:
                         predictions = p.cmd.get_coords(f'{pymol_name} and ({pymol_sel})')
+                        if predictions is None:
+                            continue
                         com = np.mean(predictions, axis=0)
                         predicted_com.append(com)
                     p.cmd.delete(pymol_name)

@@ -264,7 +264,7 @@ def get_hit_rates(nano=False, test_path="../data/testset/", use_mixed_model=True
     pickle.dump(all_res, open(outname, 'wb'))
 
 
-def string_rep(sorted_split=None, nano=None, mixed=None, num=None):
+def string_rep(sorted_split=None, nano=None, mixed=None, num=None, dockim=None):
     s = ""
     if sorted_split is not None:
         s += 'Sorted ' if sorted_split else 'Random '
@@ -274,6 +274,8 @@ def string_rep(sorted_split=None, nano=None, mixed=None, num=None):
         s += 'Mixed ' if mixed else 'NonMixed '
     if num is not None:
         s += 'Num' if num else 'Thresh '
+    if dockim is not None:
+        s += 'Dockim ' if dockim else ''
     return s
 
 
