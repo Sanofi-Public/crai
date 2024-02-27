@@ -16,7 +16,7 @@ if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(os.path.join(script_dir, '..'))
 
-from paper.predict_test import get_pdbsels, string_rep
+from paper.predict_test import get_pdbsels, string_rep, compute_matching_hungarian
 from utils.mrc_utils import MRCGrid
 from utils.python_utils import init
 
@@ -190,6 +190,68 @@ def make_predictions_dockim(nano=False, test_path="../data/testset/"):
     pickle.dump((all_results, all_errors), open('results_timing_dockim.p', 'wb'))
 
 
+def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
+    """
+    Go over the predictions and computes the hit rates with each number of systems.
+    :param nano:
+    :param test_path:
+    :return:
+    """
+    pdb_selections = pickle.load(open(os.path.join(test_path, f'pdb_sels{"_nano" if nano else ""}.p'), 'rb'))
+    outname_mapping = os.path.join(test_path, f'dockim_chain_map{"_nano" if nano else ""}.p')
+    all_pdb_chain_mapping = pickle.load(open(outname_mapping, 'rb'))
+
+    time_init = time.time()
+    all_res = {}
+    with pymol2.PyMOL() as p:
+        for step, ((pdb, mrc, resolution), selections) in enumerate(pdb_selections.items()):
+            if not step % 20:
+                print(f"Done {step} / {len(pdb_selections)} in {time.time() - time_init}")
+
+            pdb_dir = os.path.join(test_path, f'{pdb}_{mrc}')
+
+            # Get the list of GT com
+            gt_com = []
+            for i in range(len(selections)):
+                # We use the Fv GT in the vase of Fabs
+                gt_name = os.path.join(pdb_dir, f'gt_{"nano_" if nano else "fv_"}{i}.pdb')
+                p.cmd.load(gt_name, 'gt')
+                gt_coords = p.cmd.get_coords('gt')
+                com = np.mean(gt_coords, axis=0)
+                gt_com.append(com)
+                p.cmd.delete('gt')
+            max_com = np.max(np.stack(gt_com), axis=0)
+            default_coords = tuple(max_com + 1000)
+
+            # With dockim, we cannot sort, so we have to compute the hits separately for all 10 predictions
+            hits_thresh = []
+            for i in range(10):
+                out_name = os.path.join(pdb_dir, f'dockim_pred{"_nano" if nano else ""}_{i}.pdb')
+                if not os.path.exists(out_name):
+                    hits_thresh.append(0)
+                    continue
+                else:
+                    if nano:
+                        pymol_chain_sels = [f"chain {LOWERCASE[j]}" for j in range(i + 1)]
+                    else:
+                        pymol_chain_sels = [f"chain {UPPERCASE[2 * j]} or chain {UPPERCASE[2 * j + 1]}"
+                                            for j in range(i + 1)]
+                    pymol_name = 'dockim_pred_i'
+                    p.cmd.load(out_name, pymol_name)
+                    predicted_com = []
+                    for pymol_sel in pymol_chain_sels:
+                        predictions = p.cmd.get_coords(f'{pymol_name} and ({pymol_sel})')
+                        com = np.mean(predictions, axis=0)
+                        predicted_com.append(com)
+                    p.cmd.delete(pymol_name)
+                    hits_thresh_i = compute_matching_hungarian(gt_com, predicted_com)[-1]
+                    hits_thresh.append(hits_thresh_i)
+            gt_hits_thresh = list(range(1, len(gt_com) + 1)) + [len(gt_com)] * (10 - len(gt_com))
+            all_res[pdb] = (gt_hits_thresh, hits_thresh, resolution)
+    outname = os.path.join(test_path, f'all_res_dockim{"_nano" if nano else ""}.p')
+    pickle.dump(all_res, open(outname, 'wb'))
+
+
 if __name__ == '__main__':
     # GET DATA
     for sorted_split in [True, False]:
@@ -198,11 +260,11 @@ if __name__ == '__main__':
             # for nano in [True]:
             csv_in = f'../data/{"nano_" if nano else ""}csvs/{"sorted_" if sorted_split else ""}filtered_test.csv'
             print('Getting data for ', string_rep(sorted_split=sorted_split, nano=nano))
-            get_systems(csv_in=csv_in, nano=nano, test_path=test_path)
+            # get_systems(csv_in=csv_in, nano=nano, test_path=test_path)
             # Now let us get the prediction in all cases
 
             print('Making predictions for :', string_rep(nano=nano))
-            make_predictions_dockim(nano=nano, test_path=test_path)
+            # make_predictions_dockim(nano=nano, test_path=test_path)
 
-            # print('Getting hit rates for :', string_rep(nano=nano))
-            # get_hit_rates(nano=nano, test_path=test_path, use_mixed_model=mixed)
+            print('Getting hit rates for :', string_rep(nano=nano))
+            get_hit_rates_dockim(nano=nano, test_path=test_path)
