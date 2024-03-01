@@ -4,6 +4,7 @@ import sys
 import mrcfile
 import numpy as np
 import scipy
+import string
 import subprocess
 
 if __name__ == '__main__':
@@ -58,9 +59,12 @@ class MRCGrid:
     def from_mrc(mrc_file, normalize=None):
         uncompressed_name = None
         if mrc_file[-3:] == ".gz":
-            uncompressed_name = mrc_file[:-3]
+            allowed_chars = set(string.ascii_letters + string.digits + '._-/')
+            # Check each character in the input to avoid injection
+            assert all(char in allowed_chars for char in mrc_file), f"{mrc_file} contains forbidden chars"
             shell_cmd = f"gunzip -c {mrc_file}".split()
             res = subprocess.run(shell_cmd, capture_output=True)
+            uncompressed_name = mrc_file[:-3]
             with open(uncompressed_name, 'wb') as f:
                 f.write(res.stdout)
             mrc_file = uncompressed_name
