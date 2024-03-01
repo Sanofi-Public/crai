@@ -19,24 +19,20 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
     :param test_path:
     :return:
     """
-    if use_mixed_model or nano:
-        if not dockim:
-            all_res_path = os.path.join(test_path, f'all_res{"_nano" if nano else ""}.p')
-        else:
-            all_res_path = os.path.join(test_path, f'all_res_dockim{"_nano" if nano else ""}.p')
-        num_pred_path = os.path.join(test_path, f'num_pred{"_nano" if nano else ""}.p')
+    if use_mixed_model:
+        all_res_path = os.path.join(test_path, f'all_res{"_dockim" if dockim else ""}{"_nano" if nano else ""}.p')
     else:
         all_res_path = os.path.join(test_path, f'all_res_fab.p')
-        num_pred_path = os.path.join(test_path, f'num_pred_fab.p')
 
+    num_pred_path = os.path.join(test_path, f'num_pred{"_nano" if nano else ""}.p')
     all_res = pickle.load(open(all_res_path, 'rb'))
     num_pred_all = pickle.load(open(num_pred_path, 'rb'))
     all_hr = {}
     overpreds_list = []
     underpreds_list = []
     for pdb, (gt_hits_thresh, hits_thresh, resolution) in sorted(all_res.items()):
-        # Systems containing both Fab and nAb in random split
         if test_path == '../data/testset_random':
+            # Systems containing both Fab and nAb in random split
             if pdb in ['7PIJ', '7SK5', '7WPD', '7XOD', '7ZLJ', '8HIK']:
                 continue
 
@@ -62,7 +58,7 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
             overpreds_list.append((pdb, overpreds))
             # Was this overpred useful ? (if found_hits > hits_thresh[num_gt - 1])
             # Actually useful only twice for fabs and twice for nano
-            useful = found_hits > hits_thresh[num_gt - 1]
+            # useful = found_hits > hits_thresh[num_gt - 1]
             # print(pdb, num_pred, num_gt, found_hits, hits_thresh[num_gt - 1], hits_thresh, useful)
         if underpreds > 0:
             # Would we find it with more hits ?
@@ -90,9 +86,9 @@ def compute_hr(nano=False, test_path='../data/testset', num_setting=False, use_m
     print(f"{hit_rate_ab:.1f}")
 
 
-def plot_pr_curve(nano=False, test_path='../data/testset', use_mixed_model=True):
-    if use_mixed_model or nano:
-        outname = os.path.join(test_path, f'all_res{"_nano" if nano else ""}.p')
+def plot_pr_curve(nano=False, test_path='../data/testset', use_mixed_model=True, dockim=False):
+    if use_mixed_model:
+        outname = os.path.join(test_path, f'all_res{"_dockim" if dockim else ""}{"_nano" if nano else ""}.p')
     else:
         outname = os.path.join(test_path, f'all_res_fab.p')
     all_res = pickle.load(open(outname, 'rb'))
@@ -139,12 +135,14 @@ def plot_pr_curve(nano=False, test_path='../data/testset', use_mixed_model=True)
         ax.plot(x, mean, **kwargs)
         ax.fill_between(x, mean + std, mean - std, alpha=0.5)
 
-    # plot_in_between(ax, all_precisions_mean, all_precisions_std, label=rf'Fractional precision{"_fab" if fab else ""}')
+    # plot_in_between(ax, all_precisions_mean, all_precisions_std,
+    #                 label=rf'Fractional precision{"_fab" if not use_mixed_model else ""}')
     plot_in_between(ax, all_gt_mean, all_gt_std, label=r'\texttt{Ground Truth}')
     plot_in_between(ax, all_preds_mean, all_preds_std, label=r'\texttt{CrAI}')
 
     plt.xlim((1, 10))
-    plt.ylim((0.5, 1))
+    plt.ylim((0., 1))
+    # plt.ylim((0.5, 1))
     plt.legend()
     # plt.show()
 
@@ -154,6 +152,10 @@ if __name__ == '__main__':
     # plot_pr_curve(nano=False)
     # plt.show()
     # plot_pr_curve(nano=True)
+    # plt.show()
+
+    # plot_pr_curve(nano=False, use_mixed_model=True, dockim=True)
+    # plot_pr_curve(nano=False)
     # plt.show()
 
     # Compute the # systems with both Fabs and nanobodies as they bug the validation a bit

@@ -115,7 +115,6 @@ def dock_one(pdb_paths, mrc_path, resolution, out_path, recompute=False):
 
     try:
         t0 = time.time()
-        # GET THE PDB TO DOCK
         if os.path.exists(out_path) and not recompute:
             return 5, "Already computed"
 
@@ -172,9 +171,9 @@ def make_predictions_dockim(nano=False, test_path="../data/testset/"):
 
     # Parallel computation
     l = multiprocessing.Lock()
-    pool = multiprocessing.Pool(processes=40, initializer=init, initargs=(l,), )
+    pool = multiprocessing.Pool(processes=40, initializer=init, initargs=(l,))
     dock = functools.partial(dock_one, recompute=False)
-    results = pool.starmap(dock, tqdm(dockim_inputs, total=len(dockim_inputs)))
+    results = pool.starmap(dock, tqdm(dockim_inputs, total=len(dockim_inputs)), chunksize=1)
 
     # Parse results
     all_results = []
@@ -205,6 +204,8 @@ def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
     all_res = {}
     with pymol2.PyMOL() as p:
         for step, ((pdb, mrc, resolution), selections) in enumerate(pdb_selections.items()):
+            # if not pdb == '8SB5':
+            #     continue
             if not step % 20:
                 print(f"Done {step} / {len(pdb_selections)} in {time.time() - time_init}")
 
@@ -222,6 +223,13 @@ def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
                 p.cmd.delete('gt')
             max_com = np.max(np.stack(gt_com), axis=0)
 
+            # The dockim chains are not sorted (because we compute copies first) so 1_0 can be H,I and not C,D.
+            n_to_names = {}
+            for n_pred, (i, k) in enumerate(sorted(all_pdb_chain_mapping[pdb].keys(), key=lambda x: x[1])):
+                names_map = all_pdb_chain_mapping[pdb][(i, k)]
+                # print(n_pred, (i, k), names_map)
+                n_to_names[n_pred] = names_map[1]
+
             # With dockim, we cannot sort, so we have to compute the hits separately for all 10 predictions
             hits_thresh = []
             for i in range(10):
@@ -230,10 +238,11 @@ def get_hit_rates_dockim(nano=False, test_path="../data/testset/"):
                     hits_thresh.append(0)
                     continue
                 else:
+
                     if nano:
-                        pymol_chain_sels = [f"chain {LOWERCASE[j]}" for j in range(i + 1)]
+                        pymol_chain_sels = [f"chain {n_to_names[j]}" for j in range(i + 1)]
                     else:
-                        pymol_chain_sels = [f"chain {UPPERCASE[2 * j]} or chain {UPPERCASE[2 * j + 1]}"
+                        pymol_chain_sels = [f"chain {n_to_names[j][0]} or chain {n_to_names[j][1]}"
                                             for j in range(i + 1)]
                     pymol_name = 'dockim_pred_i'
                     p.cmd.load(out_name, pymol_name)
@@ -265,7 +274,7 @@ if __name__ == '__main__':
             # Now let us get the prediction in all cases
 
             print('Making predictions for :', string_rep(nano=nano))
-            # make_predictions_dockim(nano=nano, test_path=test_path)
+            make_predictions_dockim(nano=nano, test_path=test_path)
 
             print('Getting hit rates for :', string_rep(nano=nano))
             get_hit_rates_dockim(nano=nano, test_path=test_path)
