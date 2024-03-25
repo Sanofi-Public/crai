@@ -8,22 +8,16 @@ The goal of this tool is to predict the position and orientation of antibodies i
 ### ChimeraX
 
 The easiest way to use the tool is through ChimeraX, as our tool is packaged as a ChimeraX bundle.
-The Chimerax toolshed is a [hosted repository](https://cxtoolshed.rbvi.ucsf.edu/) of bundles wheels.
-To install the tool, simply type in the ChimeraX command line :
+The Chimerax toolshed is a [hosted repository](https://cxtoolshed.rbvi.ucsf.edu/) of bundle wheels.
+To install the tool, run the ChimeraX application and click More Tools... in the Tools menu.
+In the popup, search for "crai" and click the "install" button.
+You now should be able to use the tool !
 
-```shell
-# Chimerax command line
-toolshed install crai
-```
-
-**This might not work,** if it did, you can skip the following.
-At the time of writing, the tool is not yet registered, so the bundle can be installed by using the copy on this repository instead.
-On the system command line type :
-
+**if it did not work**, you can try downloading the bundle and installing it separately.
+You can find the link to the bundle [here](https://cxtoolshed.rbvi.ucsf.edu/apps/chimeraxcrai):
+Once downloaded, type the following command in the system command line to install it :
 ```shell
 # system command line
-git clone https://github.com/Sanofi-GitHub/crai
-cd crIA-EM
 chimerax --nogui --cmd "toolshed install ChimeraX_crai-0.1-py3-none-any.whl; exit"
 ```
 
