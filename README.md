@@ -59,5 +59,5 @@ python crai_predict.py --in PATH_TO_DIR --predict_dir  # Directory prediction
 
 ## Contact
 
-If you encounter difficulties installing or using the tool, please open an issue on GitHub or contact me directly
-at the following email address : vincent.mallet96 at gmail.com
+If you encounter difficulties installing or using the tool, please open an issue on GitHub or contact us directly
+at one the following email addresses : vincent.mallet96 at gmail.com // herve.minoux at sanofi.com
